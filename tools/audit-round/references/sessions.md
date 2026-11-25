@@ -117,7 +117,7 @@ turn, a background task or subagent wakes the session for a further turn, and wh
 pending the CLI defers the results and flushes them at exit behind an empty result of no turns.
 The phase's response comes from the last completed turn.
 
-**Structured results.** The fix, implementation worker and close use the same Zod definition to
+**Structured results.** Each report phase, the fix, implementation worker and close use Zod to
 send a JSON Schema and validate the result. Claude takes it through `--json-schema`. Codex takes
 it through `--output-schema`, which points at a file that lives until the invocation ends. On
 resume both programs receive the schema again. Claude supplies `structured_output` in its last
@@ -134,7 +134,7 @@ turn's result. Codex supplies JSON in its last message. A missing or invalid obj
 - A line that is present but malformed fails at once.
 
 **Saving.** After the process ends with at least one turn, the invocation saves audit, vet,
-rebuttal and ruler reports from the final text without the result line. A failed write fails the
+rebuttal and ruler reports from the checked result. A failed write fails the
 phase before progression. The watch's result is handled under [Watch](watch.md#watch).
 
 **Measurements.** Context and token measurements pass directly to the output observer. Both

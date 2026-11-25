@@ -18,8 +18,7 @@ requirement to the whole session and skip its confirm-and-wait step.
 
 The shared [round protocol](../../../references/round-protocol.md) owns
 evidence rules, finding grades, rating meanings, reconciliation and runner
-result meanings. The [round grammar](../../../references/round-grammar.md)
-owns the audit report and result forms. The runner's
+result meanings. The runner supplies the result schema. Its
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) owns
 target resolution and argument order. Count the supplied step scope against
 the plan's **Implementation plan** numbering.
@@ -67,10 +66,8 @@ command resolves one under the runner's
 audit workflow follows each supplied resolved range exactly. Never select, propose or replace
 it.
 
-The step range decides the repo set. Read each in-range step's host sentence in
-the plan's **Implementation plan**. A step may be hosted by Repo Edu, the plan
-repo or both. The round's repo set is the union of those hosts. When a host
-sentence does not use the fixed form, stop for a plan correction.
+The runner supplies the judged repos and their heads in the audit scope. It
+takes the hosts from the selected implementation steps.
 
 For a plan-scoped implementation audit, the runner adds one final object with
 the plan's open deferrals into Repo Edu. Those deferrals add Repo Edu to the
@@ -214,8 +211,7 @@ Follow the shared protocol's
 
 ## Audit report order
 
-Follow the [audit report grammar](../../../references/round-grammar.md#audit-report)
-for the opening and findings and the shared protocol's
+Follow the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports) for the
 reporting discipline. Supply the plan, ready commit, implementation commits
 and resolved range from this audit's evidence. Deliver the complete audit

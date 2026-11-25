@@ -6,7 +6,7 @@ import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import type { PhaseInput } from "../phase.js"
-import { phaseResult, readSettlingLine, watchOutput } from "../phase-result.js"
+import { phaseResult, watchOutput } from "../phase-result.js"
 import { structuredPhaseResult } from "../phase-result-schema.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import { pinned } from "./configured-runner.js"
@@ -64,24 +64,6 @@ test("the round grammar's watch-grade examples are parser fixtures", () => {
   )
 })
 
-test("the round grammar's settling examples are parser fixtures", () => {
-  for (const example of roundGrammarExamples("settling/")) {
-    if (example.outcome === "parsed") {
-      assert.equal(
-        readSettlingLine(example.source),
-        example.source.slice("Settling: ".length),
-      )
-    } else {
-      assert.throws(
-        () => readSettlingLine(example.source),
-        (error: unknown) =>
-          error instanceof Error && error.message === example.refusal,
-        example.id,
-      )
-    }
-  }
-})
-
 test("only a finished fix carries settling advice", () => {
   const settling = {
     recommendation: "keep open",
@@ -134,6 +116,8 @@ test("a fresh prompt supplies routed workflows and shared files once under their
   const input: PhaseInput<"rebut"> = {
     ...context,
     phase: "rebut",
+    findings: [],
+    reviews: [],
     assistant: "codex",
     model: pinned("codex"),
     sessionId: null,
@@ -349,6 +333,7 @@ test("phase arguments and recovery identifiers stay data across spaces and shell
   const plan = '../plan/a "quoted" plan; $(touch forbidden).md'
   const { text: prompt } = phasePrompt({
     phase: "audit",
+    reportScope: { target: "example.md 2-3", planPhase: null, heads: [] },
     assistant: "codex",
     model: pinned("codex"),
     ...testContext(f.root),

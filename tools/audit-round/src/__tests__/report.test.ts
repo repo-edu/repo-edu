@@ -1,978 +1,184 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import {
-  complexityValues,
-  harmValues,
-  rarityValues,
-  reachValues,
-  reportLocationTable,
-} from "../finding-tokens.js"
-import {
-  readReport as parseReport,
-  type ReportClass,
-  reportKind,
-} from "../report.js"
-import type { PanelVet } from "../round-data.js"
-import { readRebuttal, readVet, rebuttalAnswers, vetVerdicts } from "../vet.js"
-import { roundGrammarExample, roundGrammarExamples } from "./round-grammar.js"
+import { type AuditScope, auditReport, auditSchema } from "../report.js"
+import { rulerReport, rulerSchema, unopenedSources } from "../ruler-report.js"
+import { rebuttalReport, rebuttalSchema, vetReport, vetSchema } from "../vet.js"
 
-const targets = {
-  widening: "example-widen.md",
-  detailing: "example.md",
-  implementation: "example.md 1",
+const finding = {
+  title: "Keep the record",
+  tier: "C",
+  growthPattern: "none",
+  reach: "developer",
+  rarity: "ordinary",
+  harm: null,
+  complexity: "none",
+  evidence: "The source **holds**.",
 } as const
-const readAuditReport = (
-  source: string,
-  kind: ReportClass,
-  target: string = targets[kind],
-) => parseReport(source, kind, target)
-const readReport = (source: string, kind: ReportClass) =>
-  readAuditReport(source, kind).findings.map((finding) => finding.number)
-
-function assertNamedRefusal(run: () => unknown, refusal: string | null): void {
-  assert.notEqual(refusal, null)
-  assert.throws(
-    run,
-    (error: unknown) => error instanceof Error && error.message === refusal,
-    refusal ?? undefined,
-  )
+const planning: AuditScope = {
+  target: "example-widen.md",
+  planPhase: "widening",
+  heads: [{ repository: "plan", head: "abc12345" }],
 }
+const findings = [{ number: 2, tier: "C" as const }]
 
-test("the round grammar's audit report examples are parser fixtures", () => {
-  for (const example of roundGrammarExamples("report/")) {
-    // A refused example without the line is held to the class default.
-    const target = /^Target: (.+)$/m.exec(example.source)?.[1]
-    const kind = !example.source.includes("Planning round workflow")
-      ? "implementation"
-      : target?.endsWith("-widen.md")
-        ? "widening"
-        : "detailing"
-    if (example.outcome === "parsed") {
-      assert.doesNotThrow(
-        () => readAuditReport(example.source, kind, target),
-        example.id,
-      )
-    } else {
-      assertNamedRefusal(
-        () => readAuditReport(example.source, kind, target),
-        example.refusal,
-      )
-    }
-  }
-})
-
-test("every shared rating and location-table cell has its labelled audit report example", () => {
-  const examples = roundGrammarExamples("report/")
-  for (const [key, values] of [
-    ["reach", reachValues],
-    ["rarity", rarityValues],
-    ["harm", harmValues],
-  ] as const)
-    for (const value of values)
-      assert.ok(
-        examples.some(
-          (example) =>
-            example.outcome === "parsed" &&
-            example.source.includes(`[${key}:${value}]`),
-        ),
-        `${key}:${value}`,
-      )
-  for (const complexity of complexityValues)
-    assert.ok(
-      examples.some((example) =>
-        example.source.includes(`[complexity:${complexity}]`),
-      ),
-      complexity,
-    )
-  for (const locations of Object.values(reportLocationTable)) {
-    for (const cell of Object.values(locations)) {
-      const example = roundGrammarExample(cell.caseId)
-      assert.equal(example.outcome, cell.outcome, cell.caseId)
-      assert.equal(
-        example.refusal,
-        cell.outcome === "refused" ? `Finding 1 has an ${cell.refusal}` : null,
-        cell.caseId,
-      )
-    }
-  }
-})
-
-test("audit report routing reads the named workflow only in the opening", () => {
-  assert.equal(
-    reportKind("# Planning round workflow\n\nJudged repos: plan@abc123"),
-    "planning",
-  )
-  assert.equal(
-    reportKind(
-      "## Planning round workflow\n\nTarget: example.md\nJudged repos: plan@abc123\n\n## Excess functionality",
-    ),
-    "planning",
-  )
-  assert.equal(
-    reportKind(
-      "**Implementation audit workflow**\n\nJudged repos: plan@abc123",
-    ),
-    "implementation",
-  )
-  for (const source of [
-    "# Move-list audit workflow",
-    "Judged repos: plan@abc123",
-    "> Planning round workflow",
-    "```text\nImplementation audit workflow\n```",
-    "# Audit\n\n## Findings\n\nPlanning round workflow",
-    "Planning round workflow\n\nImplementation audit workflow",
-  ])
-    assert.throws(() => reportKind(source), /Audit report opening must name/)
-})
-
-const ratings =
-  "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
-function finding(
-  number = 1,
-  location = "[area:tool-audit-round]",
-  evidence = "The defect loses evidence.",
-): string {
-  return `### ${number}. B: Preserve the evidence\n\n${location} ${ratings}\n\n${evidence}\n`
-}
-const implementation = (body: string) =>
-  `# Implementation audit workflow\n\nTarget: example.md 1\nJudged repos: plan@abc123, repo-edu@def456\n\nOpening and coverage.\n\n## Findings\n\n${body}`
-const planning = (excess: string, missing: string) =>
-  `# Planning round workflow\n\nTarget: example.md\nJudged repos: plan@abc123\n\n## Excess functionality\n\n${excess}\n\n## Missing functionality\n\n${missing}`
-const settlingLine = "Settling: settle. No concrete shape question remains."
-const widening = (excess: string, missing: string) =>
-  `${planning(excess, missing).replace("Target: example.md", "Target: example-widen.md")}\n\n${settlingLine}`
-
-test("the audit report opening identifies the judged repos independently of evidence", () => {
-  for (const [line, judgedRepos] of [
-    ["plan@abc123", ["plan"]],
-    ["repo-edu@def456", ["repo-edu"]],
-    ["plan@abc123, repo-edu@def456", ["plan", "repo-edu"]],
-  ] as const) {
-    assert.deepEqual(
-      readAuditReport(
-        `# Implementation audit workflow\n\nTarget: example.md 1\n\nJudged repos: ${line}\n\n> Judged repos: other@abc123\n\n## Findings\n\nNo findings.`,
-        "implementation",
-      ),
+test("the audit writer numbers excess first and preserves evidence and settling", () => {
+  const answer = auditSchema(planning).parse({
+    opening: "Opening evidence.",
+    findings: [
       {
-        settling: "",
-        findings: [],
-        judgedRepos,
+        ...finding,
+        location: { kind: "planning", field: "missing", section: "decisions" },
       },
-    )
-  }
-})
-
-test("planning audit reports judge only the plan repository", () => {
-  for (const reportClass of ["widening", "detailing"] as const) {
-    const valid = (reportClass === "widening" ? widening : planning)(
-      "No excess findings.",
-      "No missing findings.",
-    )
-    assert.deepEqual(readAuditReport(valid, reportClass).judgedRepos, ["plan"])
-    for (const opening of [
-      "Judged repos: repo-edu@def456",
-      "Judged repos: plan@abc123, repo-edu@def456",
-    ])
-      assert.throws(
-        () =>
-          readAuditReport(
-            valid.replace("Judged repos: plan@abc123", opening),
-            reportClass,
-          ),
-        /Judged repos/,
-      )
-  }
-})
-
-test("plain judged-repos lines survive formatted neighbours in the same paragraph", () => {
-  for (const opening of [
-    "Judged repos: repo-edu@def456\nPlan: `../plan/example.md`",
-    "Plan: `../plan/example.md`\nJudged repos: repo-edu@def456",
-    "**Audit**\nJudged repos: repo-edu@def456\n[Plan](../plan/example.md)",
-    "Plan: `first\nsecond`\nJudged repos: repo-edu@def456",
-    "Implementation audit workflow  \nArtifact: `example.md`  \nPhase: implementation  \nJudged repos: repo-edu@def456",
-  ])
-    assert.deepEqual(
-      readAuditReport(
-        `# Implementation audit workflow\n\nTarget: example.md 1\n\n${opening}\n\n## Findings\n\nNo findings.`,
-        "implementation",
-      ),
       {
-        settling: "",
-        findings: [],
-        judgedRepos: ["repo-edu"],
+        ...finding,
+        location: { kind: "planning", field: "excess", section: "decisions" },
       },
-    )
-})
-
-test("missing, duplicate, quoted and malformed judged-repos openings fail", () => {
-  for (const opening of [
-    "",
-    "> Judged repos: plan@abc123",
-    "```text\nJudged repos: plan@abc123\n```",
-    "Judged repos: plan@abc123\nJudged repos: repo-edu@def456",
-    "Judged repos: other@abc123",
-    "Judged repos: plan@HEAD",
-    "Judged repos: plan@abc123, plan@def456",
-    "Judged repos: repo-edu@def456, plan@abc123",
-    "Judged repos: **plan@abc123**",
-    "**Opening:** Judged repos: plan@abc123",
-    "Judged repos: plan@abc123 `extra`",
-    "`Example:\nJudged repos: plan@abc123\nEnd`",
-    "Judged repos: plan@abc123\nPlan: `example.md`\nJudged repos: repo-edu@def456",
-  ])
-    assert.throws(
-      () =>
-        readAuditReport(
-          `# Implementation audit workflow\n\nTarget: example.md 1\n\n${opening}\n\n## Findings\n\nNo findings.`,
-          "implementation",
-        ),
-      /Judged repos/,
-    )
-})
-
-test("the audit report opening names the round's target exactly once in plain text", () => {
-  const valid = planning("No excess findings.", "No missing findings.")
-  assert.deepEqual(readAuditReport(valid, "detailing").judgedRepos, ["plan"])
-  assert.deepEqual(
-    readAuditReport(
-      implementation("No findings.").replace(
-        "Target: example.md 1",
-        "Target: plan@HEAD-1 abc123",
-      ),
-      "implementation",
-      "plan@HEAD-1 abc123",
-    ).judgedRepos,
-    ["plan", "repo-edu"],
-  )
-  for (const line of [
-    "",
-    "Target: other.md",
-    "Target: example-widen.md",
-    "Target: example.md 1",
-    "Target: `example.md`",
-    "**Target:** example.md",
-    "> Target: example.md",
-    "Target: example.md\nTarget: example.md",
-  ])
-    assert.throws(
-      () =>
-        readAuditReport(valid.replace("Target: example.md", line), "detailing"),
-      /^Error: Audit report needs one Target: opening naming example\.md$/,
-      line,
-    )
-  assert.throws(
-    () => readAuditReport(valid, "widening"),
-    /naming example-widen\.md$/,
-  )
-})
-
-test("settled audit reports carry findings and judged repositories after routing", () => {
-  assert.deepEqual(
-    readAuditReport(implementation("No findings."), "implementation"),
-    { settling: "", findings: [], judgedRepos: ["plan", "repo-edu"] },
-  )
-  assert.deepEqual(
-    readAuditReport(
-      planning("No excess findings.", "No missing findings."),
-      "detailing",
-    ),
-    { settling: "", findings: [], judgedRepos: ["plan"] },
-  )
-})
-
-test("widening audit reports end with their settling line and retain it", () => {
-  const empty = widening("No excess findings.", "No missing findings.")
-  assert.equal(
-    readAuditReport(empty, "widening").settling,
-    "settle. No concrete shape question remains.",
-  )
-  // The line closes the document, so it is not the last finding's evidence.
-  const found = widening(
-    "No excess findings.",
-    "### 1. B: Name the owner\n\n[field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]\n\nOne owner is missing.",
-  ).replace(
-    settlingLine,
-    "Settling: keep open. Finding 1 names the open question in `plan-steps.ts`.",
-  )
-  assert.deepEqual(
-    [
-      readAuditReport(found, "widening").settling,
-      readAuditReport(found, "widening").findings.map((f) => f.number),
     ],
-    ["keep open. Finding 1 names the open question in `plan-steps.ts`.", [1]],
+    settling: { recommendation: "settle", reason: "The shape holds." },
+  })
+  const { text, report } = auditReport(planning, answer)
+  assert.match(
+    text,
+    /^# Planning round workflow\n\nTarget: example-widen\.md\nJudged repos: plan@abc123/m,
   )
-  assert.throws(
-    () => readAuditReport(empty, "detailing", "example-widen.md"),
-    /^Error: Only a widening audit report ends with a settling line$/,
+  assert.match(
+    text,
+    /## Excess functionality\n\n### 1\. C: Keep the record\n\n\[field:excess\].*\n\nThe source \*\*holds\*\*\./,
   )
-  assert.throws(
-    () => readAuditReport(empty.replace(`\n\n${settlingLine}`, ""), "widening"),
-    /^Error: Widening audit report must end with a settling line$/,
-  )
-  for (const line of [
-    "Settling: maybe. The shape might be done.",
-    "Settling: settle. The reason wraps onto\na second line.",
-  ])
-    assert.throws(
-      () => readAuditReport(empty.replace(settlingLine, line), "widening"),
-      /^Error: Invalid settling line$/,
-      line,
-    )
-})
-
-test("audit reports require the workflow that matches their class", () => {
-  assert.throws(
-    () =>
-      readAuditReport(
-        planning("No excess findings.", "No missing findings."),
-        "implementation",
-      ),
-    /names the planning workflow but the reader expected implementation/,
-  )
-  assert.throws(
-    () => readAuditReport(implementation("No findings."), "detailing"),
-    /names the implementation workflow but the reader expected planning/,
-  )
-})
-
-test("audit reports read explicit empty fields and count both planning fields", () => {
+  assert.match(text, /## Missing functionality\n\n### 2\. C: Keep the record/)
+  assert.match(text, /Settling: settle\. The shape holds\.$/)
   assert.deepEqual(
-    readReport(implementation("No findings."), "implementation"),
-    [],
-  )
-  assert.deepEqual(
-    readReport(
-      planning("No excess findings.", "No missing findings."),
-      "detailing",
-    ),
-    [],
-  )
-  assert.deepEqual(
-    readReport(
-      planning(
-        finding(1, "[field:excess] [section:decisions]"),
-        finding(2, "[field:missing] [section:implementation-plan]").replace(
-          "Preserve the evidence",
-          "Keep the implementation steps",
-        ),
-      ),
-      "detailing",
-    ),
+    report.findings.map(({ number }) => number),
     [1, 2],
   )
-  assert.deepEqual(
-    readReport(
-      planning(
-        "No excess findings.",
-        finding(1, "[field:missing] [section:decisions]"),
-      ),
-      "detailing",
-    ),
-    [1],
-  )
-})
-
-test("implementation audit reports count deferred findings at either repository's root", () => {
-  assert.deepEqual(
-    readReport(
-      implementation(
-        finding().replace(
-          "Preserve the evidence",
-          "Preserve `readReport` evidence",
-        ),
-      ),
-      "implementation",
-    ),
-    [1],
-  )
-  assert.deepEqual(
-    readReport(
-      implementation(finding(1, "[plan:../plan/example.md#decisions]")).replace(
-        "plan@abc123, repo-edu@def456",
-        "repo-edu@def456",
-      ),
-      "implementation",
-    ),
-    [1],
-  )
-  assert.deepEqual(
-    readReport(
-      implementation(finding(1, "[section:decisions]")),
-      "implementation",
-    ),
-    [1],
-  )
-})
-
-test("audit reports retain every finding location and both deferral directions", () => {
-  const planningFinding = readAuditReport(
-    planning(
-      finding(1, "[field:excess] [section:decisions]"),
-      "No missing findings.",
-    ),
-    "detailing",
-  ).findings[0]
-  const planFinding = readAuditReport(
-    implementation(finding(1, "[section:decisions]")).replace(
-      "plan@abc123, repo-edu@def456",
-      "plan@abc123",
-    ),
-    "implementation",
-  ).findings[0]
-  const repoFinding = readAuditReport(
-    implementation(
-      finding(1, "[area:pkg-application] [cover:cover-analysis-workflow]"),
-    ).replace("plan@abc123, repo-edu@def456", "repo-edu@def456"),
-    "implementation",
-  ).findings[0]
-  const planDeferral = readAuditReport(
-    implementation(finding(1, "[plan:../plan/example.md#decisions]")).replace(
-      "plan@abc123, repo-edu@def456",
-      "repo-edu@def456",
-    ),
-    "implementation",
-  ).findings[0]
-  const repoDeferral = readAuditReport(
-    implementation(
-      finding(1, "[area:pkg-application] [cover:cover-analysis-workflow]"),
-    ).replace("plan@abc123, repo-edu@def456", "plan@abc123"),
-    "implementation",
-  ).findings[0]
-
-  assert.deepEqual(planningFinding?.location, {
-    kind: "planning",
-    field: "excess",
-    section: "decisions",
-  })
-  assert.deepEqual(planFinding?.location, {
-    kind: "plan",
-    section: "decisions",
-  })
-  assert.deepEqual(repoFinding?.location, {
-    kind: "repo-edu",
-    area: "pkg-application",
-    covers: ["cover-analysis-workflow"],
-  })
-  assert.deepEqual(planDeferral?.location, {
-    kind: "deferred",
-    repository: "plan",
-    plan: "../plan/example.md#decisions",
-  })
-  assert.deepEqual(repoDeferral?.location, {
-    kind: "deferred",
-    repository: "repo-edu",
-    area: "pkg-application",
-    covers: ["cover-analysis-workflow"],
-  })
-})
-
-test("audit report finding titles are unique across tiers", () => {
-  assert.throws(
-    () =>
-      readAuditReport(
-        implementation(`${finding()}\n${finding(2).replace(". B:", ". C:")}`),
-        "implementation",
-      ),
-    /title appears more than once/,
-  )
-})
-
-test("audit report finding titles cannot contain the record bullet delimiter", () => {
-  assert.throws(
-    () =>
-      readReport(
-        implementation(
-          finding().replace("Preserve the evidence", "Head drift: stale sha"),
-        ),
-        "implementation",
-      ),
-    /title cannot contain ": "/,
-  )
-})
-
-test("Markdown quotes, evidence and code cannot introduce findings or empty-field sentences", () => {
-  const examples = `${finding(27)}\nNo findings.`
-  const quoted = examples
-    .split("\n")
-    .map((line) => `> ${line}`)
-    .join("\n")
-  const fenced = `\`\`\`md\n${examples}\n\`\`\``
-  assert.deepEqual(
-    readReport(
-      implementation(`No findings.\n\n${quoted}\n\n${fenced}`),
-      "implementation",
-    ),
-    [],
-  )
-  for (const evidence of [
-    `Explanation.\n\n${quoted}\n\n${fenced}\n`,
-    "Explanation.\n\nNo findings.\n",
-    "Explanation.\n\n#### Detail\n\nMore evidence.\n",
-  ])
-    assert.deepEqual(
-      readReport(
-        implementation(finding(1, "[area:tool-audit-round]", evidence)),
-        "implementation",
-      ),
-      [1],
-    )
-})
-
-test("list evidence stays evidence at any finding count", () => {
-  for (const evidence of [
-    "Explanation.\n\n- First correction.\n- Last correction.",
-    "Explanation.\n\n1. First option.\n2. Last option.",
-    "Explanation.\n\n- Outer detail.\n  - Nested detail.",
-    "Explanation.\n\n- A **formatted** correction.\n",
-  ]) {
-    assert.deepEqual(
-      readReport(
-        implementation(
-          `${finding(1, "[area:tool-audit-round]", evidence)}\n${finding(2).replace("Preserve the evidence", "Keep the second finding")}`,
-        ),
-        "implementation",
-      ),
-      [1, 2],
-    )
-    assert.deepEqual(
-      readReport(
-        planning(
-          "No excess findings.",
-          finding(1, "[field:missing] [section:decisions]", evidence),
-        ),
-        "detailing",
-      ),
-      [1],
-    )
-  }
-  const body = Array.from({ length: 12 }, (_, index) => {
-    const number = index + 1
-    return `### ${number}. C: Preserve opening metadata ${number}\n\n[area:tool-audit-round] ${ratings}\n\n- Evidence.\n`
-  }).join("\n")
-  assert.deepEqual(
-    readReport(implementation(body), "implementation"),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-  )
-})
-
-test("metadata must follow the title before any evidence", () => {
-  const tokens = `[area:tool-audit-round] ${ratings}`
-  for (const evidence of [
-    `- Evidence.\n${tokens}`,
-    `- Evidence.\n\n${tokens}`,
-    `> Evidence.\n${tokens}`,
-    `> ${tokens}`,
-    `- > Evidence.\n${tokens}`,
-    `\`\`\`text\n${tokens}`,
-    `- \`\`\`text\n${tokens}`,
-    `    ${tokens}`,
-    `\`Evidence\n${tokens}\n\``,
-    `- Evidence.\n${tokens}\nMore evidence.`,
-    `Evidence.\n${tokens}`,
-    `Evidence.\n\n${tokens}`,
-    `<!-- lint note -->\n\nEvidence.\n\n${tokens}`,
-    `<!-- rumdl-disable-next-line MD013 -->\n${tokens}`,
-    `<!-- rumdl-disable-next-line MD013 -->\n\n${tokens}`,
-    `<!-- First note -->\n<!-- Second note -->\n\n${tokens}`,
-    `<!-- A note\nspanning lines -->\n\n${tokens}`,
-    `<div>Evidence.</div>\n\n${tokens}`,
-    `<!-- lint note --><div>Evidence.</div><!-- another note -->\n\n${tokens}`,
-    `<!-- ${tokens} -->`,
-    `<!-- unclosed comment\n${tokens}`,
-    `${tokens} **extra**`,
-    `**${tokens}**`,
-  ])
-    assert.throws(
-      () =>
-        readReport(
-          implementation(`### 1. C: Missing opening metadata\n\n${evidence}`),
-          "implementation",
-        ),
-      /Malformed finding/,
-      evidence,
-    )
-})
-
-test("tokens follow the title with or without blank lines", () => {
-  for (const separator of ["\n", "\n\n"]) {
-    const body = `### 1. C: Preserve metadata${separator}[area:tool-audit-round] ${ratings}${separator}Evidence with **formatting**.`
-    assert.deepEqual(readReport(implementation(body), "implementation"), [1])
-    assert.deepEqual(
-      readReport(
-        implementation(body.replaceAll("\n", "\r\n")),
-        "implementation",
-      ),
-      [1],
-    )
-  }
-})
-
-test("malformed, contradictory or incomplete fields fail instead of reading clean", () => {
-  for (const body of [
-    "",
-    "Nothing found.",
-    "No **missing** findings.",
-    `No findings.\n\n${finding()}`,
-    "No findings.\n\nNo findings.",
-    finding().replace(". B:", ". E:"),
-    finding().replace("1.", "-"),
-    finding().replace("### 1.", "## 1."),
-    finding().replace("### 1.", "#### 1."),
-    finding().replace(
-      "### 1. B: Preserve the evidence",
-      "1. **B: Preserve the evidence**",
-    ),
-    finding().replace(
-      "### 1. B: Preserve the evidence",
-      "### 1. **B: Preserve the evidence**",
-    ),
-    finding().replace(
-      "### 1. B: Preserve the evidence",
-      "### 1. [B] Preserve the evidence",
-    ),
-    finding().replace(ratings, ""),
-    finding().replace("[reach:developer] ", ""),
-    finding().replace("[area:tool-audit-round] ", ""),
-    finding(2),
-    `${finding()}\n${finding()}`,
-    `${finding()}\n${finding(3)}`,
-    `${finding()}\n\n## Findings\n\nNo findings.`,
-  ])
-    assert.throws(
-      () => readReport(implementation(body), "implementation"),
-      Error,
-      body,
-    )
-  assert.throws(
-    () =>
-      readReport(
-        "# Implementation audit workflow\n\nTarget: example.md 1\nJudged repos: repo-edu@abc123\n\nNo findings.",
-        "implementation",
-      ),
-    /Findings/,
-  )
-  assert.throws(
-    () =>
-      readReport(
-        "# Planning round workflow\n\nTarget: example.md\nJudged repos: plan@abc123\n\n## Excess functionality\n\nNo excess findings.",
-        "detailing",
-      ),
-    /Missing functionality/,
-  )
-  assert.throws(
-    () => readReport(planning("No excess findings.", ""), "detailing"),
-    /Missing functionality/,
-  )
-  assert.throws(
-    () =>
-      readReport(
-        planning(
-          finding(1, "[field:missing] [section:decisions]"),
-          "No missing findings.",
-        ),
-        "detailing",
-      ),
-    /planning location/,
-  )
-})
-
-const twoFindings = readAuditReport(
-  implementation(
-    `${finding()}\n${finding(2).replace("B: Preserve the evidence", "C: Keep the record")}`,
-  ),
-  "implementation",
-).findings
-
-test("the round grammar's vet examples cover every verdict and named refusal", () => {
-  const findings = twoFindings.slice(0, 1)
-  const examples = roundGrammarExamples("vet/")
-  for (const verdict of Object.keys(vetVerdicts))
-    assert.ok(
-      examples.some(
-        (example) =>
-          example.outcome === "parsed" &&
-          example.source
-            .split(/\r?\n/)
-            .some((line) => line.trim().endsWith(`] ${verdict}`)),
-      ),
-      verdict,
-    )
-  for (const example of examples) {
-    if (example.outcome === "parsed") {
-      assert.equal(readVet(example.source, findings).reviews.length, 1)
-    } else {
-      assertNamedRefusal(
-        () => readVet(example.source, findings),
-        example.refusal,
-      )
-    }
-  }
-})
-
-/** A panel of one vetter per verdict source, in the order the reports are supplied. */
-function panel(
-  ...vets: readonly (readonly [string, string])[]
-): readonly PanelVet[] {
-  return vets.map(([vet, source]) => ({
-    vet,
-    reviews: readVet(source, twoFindings).reviews,
-  }))
-}
-
-test("the round grammar's rebuttal examples cover every answer and named refusal", () => {
-  const findings = twoFindings
-  const reviews = panel(
-    ["abx", "1. [B] Accept\n2. [C] Revise"],
-    ["obh", "1. [B] Accept\n2. [C] Accept"],
-  )
-  const examples = roundGrammarExamples("rebuttal/")
-  for (const answer of Object.keys(rebuttalAnswers))
-    assert.ok(
-      examples.some(
-        (example) =>
-          example.outcome === "parsed" &&
-          example.source
-            .split(/\r?\n/)
-            .some((line) => line.trim().endsWith(`] ${answer}`)),
-      ),
-      answer,
-    )
-  for (const example of examples) {
-    if (example.outcome === "parsed") {
-      assert.equal(readRebuttal(example.source, findings, reviews).length, 1)
-    } else {
-      assertNamedRefusal(
-        () => readRebuttal(example.source, findings, reviews),
-        example.refusal,
-      )
-    }
-  }
-})
-
-test("vet reads accepts from verdict lines alone", () => {
-  const reading = readVet(
-    "Drift since the audit.\n\n1. [B] Accept\nThe finding is well grounded.\n\n2. [C] Accept\n",
-    twoFindings,
-  )
-  assert.deepEqual(reading, {
-    reviews: [
-      { number: 1, tier: "B", verdict: "accept" },
-      { number: 2, tier: "C", verdict: "accept" },
-    ],
-    allAccepted: true,
-  })
   assert.equal(
-    readVet("1. [B] Accept\r\n", twoFindings.slice(0, 1)).allAccepted,
-    true,
-  )
-  assert.equal(
-    readVet("1. [B] Accept  \n", twoFindings.slice(0, 1)).allAccepted,
-    true,
-  )
-  assert.equal(readVet("No findings to vet.", []).allAccepted, true)
-})
-
-test("vet reads a verdict line that ends in a Markdown hard break", () => {
-  assert.equal(
-    readVet(
-      "1. [B] Revise  \nUse the tree entry.\n\n2. [C] Accept",
-      twoFindings,
-    ).allAccepted,
+    auditSchema(planning).safeParse({
+      ...answer,
+      findings: [{ ...answer.findings[0], harm: "low" }],
+    }).success,
     false,
   )
 })
 
-test("vet reads verdict lines with surrounding whitespace", () => {
-  assert.deepEqual(
-    readVet(" 1. [B] Revise ", twoFindings.slice(0, 1)).reviews,
-    [{ number: 1, tier: "B", verdict: "revise" }],
-  )
-})
-
-test("vet reads a changed tier only from the revise suffix", () => {
-  assert.deepEqual(
-    readVet("1. [B] Revise to [A]", twoFindings.slice(0, 1)).reviews,
-    [{ number: 1, tier: "B", verdict: "revise", revisedTier: "A" }],
-  )
-  assert.throws(
-    () => readVet("1. [B] Revise to [B]", twoFindings.slice(0, 1)),
-    /use Revise without a tier/,
-  )
-})
-
-test("every verdict that needs an answer prevents skipping the rebuttal", () => {
-  for (const verdict of ["Revise", "Drop", "Needs user's ruling"])
-    assert.equal(
-      readVet(`1. [B] ${verdict}`, twoFindings.slice(0, 1)).allAccepted,
-      false,
-    )
-})
-
-test("vet refuses missing, duplicate, out-of-order and malformed verdict numbers", () => {
-  for (const source of [
-    "No verdicts",
-    "1. [B] Accept",
-    "1. [B] Accept\n1. [B] Accept",
-    "2. [B] Accept\n1. [C] Accept",
-    "1. [B] Accept\n3. [C] Accept",
-    "1. [b] Accept\n2. [C] Accept",
-  ])
-    assert.throws(() => readVet(source, twoFindings), /numbers/, source)
-  assert.throws(
-    () => readVet("1. [B] Accept\n2. [C] Accept", twoFindings.slice(0, 1)),
-    /numbers/,
-  )
-})
-
-test("vet and rebuttal refuse a header whose word is outside their list by name", () => {
-  for (const source of [
-    "1. [B] Agree\n2. [C] Accept",
-    "1. [B] Accept with a condition\n2. [C] Accept",
-  ])
-    assert.throws(
-      () => readVet(source, twoFindings),
-      /^Error: Vet verdict 1 uses the word ".+"; use Accept, Revise, Drop or Needs user's ruling$/,
-      source,
-    )
-  const reviews = panel(["abx", "1. [B] Accept\n2. [C] Drop"])
-  assert.throws(
-    () => readRebuttal("2. [C] [abx] Drop\n\nAgree.", twoFindings, reviews),
-    /^Error: Rebuttal answer 2 uses the word "Drop"; use Agree, Contest or For user's ruling$/,
-  )
-})
-
-test("rebuttal reads an ordered subset and retains each answer", () => {
-  const reviews = panel([
-    "abx",
-    "1. [B] Revise\nUse the tree entry.\n\n2. [C] Needs user's ruling",
-  ])
-  assert.deepEqual(
-    readRebuttal(
-      "1. [B] [abx] Agree\nExplanation.\n\n2. [C] [abx] For user's ruling\n",
-      twoFindings,
-      reviews,
-    ),
+test("the implementation audit schema admits only locations allowed by the judged repos", () => {
+  const plan = { repository: "plan", head: "abc12345" } as const
+  const edu = { repository: "repo-edu", head: "def12345" } as const
+  const locations = [
+    { kind: "plan", section: "decisions" },
+    { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+    {
+      kind: "deferred",
+      repository: "repo-edu",
+      area: "tool-audit-round",
+      covers: [],
+    },
+    { kind: "deferred", repository: "plan", plan: "example.md#decisions" },
+  ]
+  for (const [heads, expected] of [
+    [[plan], [true, false, true, false]],
+    [[edu], [false, true, false, true]],
     [
-      { number: 1, tier: "B", vet: "abx", answer: "agree" },
-      { number: 2, tier: "C", vet: "abx", answer: "for-user-ruling" },
+      [plan, edu],
+      [true, true, false, false],
     ],
-  )
-  assert.throws(
-    () =>
-      readRebuttal(
-        "2. [C] [abx] Contest\n1. [B] [abx] Agree",
-        twoFindings,
-        reviews,
+  ] as const) {
+    const schema = auditSchema({
+      target: "example.md 2",
+      planPhase: null,
+      heads,
+    })
+    assert.deepEqual(
+      locations.map(
+        (location) =>
+          schema.safeParse({
+            opening: "",
+            findings: [{ ...finding, location }],
+            settling: null,
+          }).success,
       ),
-    /order/,
-  )
-})
-
-test("rebuttal reads answer lines with surrounding whitespace", () => {
-  const findings = twoFindings.slice(0, 1)
-  const reviews = panel(["abx", "1. [B] Revise\n2. [C] Accept"])
-
-  assert.deepEqual(readRebuttal(" 1. [B] [abx] Agree ", findings, reviews), [
-    { number: 1, tier: "B", vet: "abx", answer: "agree" },
-  ])
-})
-
-test("rebuttal omits accepted verdicts and answers changed verdicts", () => {
-  const reviews = panel([
-    "abx",
-    "1. [B] Accept\nThe finding is well grounded.\n\n2. [C] Revise\nUse the tree entry.",
-  ])
-  assert.deepEqual(
-    readRebuttal(
-      "2. [C] [abx] Contest\nKeep the original wording.",
-      twoFindings,
-      reviews,
-    ),
-    [{ number: 2, tier: "C", vet: "abx", answer: "contest" }],
-  )
-
-  for (const verdict of ["Revise", "Drop", "Needs user's ruling"]) {
-    const changed = panel(["abx", `1. [B] ${verdict}\n2. [C] Accept`])
-    assert.throws(
-      () => readRebuttal("Unrecognised answer form", twoFindings, changed),
-      /^Error: Rebuttal needs an answer to abx on finding 1$/,
+      expected,
     )
   }
 })
 
-test("rebuttal answers each of two vetters in audit report order, then panel order", () => {
-  const reviews = panel(
-    ["abx", "1. [B] Drop\n2. [C] Revise"],
-    ["obh", "1. [B] Revise to [C]\n2. [C] Accept"],
+test("vet and rebuttal use the runner's finding identities and panel", () => {
+  const vet = vetSchema(findings)
+  const revised = {
+    verdict: "revise",
+    revisedTier: "B",
+    explanation: "The reason.",
+  }
+  const { reviews, text } = vetReport(
+    findings,
+    vet.parse({ headDrift: "", verdicts: { 2: revised } }),
   )
-  assert.deepEqual(
-    readRebuttal(
-      [
-        "1. [B] [abx] Contest",
-        "The cited test covers the case.",
-        "1. [B] [obh] Agree",
-        "2. [C] [abx] Agree",
-      ].join("\n"),
-      twoFindings,
-      reviews,
-    ),
-    [
-      { number: 1, tier: "B", vet: "abx", answer: "contest" },
-      { number: 1, tier: "B", vet: "obh", answer: "agree" },
-      { number: 2, tier: "C", vet: "abx", answer: "agree" },
-    ],
+  assert.equal(text, "2. [C] Revise to [B]\n\nThe reason.")
+  assert.throws(() =>
+    vet.parse({
+      headDrift: "",
+      verdicts: { 2: { ...revised, revisedTier: "C" } },
+    }),
   )
-  assert.throws(
-    () =>
-      readRebuttal(
-        "1. [B] [obh] Agree\n1. [B] [abx] Contest\n2. [C] [abx] Agree",
-        twoFindings,
-        reviews,
-      ),
-    /^Error: Rebuttal answers must follow audit report order, then panel order$/,
+  assert.throws(() => vet.parse({ headDrift: "", verdicts: { 1: revised } }))
+  const panel = [
+    { vet: "obx", reviews },
+    { vet: "abx", reviews: [{ number: 2, tier: "C", verdict: "accept" }] },
+  ] as const
+  const rebut = rebuttalSchema(findings, panel)
+  const entry = { answer: "agree", explanation: "The change holds." }
+  const reply = rebuttalReport(
+    findings,
+    panel,
+    rebut.parse({ answers: { 2: { obx: entry } } }),
   )
-  assert.throws(
-    () =>
-      readRebuttal(
-        "1. [B] [abx] Contest\n1. [B] [abx] Agree\n2. [C] [abx] Agree",
-        twoFindings,
-        reviews,
-      ),
-    /^Error: Rebuttal answers abx on finding 1 more than once$/,
+  assert.equal(reply.text, "2. [C] [obx] Agree\n\nThe change holds.")
+  assert.throws(() =>
+    rebut.parse({ answers: { 2: { obx: entry, abx: entry } } }),
   )
-  assert.throws(
-    () =>
-      readRebuttal(
-        "1. [B] [abx] Contest\n2. [C] [abx] Agree",
-        twoFindings,
-        reviews,
-      ),
-    /^Error: Rebuttal needs an answer to obh on finding 1$/,
-  )
+  assert.throws(() => rebut.parse({ answers: {} }))
 })
 
-test("rebuttal refuses an answer that names no vetter, a vetter outside the panel or an accepting vetter", () => {
-  const reviews = panel(
-    ["abx", "1. [B] Drop\n2. [C] Accept"],
-    ["obh", "1. [B] Accept\n2. [C] Accept"],
+test("the ruler writes each named source and checks it against tool calls", () => {
+  const schema = rulerSchema(findings, ["obx"])
+  const answer = {
+    points: [
+      {
+        question: "Does it stand?",
+        sources: [
+          { source: "/repo/plan.md", place: "Decision 1" },
+          { source: "abc123", place: null },
+        ],
+        record: "The decision covers the case.",
+      },
+    ],
+    winner: ["obx"],
+    reason: "The decision holds.",
+    openChoice: "Which option applies?",
+  }
+  const { text, reading } = rulerReport(
+    findings,
+    schema.parse({ headDrift: "", findings: { 2: answer } }),
   )
-  for (const [source, refusal] of [
-    [
-      "1. [B] Agree",
-      "Rebuttal answer 1 names no vetter; put the vetter's tag in brackets after the tier",
-    ],
-    [
-      "1. [B] [atx] Agree",
-      "Rebuttal answer 1 names atx, which is no vetter of this round; use abx or obh",
-    ],
-    [
-      "1. [B] [obh] Agree",
-      "Rebuttal answer 1 names obh, which accepted finding 1; an accept needs no answer",
-    ],
-  ] as const)
-    assertNamedRefusal(
-      () => readRebuttal(source, twoFindings, reviews),
-      refusal,
-    )
+  assert.match(
+    text,
+    /- Opened: `\/repo\/plan\.md`, Decision 1\n- Opened: `abc123`\./,
+  )
+  assert.match(
+    text,
+    /Winner: obx\. The decision holds\.\nOpen choice: Which option applies\?/,
+  )
+  assert.deepEqual(
+    unopenedSources(reading.sources, ["Read /repo/plan.md"], []),
+    ["abc123"],
+  )
+  assert.deepEqual(
+    unopenedSources(reading.sources, ["git show abc123"], ["/repo/plan.md"]),
+    [],
+  )
+  assert.throws(() =>
+    schema.parse({
+      headDrift: "",
+      findings: { 2: { ...answer, winner: ["abx"] } },
+    }),
+  )
 })

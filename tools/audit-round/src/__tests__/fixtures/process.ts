@@ -133,11 +133,17 @@ if (scenario.phases !== undefined) {
     phase === "fix" &&
     typeof phaseArguments[0] === "string" &&
     basename(phaseArguments[0]).startsWith("commit-")
-  const configuredDocument =
-    selected?.documents?.[assistant] ?? selected?.document
-  let document = configuredDocument
-  if (configuredDocument?.sources !== undefined) {
-    const counter = join(root, `${phase}-${assistant}-document-count`)
+  const document = selected?.document
+  if (document !== undefined && (phase === "fix" || phase === "implement")) {
+    const output = JSON.parse(
+      /^Ruling output path \(JSON string\): (.+)$/m.exec(prompt ?? "")?.[1] ??
+        "null",
+    )
+    if (output !== null) await writeFile(output, document.text)
+  }
+  let result = selected?.results?.[assistant] ?? selected?.result
+  if (Array.isArray(result)) {
+    const counter = join(root, `${phase}-${assistant}-result-count`)
     let index = 0
     try {
       index = Number(await readFile(counter, "utf8"))
@@ -145,90 +151,47 @@ if (scenario.phases !== undefined) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
     }
     await writeFile(counter, String(index + 1))
-    document = {
-      source:
-        configuredDocument.sources[index] ?? configuredDocument.sources.at(-1),
-    }
+    result = result[index] ?? result.at(-1)
   }
-  if (document !== undefined) {
-    // The rebuttal's output follows every vet report of the panel.
-    const outputIndex = {
-      audit: 0,
-      vet: 1,
-      rebut: phaseArguments.length - 1,
-      watch: 0,
-    }[phase]
-    const output =
-      phase === "fix" || phase === "implement"
-        ? JSON.parse(
-            /^Ruling output path \(JSON string\): (.+)$/m.exec(
-              prompt ?? "",
-            )?.[1] ?? "null",
-          )
-        : outputIndex === undefined
-          ? null
-          : phaseArguments[outputIndex]
-    if (output !== null) {
-      // A fixture audit names its target from the arguments it was given,
-      // as a real auditor does, so one audit report serves every scope.
-      const target = (): string => {
-        const [, first, ...rest] = phaseArguments as [
-          string,
-          string | { references: string[] },
-          ...(string | { references: string[] })[],
-        ]
-        if (typeof first !== "string")
-          return [first, ...rest]
-            .flatMap((group) =>
-              typeof group === "string" ? [group] : group.references,
-            )
-            .join(" ")
-        if (!first.endsWith(".md")) return [first, ...rest].join(" ")
-        const plan = basename(first)
-        return rest.length === 0 ? plan : `${plan} ${rest[0]}`
-      }
-      const written: string =
-        document.source === undefined
-          ? document.text
-          : await readFile(document.source, "utf8")
-      // A fixture rebuttal names each vetter by the tag its vet report filename
-      // carries, as a real rebuttal does.
-      const vetTag = (): string =>
-        basename(String(phaseArguments[1])).split(".").at(-2) ?? ""
-      const text =
-        phase === "audit"
-          ? written.replace("Target: <arguments>", `Target: ${target()}`)
-          : phase === "rebut"
-            ? written.replaceAll("[<vet>]", `[${vetTag()}]`)
-            : written
-      if (["audit", "vet", "rebut"].includes(phase)) {
-        // Report assistants return text; only the runner writes their output.
-        const final = (value: string) =>
-          value
-            .trimEnd()
-            .endsWith('PHASE RESULT: {"status":"finished","reason":null}')
-            ? `${text.trimEnd()}\n${value.trimEnd().split("\n").at(-1)}`
-            : value
-        scenario.stream = scenario.stream
-          .trimEnd()
-          .split("\n")
-          .map((line: string) => {
-            const event = JSON.parse(line)
-            if (event.type === "result") event.result = final(event.result)
-            if (event.type === "assistant") {
-              for (const block of event.message.content)
-                if (block.type === "text") block.text = final(block.text)
-            }
-            if (
-              event.type === "item.completed" &&
-              event.item.type === "agent_message"
-            )
-              event.item.text = final(event.item.text)
-            return JSON.stringify(event)
-          })
-          .join("\n")
-      } else await writeFile(output, text)
+  if (result !== undefined) {
+    // Use the fixture result for the chosen phase and retain the CLI events
+    // around it, including session, usage and tool events.
+    const lines: string[] = scenario.stream.trimEnd().split("\n")
+    const events = lines.map((line) => JSON.parse(line))
+    const final = events.findLast((event) =>
+      assistant === "claude"
+        ? event.type === "result" && event.num_turns > 0
+        : event.type === "item.completed" &&
+          event.item.type === "agent_message",
+    )
+    const payload = structuredClone(result)
+    if (phase === "audit" && payload.report !== null) {
+      const scope = JSON.parse(
+        /^Audit scope \(JSON\): (.+)$/m.exec(prompt ?? "")?.[1] ?? "{}",
+      )
+      if (scope.planPhase === "widening" && payload.report.settling === null)
+        payload.report.settling = {
+          recommendation: "settle",
+          reason: "The shape holds.",
+        }
     }
+    if (phase === "rebut" && payload.report !== null) {
+      const vet = basename(String(phaseArguments[1])).split(".").at(-2)
+      for (const answers of Object.values(payload.report.answers) as Record<
+        string,
+        unknown
+      >[]) {
+        if (vet !== undefined && Object.hasOwn(answers, "first")) {
+          answers[vet] = answers.first
+          delete answers.first
+        }
+      }
+    }
+    if (final !== undefined) {
+      if (assistant === "claude") final.structured_output = payload
+      else final.item.text = JSON.stringify(payload)
+    }
+    scenario.stream = events.map((event) => JSON.stringify(event)).join("\n")
   }
 }
 

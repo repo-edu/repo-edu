@@ -19,16 +19,15 @@ The ruler names the winner of each contest or split on a C or D finding of an im
 round under the shared protocol's **Reconciliation**. The round's audit report, its vet reports
 and its rebuttal report are its inputs, and the fix then applies its
 winners. Its duties, its read-only limit and its delivery are the shared protocol's
-**Ruler duties**. It works each finding in the **Reading order** of `ruling.md`, and the
-[ruler report grammar](../../../references/round-grammar.md#ruler-report) owns the report's form.
+**Ruler duties**. It works each finding in the **Reading order** of `ruling.md`
+and returns the results in the supplied schema.
 Follow the shared protocol's **Runner result** for every ending.
 
 ## Inputs
 
 Follow the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) for path
-resolution and argument order. Follow the
-[audit report grammar](../../../references/round-grammar.md#audit-report) for the judged repos and
-heads. The ruler is given the findings it judges in its arguments and judges no other finding.
+resolution and argument order. Read the judged repos and heads in the audit
+report's opening. Judge the findings supplied in the arguments.
 
 ## Judging
 

@@ -24,8 +24,8 @@ uses the shared protocol's **Direct clean completion**.
 
 The [shared round protocol](../../../references/round-protocol.md) owns rating meanings,
 reconciliation, record meaning and runner result meaning. The
-[round grammar](../../../references/round-grammar.md) owns the audit, vet and rebuttal reports and
-the commit record bullets. The runner owns paths under
+[round grammar](../../../references/round-grammar.md) owns the commit record
+bullets. The runner writes the reports from the phase results and owns paths under
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Follow its **Reconciliation** rule after grounding the findings below.
 
@@ -46,9 +46,8 @@ Follow the `CLAUDE.md` of every repo a fix touches.
 ## Audit report discovery
 
 Use the supplied paths unchanged. The runner's
-[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) owns the arguments and the
-[audit report grammar](../../../references/round-grammar.md#audit-report) the judged repo set and
-audited heads.
+[Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing) owns the
+arguments. Read the judged repos and audited heads in the audit report's opening.
 
 ## Grounding
 

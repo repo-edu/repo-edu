@@ -249,7 +249,7 @@ export async function phaseStream(
         if (event === lastResult)
           event.item.text =
             typeof final === "string" ? final : JSON.stringify(final)
-        else if (typeof final === "string")
+        else if (typeof final === "string" || "report" in final)
           event.item.text = "The session is working."
       }
       return JSON.stringify(event)

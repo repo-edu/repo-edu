@@ -49,11 +49,7 @@ for (const working of ["plan", "repo-edu"] as const) {
         `example-handoff.${f.heads.plan.slice(0, 6)}.md`,
       )
       await writeFile(handoff, "Prior reasoning\n")
-      // The fixture audit resolves its target placeholder from the arguments.
-      const report = (await readFile(f.report, "utf8")).replace(
-        "Target: <arguments>",
-        working === "plan" ? "Target: example.md" : "Target: example.md 2-3",
-      )
+      if (working === "repo-edu") await f.steps(3)
       assert.equal(
         await runCommand(
           working === "plan"
@@ -88,7 +84,27 @@ for (const working of ["plan", "repo-edu"] as const) {
       )
       assert.doesNotMatch(message, /Round yield:|Structure:/)
       assert.match(message, /\nAudit took \d+ min\.\n/)
-      assert.equal(await readFile(f.report, "utf8"), report)
+      const report = await readFile(f.report, "utf8")
+      assert.match(
+        report,
+        working === "plan"
+          ? /^# Planning round workflow/
+          : /^# Implementation audit workflow/,
+      )
+      assert.ok(
+        report.includes(
+          working === "plan"
+            ? "Target: example.md\n"
+            : "Target: example.md 2-3\n",
+        ),
+      )
+      assert.ok(report.includes(`Judged repos: ${owner}@${f.heads[owner]}\n`))
+      assert.match(
+        report,
+        working === "plan"
+          ? /No excess findings\.\n\n## Missing functionality\n\nNo missing findings\.\n$/
+          : /## Findings\n\nNo findings\.\n$/,
+      )
       assert.equal(dirname(f.report), f.roundRoot)
       const peer = owner === "plan" ? f.repoRoot : f.planRoot
       assert.equal(
@@ -120,10 +136,7 @@ for (const working of ["repo-edu", "plan"] as const) {
       false,
       true,
     )
-    await writeFile(
-      f.report,
-      `Implementation audit workflow\nTarget: example.md 1\nJudged repos: plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
-    )
+    await f.steps(1, "both repos")
     assert.equal(
       await runCommand(["round", "example.md", "1"], f.runtime, {
         ...f.options,
@@ -189,10 +202,6 @@ for (const { name, args, judged, owner } of [
         ),
       ),
     ) as Record<"plan" | "repo-edu", string>
-    await writeFile(
-      f.report,
-      `Implementation audit workflow\nTarget: <arguments>\nJudged repos: ${judged.map((repository) => `${repository}@${f.heads[repository]}`).join(", ")}\n\n## Findings\n\nNo findings.\n`,
-    )
     assert.equal(
       await runCommand(["round-commits", ...args], f.runtime, {
         ...f.options,

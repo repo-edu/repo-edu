@@ -39,21 +39,6 @@ export function watchOutput(text: string): {
   return { document, grade: grade as WatchGrade }
 }
 
-const settlingPrefix = "Settling: "
-const settlingLine = /^Settling: (settle|keep open)\. (\S.*)$/
-
-/**
- * Read one settling line as the retained recommendation. A line that is not
- * one returns null, so the caller decides whether its place required one; a
- * line that starts as one but breaks the grammar is refused.
- */
-export function readSettlingLine(line: string): string | null {
-  if (!line.startsWith(settlingPrefix)) return null
-  const match = settlingLine.exec(line)
-  if (match === null) throw new Error("Invalid settling line")
-  return `${match[1]}. ${match[2]}`
-}
-
 const resultSchema = z.strictObject({
   status: z.enum(["finished", "needs-ruling", "failed"]),
   reason: z.string().nullable(),

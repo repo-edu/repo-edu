@@ -16,7 +16,7 @@ import {
   phaseStream,
   recordedTag,
 } from "./helpers.js"
-import { commitFixture, roundFixture } from "./round-fixture.js"
+import { auditFixture, commitFixture, roundFixture } from "./round-fixture.js"
 
 type Fixture = Awaited<ReturnType<typeof roundFixture>>
 
@@ -39,21 +39,16 @@ function openers(...indexes: readonly number[]) {
 async function configureRun(
   f: Fixture,
   documents: {
-    readonly codex: string | readonly string[]
-    readonly claude: string | readonly string[]
+    readonly codex: object | readonly object[]
+    readonly claude: object | readonly object[]
   },
 ) {
-  const configured = (value: string | readonly string[]) =>
-    typeof value === "string" ? { source: value } : { sources: value }
   await f.configure({
     phases: {
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        documents: {
-          codex: configured(documents.codex),
-          claude: configured(documents.claude),
-        },
+        results: documents,
       },
     },
   })
@@ -95,11 +90,7 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
   )
   await rm(join(f.activeRoot, "example-widen.md"))
   await commitPlan(f, "example.md")
-  const implementation = join(f.activeRoot, "implementation-source.md")
-  await writeFile(
-    implementation,
-    `Implementation audit workflow\nTarget: <arguments>\nJudged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
-  )
+  const implementation = auditFixture()
   f.phases.implement = {
     commits: [
       {
@@ -114,8 +105,8 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
     },
   }
   await configureRun(f, {
-    codex: [f.report, implementation],
-    claude: [f.report, implementation],
+    codex: [auditFixture(), implementation],
+    claude: [auditFixture(), implementation],
   })
 
   assert.equal(
@@ -220,11 +211,7 @@ test("a whole-life recovery resumes the failed worker and continues through mark
     /^Resume: pnpm audit-round run example --resume 1:implementation-session$/m,
   )
 
-  const implementation = join(f.activeRoot, "implementation-source.md")
-  await writeFile(
-    implementation,
-    `Implementation audit workflow\nTarget: <arguments>\nJudged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
-  )
+  const implementation = auditFixture()
   f.phases.implement = {
     commits: [
       {
@@ -278,7 +265,7 @@ test("a recovery whose plan has left the implementation leaves the session unuse
     f.repoRoot,
     "example/implemented obx: complete the Repo Edu share",
   )
-  await configureRun(f, { codex: f.report, claude: f.report })
+  await configureRun(f, { codex: auditFixture(), claude: auditFixture() })
   await runCommand(["run", "example", "--resume", "1:old-session"], f.runtime, {
     ...f.options,
     settings: runSettings,
@@ -321,18 +308,10 @@ test("run continues a plan reopened after ready from its state once it settles",
     f.repoRoot,
     "example/implemented obx: complete the Repo Edu share",
   )
-  const implementation = join(f.activeRoot, "implementation-source.md")
-  await writeFile(
-    implementation,
-    `Implementation audit workflow\nTarget: <arguments>\nJudged repos: repo-edu@${f.heads["repo-edu"]}\n\n## Findings\n\nNo findings.\n`,
-  )
-  await writeFile(
-    f.report,
-    `${await readFile(f.report, "utf8")}\nSettling: settle. No shape question remains.\n`,
-  )
+  const implementation = auditFixture()
   await configureRun(f, {
-    codex: [f.report, implementation],
-    claude: [f.report, implementation],
+    codex: [auditFixture(), implementation],
+    claude: [auditFixture(), implementation],
   })
 
   assert.equal(

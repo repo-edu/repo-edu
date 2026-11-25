@@ -91,6 +91,51 @@ export async function correctionFixture(
 /** The tier a finished fix commits, independent of the audit report's findings. */
 type Grade = "a" | "b" | "c" | "d" | null
 
+export function auditFixture(findings: readonly object[] = [], opening = "") {
+  return {
+    status: "finished",
+    reason: null,
+    report: {
+      opening,
+      findings,
+      settling: null as {
+        readonly recommendation: string
+        readonly reason: string
+      } | null,
+    },
+  }
+}
+
+export const fixtureFinding = {
+  title: "Fixture finding",
+  tier: "B",
+  growthPattern: "none",
+  reach: "developer",
+  rarity: "ordinary",
+  harm: null,
+  complexity: "none",
+  evidence: "Correct the fixture.",
+} as const
+
+export function vetFixture(verdict: string, explanation = "") {
+  return {
+    status: "finished",
+    reason: null,
+    report: {
+      headDrift: "",
+      verdicts: { 1: { verdict, revisedTier: null, explanation } },
+    },
+  }
+}
+
+export function rebutFixture(answer: string, explanation = "", vet = "first") {
+  return {
+    status: "finished",
+    reason: null,
+    report: { answers: { 1: { [vet]: { answer, explanation } } } },
+  }
+}
+
 export async function roundFixture(
   t: TestContext,
   auditor: Assistant = "codex",
@@ -141,25 +186,25 @@ export async function roundFixture(
       ),
     ),
   )
+  const host =
+    working === "repo-edu" && owner === "plan" ? "the plan repo" : "Repo Edu"
+  const planText = (steps: number, hosted: string = host) => `# Example plan
+
+## Implementation plan
+
+${Array.from({ length: steps }, (_, index) => `${index + 1}. **Fixture step.** Hosted in ${hosted}.`).join("\n")}
+
+### Execution and audits
+
+Audit ranges: ${steps === 1 ? "1" : `1-${steps}`}.
+`
   // The command checks the plan where the phases open it, so the Repo Edu
   // root and the plan checkout's active folder hold the plan and its widening
   // artifact.
   await mkdir(join(planDirectory, "active"), { recursive: true })
   for (const root of [repoRoot, join(planDirectory, "active")])
     for (const name of ["example.md", "example-widen.md"])
-      await writeFile(
-        join(root, name),
-        `# Example plan
-
-## Implementation plan
-
-1. **Fixture step.** Hosted in Repo Edu.
-
-### Execution and audits
-
-Audit ranges: 1.
-`,
-      )
+      await writeFile(join(root, name), planText(1))
   const planRoot = await realpath(planDirectory)
   const activeRoot = join(planRoot, "active")
   // Every round file lands in the evidence checkout's round folder.
@@ -198,24 +243,20 @@ Audit ranges: 1.
       },
     }),
   )
-  const report = join(outputRoot, "audit-source.md")
-  const finding = (location: string) =>
-    `### 1. B: Fixture finding\n\n${location} [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]\n\nCorrect the fixture.\n`
-  await writeFile(
-    report,
-    (working === "plan"
-      ? "Planning round workflow\n"
-      : "Implementation audit workflow\n") +
-      "Target: <arguments>\n" +
-      `Judged repos: ${owner}@${heads[owner]}\n` +
-      "\n" +
-      (working === "plan"
-        ? `## Excess functionality\n\nNo excess findings.\n\n## Missing functionality\n\n${clean ? "No missing findings.\n" : finding("[field:missing] [section:decisions]")}`
-        : `## Findings\n\n${clean ? "No findings.\n" : finding("[area:tool-audit-round]")}`),
-  )
-  await writeFile(
-    join(f.root, owner, "VET-example.md"),
-    accepted ? "1. [B] Accept\n" : "1. [B] Revise\nCheck the correction.\n",
+  const audit = auditFixture(
+    clean
+      ? []
+      : [
+          {
+            ...fixtureFinding,
+            location:
+              working === "plan"
+                ? { kind: "planning", field: "missing", section: "decisions" }
+                : owner === "plan"
+                  ? { kind: "plan", section: "decisions" }
+                  : { kind: "repo-edu", area: "tool-audit-round", covers: [] },
+          },
+        ],
   )
   const phases: Record<string, unknown> = {}
   for (const phase of [
@@ -242,18 +283,23 @@ Audit ranges: 1.
           ? { ...finishedPhase, status, closingNote, settling: null }
           : phase === "close"
             ? { ...finishedPhase, closingNote }
-            : `${closingNote}\nPHASE RESULT: {"status":"finished","reason":null}`
+            : auditFixture()
     phases[phase] = {
-      document:
+      result:
         phase === "audit"
-          ? { source: report }
+          ? audit
           : phase === "vet"
-            ? { source: join(f.root, owner, "VET-example.md") }
+            ? vetFixture(
+                accepted ? "accept" : "revise",
+                accepted ? "" : "Check the correction.",
+              )
             : phase === "rebut"
-              ? { text: "1. [B] [<vet>] Agree\n" }
-              : phase === "fix" && ruling
-                ? { text: "Written ruling by fix" }
-                : undefined,
+              ? rebutFixture("agree")
+              : undefined,
+      document:
+        phase === "fix" && ruling
+          ? { text: "Written ruling by fix" }
+          : undefined,
       commits:
         phase === "fix" && !ruling
           ? [
@@ -390,8 +436,17 @@ Audit ranges: 1.
     roundRoot,
     heads,
     recordHeads,
+    auditSettling: (recommendation: "settle" | "keep open", reason: string) => {
+      const phase = phases.audit as { result: typeof audit }
+      phase.result = {
+        ...audit,
+        report: { ...audit.report, settling: { recommendation, reason } },
+      }
+    },
+    steps: (count: number, hosted?: "both repos") =>
+      writeFile(join(activeRoot, "example.md"), planText(count, hosted)),
     get report() {
-      return document("audit", report)
+      return document("audit", "")
     },
     get vet() {
       return document("vet", "")

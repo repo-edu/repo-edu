@@ -144,8 +144,7 @@ excess was not yet a search obligation.
 A record bullet that lands an audit report's finding carries that finding's number in the round
 grammar's [commit record bullet](round-grammar.md#commit-record-bullet) form. The round data joins
 bullet and finding by that number, so the bullet's short title may differ from the audit report's.
-Keep titles distinct across the audit report, because the vet and the rebuttal name findings by
-them. Each accepted graded concern, D included, gets one numbered bullet. A bullet without a number
+Each accepted graded concern, D included, gets one numbered bullet. A bullet without a number
 records work no finding asked for. A carried decision or trade ruling that is not a finding takes no
 tier or metadata.
 
@@ -658,9 +657,8 @@ test settles the choice, and the settled option becomes the ruling chat's recomm
 
 ## Vet verdicts
 
-Return one verdict per finding in audit report order.
-The [vet report grammar](round-grammar.md#vet-report) owns the line shape, accepted
-words, numbering and wrong-phase refusal.
+Return one verdict per finding number in the supplied schema. The runner writes
+the verdicts in audit report order and includes each finding's original tier.
 
 - **Accept** keeps the finding as written. It may carry a note that the fix
   reads and the rebuttal need not answer.
@@ -697,8 +695,7 @@ Without the note rule, each rating value a vetter reads differently could become
 contest, and three rating tokens give more of them. Case:
 [`rating-note`](../../../plan/CASES.md#rating-note).
 
-Free text explains a verdict but never changes its kind. Return the complete vet
-report in the final response.
+Use the explanation field for the reasoning behind each verdict.
 
 ## Rebuttal grounding
 
@@ -714,12 +711,10 @@ trust the audit report's or vet report's quotation. Read `../plan/BOUNDARIES.md`
 
 ## Rebuttal answers
 
-Answer every revise, drop and ruling verdict of each vetter, in audit report order and, within one
-finding, in the order the runner supplies the vet reports. Accepts need no entry. One rebuttal
-answers the whole panel, so its answers to different vetters on one finding stay consistent. The
-[rebuttal report grammar](round-grammar.md#rebuttal-report) owns the line shape, accepted words,
-numbering and wrong-phase refusal, including the vetter each answer names. When an answer agrees
-with a revised tier, its note names the new tier and the fix records it.
+Answer every revise, drop and ruling verdict of each vetter in the supplied
+schema. One rebuttal answers the whole panel, so its answers to different
+vetters on one finding stay consistent. When an answer agrees with a revised
+tier, its explanation names the new tier and the fix records it.
 
 - **Agree** keeps the verdict. Agreement with a revision carries the revised
   correction in full so the fix has one text to apply. Agreement with a drop
@@ -733,8 +728,6 @@ with a revised tier, its note names the new tier and the fix records it.
 - **For user's ruling** keeps a real choice or plan-decision question open.
   State the audit report's position and evidence briefly and never settle it here.
 
-Return the complete answers without a grouped closing list.
-
 ## Ruler duties
 
 The ruler names the winner of each contest or split that
@@ -743,11 +736,11 @@ session that wrote none of the round's reports and applies none of its correctio
 and lands nothing; it runs no command that changes a tracked file. It reads the audit report, every
 vet report and the rebuttal report, follows [Head drift](#head-drift) and works each finding it was
 given in the [Reading order](../skills/fix/references/ruling.md#reading-order) of `ruling.md`. The
-[ruler report grammar](round-grammar.md#ruler-report) owns the report's form. Three duties are the
-ruler's own:
+supplied schema holds the points, sources, winners and open choices. Three duties
+are the ruler's own:
 
-1. **Open each source by the name the report gives it.** The ruler report grammar's source line
-   fixes that name. Open each source with a tool call that holds the name as typed: a file read by
+1. **Open each source by the name its field gives it.** Open each source with a tool call that
+   holds the name as typed: a file read by
    its absolute path, or a command that holds the path or the six characters. A file the runner
    supplied whole in the first prompt is open already. A read that names a file relative to a repo
    or to an earlier `cd` does not count; read the file again by its absolute path.
@@ -760,13 +753,14 @@ ruler's own:
    choice before the fix, and the winner stays the ruler's. A change to a fixed input stays a
    premise error for the user.
 
-The runner checks each named source against the tool lines it logged for the ruler's session and
-the files it supplied whole in the first prompt. The check is a plain text test, so the form is
-fixed. A file read logs its absolute path, while a shell command logs its text as typed, often
-relative to a folder an earlier `cd` chose. Both repos also hold files with the same relative path,
-so a relative name could pass for a file the ruler never opened. When a source fails, the runner
-sends the ruler back once to open what it missed; a second miss fails the round. Return the
-complete ruler report under [Runner result](#runner-result).
+The runner checks each source against the ruler's actual tool calls and the
+files supplied whole in the first prompt. It excludes the call that returns the
+result because that call repeats every source name. The check matches plain
+text. A file read logs its absolute path. A shell command logs its text as
+typed, which may name a path relative to an earlier `cd`. Both repos can have
+the same relative path, so it could match the wrong file. The runner sends the
+ruler back once to open what it missed. A second miss fails the round. Return
+the complete result under [Runner result](#runner-result).
 
 Without this rule, a ruler can fill its record from the quotations in the reports, and the winner
 lands on text nobody opened. Case:
@@ -871,10 +865,10 @@ the deferral and apply the settled findings.
 
 ## Audit reports
 
-The [round grammar](round-grammar.md#audit-report) owns audit report openings,
-target lines, judged-repo lines, finding fields, location admission, numbering
-and empty sentences. The workflow owns the evidence placed before those fields,
-such as coverage and current-shape advice.
+Return the opening's evidence and the findings in the supplied schema. The
+runner writes the report heading, target, judged repositories and heads,
+finding numbers and empty fields. The workflow owns the opening's evidence,
+such as coverage, and the widening workflow owns the settling recommendation.
 
 Planning audit reports put excess before missing. An accepted removal can make a gap
 inside the removed area irrelevant, so the user decides what can go before
@@ -893,7 +887,7 @@ read or verified claims. Evidence appears only inside the finding it supports.
 Chat carries nothing about the judged work that the audit report or handoff does not.
 Setup and tooling problems are not about the judged work and stay in chat.
 
-An audit returns the complete audit report under [Runner result](#runner-result). The
+An audit returns its complete result under [Runner result](#runner-result). The
 [runner documentation](../../tools/audit-round/CLAUDE.md#phase-routing) owns path resolution and
 argument order. With no findings, follow
 [Direct clean completion](#direct-clean-completion).
@@ -904,8 +898,9 @@ An audit with no findings completes without vet, rebuttal, fix, glance or
 watch. An automatic series still applies its fixed decision rules. This route avoids a fresh
 fix session whose only work would be an empty record.
 
-Return the complete audit report under [Runner result](#runner-result). The
-runner keeps the audit report in the evidence repo and lands a clean record
+Return a finished audit result with an empty findings list under
+[Runner result](#runner-result). The runner keeps the audit report in the
+evidence repo and lands a clean record
 for the plan or commit target so the log shows that the audit ran.
 
 Use the
@@ -1081,14 +1076,15 @@ ending, including an early stop. It is shared by audit, vet, rebuttal, ruler, fi
 implement, watch and close. Ordinary interactive invocations add
 no result line.
 
-The fix, implementation worker and close return their result through the schema the runner
-supplies. The runner displays the Markdown in `closingNote`. A finished widening fix also
+The audit, vet, rebuttal, ruler, fix, implementation worker and close return
+their result through the schema the runner supplies. For each report phase the
+runner writes the Markdown file and displays it from the result. The fix,
+implementation worker and close display the Markdown in `closingNote`. A finished widening fix also
 returns `settling`, with a recommendation and its one-line reason. Other fix results use `null`
 for `settling`.
 
 The remaining phases follow the [phase-result grammar](round-grammar.md#phase-result) for their
-final control line. Audit, vet, rebuttal and ruler return their complete document before the
-line and write no report file. The runner saves their text without the control line.
+final control line.
 
 - `finished` means the phase completed all required work.
 - `needs-ruling` means the fix or implementation worker wrote the final ruling

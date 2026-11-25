@@ -32,14 +32,14 @@ options. Two targets are spelled out instead:
 2. A `round` typed without a target names the plan it chose, as `<stem>.md`, because another plan
    may hold the newest stem commit by the time you rerun.
 
-The rerun continues the round when its audit report was kept. The round keeps its number and adds
-to its transcript and log. It skips each phase whose kept report still reads as valid and starts
-the first phase that has none in a new session. Of the vetters, only those of the current list
-without a valid kept report run. A phase still to run takes the current settings, so a vetter you
-switched after a usage limit runs on the new selection. The audit and the rebuttal keep the
-auditor of the kept audit report.
+The rerun continues the round when the runner saved the audit result and its report still exists.
+The round keeps its number and adds to its transcript and log. A report phase runs in a new session
+if its saved result or report is missing. The runner uses the current list of vetters to decide
+which reviews and decisions still apply. A phase still to run takes the current settings, so a
+vetter you switched after a usage limit runs on the new selection. The audit and the rebuttal keep
+the auditor of the kept audit report.
 
-A round that stopped in its audit kept no audit report, so the rerun opens a new round. This is
+A round that stopped before saving its audit result opens a new round. This is
 also how a premise stop is answered: record the decision in the plan or in `BOUNDARIES.md`, then
 run the printed command, and the new audit reads the changed text.
 

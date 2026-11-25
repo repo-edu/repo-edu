@@ -343,6 +343,7 @@ test("round data attributes the auditor to the audit phase's reported model", as
       ...setup,
       ...audit,
       phase: "audit",
+      reportScope: { target: "example.md 1", planPhase: null, heads: [] },
       arguments: ["example-impl-audit-01..01-01", "example.md"],
       sessionId: null,
     },
@@ -828,6 +829,7 @@ test("commit stamps time the finished audit, every vetter and the rebuttal and n
         ...setup,
         ...phases.vet[index],
         phase: "vet",
+        findings: [],
         arguments: ["/report.md", run.documents.vets[index]],
         sessionId: null,
       },
@@ -841,6 +843,11 @@ test("commit stamps time the finished audit, every vetter and the rebuttal and n
         ...(phase === "audit"
           ? {
               phase,
+              reportScope: {
+                target: "example.md 1",
+                planPhase: null,
+                heads: [],
+              },
               arguments: [
                 "example-impl-audit-01..01-01",
                 "example.md",
@@ -849,6 +856,8 @@ test("commit stamps time the finished audit, every vetter and the rebuttal and n
           : phase === "rebut"
             ? {
                 phase,
+                findings: [],
+                reviews: [],
                 arguments: ["/report.md", "/vet.md", "/rebut.md"] as const,
               }
             : phase === "fix"
@@ -945,6 +954,7 @@ test("two vetters' mixed events keep their own slots and records, each vetter's 
           ...setup,
           ...vet,
           phase: "vet",
+          findings: [],
           arguments: ["/report.md", run.documents.vets[index]],
           sessionId: null,
         },

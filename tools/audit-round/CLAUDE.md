@@ -29,7 +29,7 @@ Before this rule the file held the automatic-series rules in four places.
 
 | Reference | Subject |
 | --- | --- |
-| [Rounds](references/rounds.md) | One round's phase sequence, its report readers, the winner rule and a ruling's wait |
+| [Rounds](references/rounds.md) | One round's phase sequence, its report results, the winner rule and a ruling's wait |
 | [Series](references/series.md) | The automatic series and its fixed rules, scope lists, open deferrals and the manual queue |
 | [Watch](references/watch.md) | The glance, the watch record and the episode evidence |
 | [Sessions](references/sessions.md) | Who runs each phase, startup, prompts and one assistant invocation |
@@ -49,11 +49,11 @@ Before this rule the file held the automatic-series rules in four places.
 | `plan-steps.ts` | The read of a plan's step list and audit ranges | [Plan targets](#plan-targets) |
 | `round.ts` | The fixed phase sequence of a round, the questions the user answers before the fix, the reply a fix's open item needs, the watch that follows a round, the call of the series decision and the close's run | [Round sequence](references/rounds.md#round-sequence), [Winners and rulings](references/rounds.md#winners-and-rulings), [Watch](references/watch.md#watch), [Stopped rounds](#stopped-rounds), [close](#close) |
 | `clean.ts` | Direct completion when the audit report has no findings | [Clean audits](references/rounds.md#clean-audits) |
-| `report.ts`, `vet.ts`, `ruler-report.ts` | The readers of the audit report, the vet and rebuttal reports and the ruler report | [Report readers](references/rounds.md#report-readers) |
-| `phase-result.ts` | The readers of the `PHASE RESULT` line, the watch grade line and the audit's settling line | [Phase routing](#phase-routing), [One invocation](references/sessions.md#one-invocation), [Watch](references/watch.md#watch) |
-| `phase-result-schema.ts` | The schemas and closing notes for the fix, implementation worker and close | [One invocation](references/sessions.md#one-invocation), [After the fix](references/rounds.md#after-the-fix) |
-| `finding-tokens.ts` | The rating and location token definitions that the audit report reader, the record bullet reader and round data share | [Audit report](references/rounds.md#audit-report), [Record bullets](references/commit-hooks.md#record-bullets), [Round data](#round-data) |
-| `phase.ts`, `settings.ts` | Who runs each phase and on what, the capability tag's vocabulary, workflow selection and the loaded settings | [Selections](references/sessions.md#selections), [Startup](references/sessions.md#startup), [Model settings](#model-settings), [Report readers](references/rounds.md#report-readers), [The ruler](references/rounds.md#the-ruler), [Manual queue](references/series.md#manual-queue), [Watch](references/watch.md#watch) |
+| `report.ts`, `vet.ts`, `ruler-report.ts` | The schemas and writers of the audit, vet, rebuttal and ruler reports | [Report results](references/rounds.md#report-results) |
+| `phase-result.ts` | The readers of the `PHASE RESULT` line, the watch grade line and the shared phase status | [Phase routing](#phase-routing), [One invocation](references/sessions.md#one-invocation), [Watch](references/watch.md#watch) |
+| `phase-result-schema.ts` | Structured phase schemas and result admission | [One invocation](references/sessions.md#one-invocation), [After the fix](references/rounds.md#after-the-fix) |
+| `finding-tokens.ts` | The rating and location token definitions that the audit result, the record bullet reader and round data share | [Audit report](references/rounds.md#audit-report), [Record bullets](references/commit-hooks.md#record-bullets), [Round data](#round-data) |
+| `phase.ts`, `settings.ts` | Who runs each phase and on what, the capability tag's vocabulary, workflow selection and the loaded settings | [Selections](references/sessions.md#selections), [Startup](references/sessions.md#startup), [Model settings](#model-settings), [Report results](references/rounds.md#report-results), [The ruler](references/rounds.md#the-ruler), [Manual queue](references/series.md#manual-queue), [Watch](references/watch.md#watch) |
 | `judge.ts`, `replay.ts` | The automatic-series evidence, the three fixed rules and their replay | [Automatic series](references/series.md#automatic-series), [replay](#replay) |
 | `queue.ts` | The shared entry splitter and the queue file's contents | [Manual queue](references/series.md#manual-queue) |
 | `open-deferrals.ts` | One active plan's open deferrals | [Open deferrals](references/series.md#open-deferrals) |
@@ -82,10 +82,9 @@ Before this rule the file held the automatic-series rules in four places.
 
 Workflows own findings, authority, gates and phase outcomes. The shared protocol's
 [Runner result](../../.agents/references/round-protocol.md#runner-result) rule defines the meaning
-of a phase result. The runner reads audit
-reports, vet reports, rebuttal reports, ruler reports and the fix's landed subjects for routing and
-completion checks, and it reads the log the glance counts. The automatic-series decision is runner
-code and has no workflow or assistant selection.
+of a phase result. The runner uses admitted report results and the fix's landed subjects for routing
+and completion checks, and it reads the log the glance counts. The automatic-series decision is
+runner code and has no workflow or assistant selection.
 
 Keep assistant adapters independent of the product LLM adapters.
 
@@ -465,7 +464,7 @@ A round stopped early when its round data entry says `failed`, `interrupted` or 
 ### Which round continues
 
 The command that opens a round on a target continues the target's newest round when that round
-stopped early, kept an audit report that reads as valid against the target it judged and is a
+stopped early, stored an audit result, kept its audit report and is a
 chained round exactly when the call is one. `roundRun` in `output.ts` is the one owner of the rule,
 so `run`, `round`, a scope list and a chained round need no rule of their own.
 
@@ -494,11 +493,11 @@ plan-scoped implementation round.
 - **Auditor.** The kept audit report fixes the auditor, so the audit and the rebuttal run on the
   selection the stored audit launched on.
 - **Panel.** The panel is the current vetter list. A kept vet report counts for the listed vetter
-  whose tag it carries, and a listed vetter without a valid report runs.
-- **Other phases.** A kept rebuttal or ruler report counts under the tag the current settings give
-  its phase. Every other phase still to run takes the current settings.
-- **Winners.** A stored user winner stands only while the kept reports rebuild its finding as
-  stored. A choice is not stored, so the runner asks for it again before the fix.
+  whose tag it carries and whose result is stored. Other listed vetters run.
+- **Other phases.** A saved rebuttal result counts when its report and the reviews it answers are
+  kept. A saved ruler result also needs the ruler report under its current tag.
+- **Winners.** A saved winner counts while the reviews it judged still apply. The runner records
+  when a winner has an open choice and asks the user again before the fix.
 - **Deferrals.** The fix of a chained round or a plan-scoped implementation round receives the
   stored deferral list, an empty one included, because the fix must cite the deferrals the kept
   audit report judged. A deferral that opened during the stop waits for a later round whose audit
@@ -508,10 +507,9 @@ plan-scoped implementation round.
 
 ### Which phases run
 
-The coordinator skips each phase whose kept report its reader admits and runs the first that has
-none, so a new round is the case where nothing is kept. A kept report its reader refuses runs its
-phase again. A continued round whose fix or clean completion already ended runs only what follows
-it.
+The coordinator starts from the stored round entry. A report phase runs in a fresh session when
+its result or report is missing. A planning round continues only in the same planning phase.
+A continued round whose fix or clean completion already ended runs only what follows it.
 
 ### Auditor options on a rerun
 

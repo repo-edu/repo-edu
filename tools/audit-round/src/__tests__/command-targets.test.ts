@@ -169,10 +169,7 @@ test("close supplies open deferrals to one close session from the plan checkout"
   await assert.rejects(access(join(f.evidenceRoot, "example")), {
     code: "ENOENT",
   })
-  assert.deepEqual(
-    (await readdir(f.roundRoot)).sort(),
-    ["audit-source.md", ...otherRoundFiles].sort(),
-  )
+  assert.deepEqual((await readdir(f.roundRoot)).sort(), otherRoundFiles.sort())
   for (const file of closedPlanFiles)
     assert.equal(await readFile(join(folder, file), "utf8"), `${file}\n`)
   // The command's evidence commit took the move and the close log's last lines.
@@ -384,13 +381,13 @@ test("close of an archived plan finishes its round-data and round-file moves wit
     "close\n",
   )
   assert.deepEqual((await readdir(f.roundRoot)).sort(), [
-    "audit-source.md",
     "example-two-close.obh.log",
   ])
 })
 
 test("a plan named without its extension runs as its .md file", async (t) => {
   const f = await roundFixture(t)
+  await f.steps(3)
   assert.equal(
     await runCommand(
       ["round", "example", "2-3", "--auditor", "o"],

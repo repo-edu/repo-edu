@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { stat } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { format } from "date-fns"
 import type { RoundDataRoots } from "./context.js"
@@ -45,7 +45,7 @@ import {
   transcribed,
 } from "./phase.js"
 import { withoutPhaseResult } from "./phase-result.js"
-import { readReport, targetReportClass } from "./report.js"
+import { usesStructuredResult } from "./phase-result-schema.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
@@ -84,12 +84,7 @@ import {
 import type { RunClock, RunMark } from "./run-clock.js"
 import { openRunFiles, type RunFiles, type RunPaths } from "./run-files.js"
 import type { Auditor, RoundSettings } from "./settings.js"
-import {
-  isActivePlanPath,
-  planPhase,
-  planStem,
-  reportTarget,
-} from "./target.js"
+import { isActivePlanPath, planPhase, planStem } from "./target.js"
 import type { Terminal } from "./terminal.js"
 
 export type RoundDocuments = {
@@ -274,6 +269,9 @@ async function continuedRound(
   if (
     stored === null ||
     !stoppedEarly(stored) ||
+    stored.reports?.audit !== true ||
+    ("phase" in stored &&
+      (!("plan" in call) || stored.phase !== planPhase(call.plan))) ||
     chainedEntry(stored) !== chainedCall(call)
   )
     return null
@@ -284,11 +282,7 @@ async function continuedRound(
     `${phaseFilename(nameStart, "audit", stored.tag)}.md`,
   )
   try {
-    readReport(
-      await readFile(report, "utf8"),
-      targetReportClass(setup),
-      reportTarget(setup),
-    )
+    if (!(await stat(report)).isFile()) return null
   } catch {
     return null
   }
@@ -803,7 +797,9 @@ export class RoundOutput<R extends Run = Run> {
   /** Write one phase text to the transcript and, without its control line, the terminal. */
   private text(slot: ActiveSlot, text: string): void {
     if (transcribed(slot.input.phase)) this.transcribe(`${text}\n`)
-    const visible = withoutPhaseResult(text)
+    const visible = usesStructuredResult(slot.input.phase)
+      ? text
+      : withoutPhaseResult(text)
     if (visible.length > 0) this.options.terminal.write(visible, "markdown")
   }
 
@@ -1149,6 +1145,9 @@ export class RoundOutput<R extends Run = Run> {
       }),
       commits: [...commits],
       findings: [...account.findings],
+      ...(account.reports === undefined
+        ? {}
+        : { reports: { ...account.reports, vets: [...account.reports.vets] } }),
       ...(data.pool === undefined ? {} : { pool: [...data.pool] }),
       judge: decision,
       ...("phase" in data

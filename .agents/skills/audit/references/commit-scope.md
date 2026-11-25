@@ -12,8 +12,7 @@ sections of `workflow.md`, and the plan reads in its
 **Evidence** section. Read the rest of `workflow.md` as written. The
 [shared round protocol](../../../references/round-protocol.md) owns the tiers,
 finding metadata meanings, growth-pattern tags and trade pricing. The
-[round grammar](../../../references/round-grammar.md) owns audit report, vet
-report, rebuttal report and record-bullet shapes.
+[round grammar](../../../references/round-grammar.md) owns the record bullets.
 
 The round's repo set is the repositories carried by the parsed commit groups.
 The phase arguments keep the group boundary, repository, references, starting
@@ -121,13 +120,12 @@ it apart from the range's own work.
 
 ## Report
 
-Follow the [audit report grammar](../../../references/round-grammar.md#audit-report)
-and the shared protocol's
+Follow the shared protocol's
 [Audit reports](../../../references/round-protocol.md#audit-reports).
 In place of plan and step evidence, supply every group's carried references,
 its original commit set, its exact current commit set and the statement that no
-plan covers the original work. Open `Judged repos:` with every group's
-`startingHead`. Use the commit coverage table above. Naming and allocation follow the
+plan covers the original work. Use the commit coverage table above. The runner
+writes the judged repos with each group's `startingHead`. Naming and allocation follow the
 runner's [Round files](../../../../tools/audit-round/CLAUDE.md#round-files) and
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 

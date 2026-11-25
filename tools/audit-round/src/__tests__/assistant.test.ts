@@ -33,6 +33,17 @@ const input = (
   sessionId: null,
 })
 
+const auditScope = {
+  target: "example.md",
+  planPhase: null,
+  heads: [{ repository: "repo-edu", head: "abc123" }],
+} as const
+const auditResult = {
+  status: "finished",
+  reason: null,
+  report: { opening: "Résumé complete", findings: [], settling: null },
+}
+
 test("a fix child receives its unresolved contest commit block", async (t) => {
   const f = await fixture(t)
   await f.configure({ stream: await phaseStream("codex", finishedFix) })
@@ -67,18 +78,22 @@ function cachePhases(assistant: Assistant, root: string): PhaseInput[] {
     {
       ...context,
       phase: "audit",
+      reportScope: auditScope,
       arguments: [report, "example.md"],
       sessionId: null,
     },
     {
       ...context,
       phase: "vet",
+      findings: [],
       arguments: [report, join(root, "vet.abh.md")],
       sessionId: null,
     },
     {
       ...context,
       phase: "rebut",
+      findings: [],
+      reviews: [],
       arguments: [report, join(root, "vet.abh.md"), join(root, "rebut.md")],
       sessionId: null,
     },
@@ -115,7 +130,7 @@ function cachePhases(assistant: Assistant, root: string): PhaseInput[] {
 
 const fiveMinutePhases = ["audit", "vet", "rebut", "rule", "watch"]
 
-test("a Claude child of the five reviewing phases keeps its cache for five minutes, on a fresh run and its continuation", async (t) => {
+test("a Claude child of the five reviewing phases keeps its cache for five minutes", async (t) => {
   const f = await fixture(t)
   // A response without its result line makes the runner continue the session once.
   await f.configure({ stream: await phaseStream("claude", "No result line") })
@@ -133,9 +148,12 @@ test("a Claude child of the five reviewing phases keeps its cache for five minut
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line))
-    if (!fiveMinutePhases.includes(phase.phase)) {
+    if (phase.phase !== "watch") {
       assert.equal(calls.length, 1, phase.phase)
-      assert.equal(calls[0].cacheLifetime, "1h")
+      assert.equal(
+        calls[0].cacheLifetime,
+        fiveMinutePhases.includes(phase.phase) ? "5m" : "1h",
+      )
       assert.deepEqual(result, {
         status: "failed",
         sessionId: "test-session",
@@ -291,12 +309,13 @@ PHASE RESULT: {"status":"finished","reason":null}`
 test("Claude reports the last turn's text when a background wake-up adds turns", async (t) => {
   const f = await fixture(t)
   const report = join(f.root, "audit.md")
-  const lines = (await phaseStream("claude")).trim().split("\n")
+  const lines = (await phaseStream("claude", auditResult)).trim().split("\n")
   const last = lines.findLastIndex((line) => line.includes('"type":"result"'))
   const closing = JSON.parse(lines[last])
   const waiting = JSON.stringify({
     ...closing,
     num_turns: 1,
+    structured_output: undefined,
     result: "Waiting for the probe sleep.",
   })
   const empty = JSON.stringify({ ...closing, num_turns: 0, result: "" })
@@ -305,6 +324,7 @@ test("Claude reports the last turn's text when a background wake-up adds turns",
   const result = await runAssistantPhase(
     {
       phase: "audit",
+      reportScope: auditScope,
       assistant: "claude",
       model: pinned("claude"),
       ...testContext(f.root),
@@ -314,8 +334,8 @@ test("Claude reports the last turn's text when a background wake-up adds turns",
     f.output,
     f.runtime,
   )
-  assert.deepEqual(result, { status: "finished", sessionId: "test-session" })
-  assert.equal(await readFile(report, "utf8"), "Résumé complete\n")
+  assert.equal(result.status, "finished")
+  assert.match(await readFile(report, "utf8"), /Résumé complete/)
 })
 
 async function recordedTokenUpdate(assistant: Assistant, recording: string) {
@@ -399,6 +419,7 @@ for (const assistant of ["claude", "codex"] as const) {
     )
     const phase: PhaseInput<"audit"> = {
       phase: "audit",
+      reportScope: auditScope,
       assistant,
       model: pinned(assistant),
       ...testContext(f.root),
@@ -406,22 +427,23 @@ for (const assistant of ["claude", "codex"] as const) {
       sessionId: null,
     }
     await writeFile(report, "Old report")
-    await f.configure({ stream: await phaseStream(assistant) })
+    await f.configure({ stream: await phaseStream(assistant, auditResult) })
     const saved = await runAssistantPhase(phase, f.output, f.runtime)
     assert.equal(saved.status, "finished")
-    assert.equal(await readFile(report, "utf8"), "Résumé complete\n")
+    assert.match(await readFile(report, "utf8"), /Résumé complete/)
 
     await f.configure({
-      stream: await phaseStream(
-        assistant,
-        'Incomplete report\nPHASE RESULT: {"status":"failed","reason":"Missing input"}',
-      ),
+      stream: await phaseStream(assistant, {
+        status: "failed",
+        reason: "Missing input",
+        report: null,
+      }),
     })
     const failed = await runAssistantPhase(phase, f.output, f.runtime)
     assert.equal(failed.status, "failed")
-    assert.equal(await readFile(report, "utf8"), "Résumé complete\n")
+    assert.match(await readFile(report, "utf8"), /Résumé complete/)
 
-    await f.configure({ stream: await phaseStream(assistant) })
+    await f.configure({ stream: await phaseStream(assistant, auditResult) })
     const unwritable = await runAssistantPhase(
       { ...phase, arguments: [f.root, "example.md"] },
       f.output,
@@ -433,80 +455,28 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.equal(f.releases(), 3)
   })
 
-  test(`${assistant} is asked once for a missing result line and its new response stands`, async (t) => {
-    const f = await fixture(t)
+  test(`${assistant} rejects a missing structured result without retrying`, async (t) => {
+    const f = await fixture(t, {
+      stream: await phaseStream(assistant, "First report"),
+    })
     const report = join(f.root, "audit.md")
-    await writeFile(
-      join(f.root, "rollout-test-session.jsonl"),
-      await recorded("codex-rollout.jsonl"),
-    )
-    const phase: PhaseInput<"audit"> = {
-      phase: "audit",
-      assistant,
-      model: pinned(assistant),
-      ...testContext(f.root),
-      arguments: [report, "example.md"],
-      sessionId: null,
-    }
-    const unended = await phaseStream(assistant, "First report")
     await writeFile(report, "Old report")
-    await f.configure({
-      phases: {
-        audit: {
-          streams: [
-            unended,
-            await phaseStream(
-              assistant,
-              'Second report\nPHASE RESULT: {"status":"finished","reason":null}',
-            ),
-          ],
-        },
+    const result = await runAssistantPhase(
+      {
+        phase: "audit",
+        reportScope: auditScope,
+        assistant,
+        model: pinned(assistant),
+        ...testContext(f.root),
+        arguments: [report, "example.md"],
+        sessionId: null,
       },
-    })
-    const asked = await runAssistantPhase(phase, f.output, f.runtime)
-    assert.deepEqual(asked, { status: "finished", sessionId: "test-session" })
-    assert.equal(await readFile(report, "utf8"), "Second report\n")
-    const calls = await f.calls()
-    assert.equal(calls.length, 2)
-    if (assistant === "codex")
-      assert.deepEqual(calls[1].args.slice(-4), [
-        "resume",
-        "--json",
-        "test-session",
-        "-",
-      ])
-    else
-      assert.deepEqual(calls[1].args.slice(0, 3), [
-        "-p",
-        "--resume",
-        "test-session",
-      ])
-    assert.match(
-      (await f.prompts())[1].prompt,
-      /^Run the audit phase of an unattended implementation-audit round in this resumed session\.\nYour last response ended without the final PHASE RESULT line/,
+      f.output,
+      f.runtime,
     )
-    assert.ok(
-      f.feedback.some(
-        (event) =>
-          event.type === "diagnostic" &&
-          event.text.includes("without its PHASE RESULT line"),
-      ),
-    )
-    assert.equal(f.starts.length, 1)
-    assert.equal(f.finishes.length, 1)
-    assert.equal(f.releases(), 1)
-
-    await writeFile(report, "Old report")
-    await f.configure({ phases: { audit: { streams: [unended] } } })
-    const unanswered = await runAssistantPhase(phase, f.output, f.runtime)
-    assert.deepEqual(unanswered, {
-      status: "failed",
-      sessionId: "test-session",
-      reason: "Missing final PHASE RESULT line",
-    })
-    assert.equal((await f.calls()).length, 4)
+    assert.equal(result.status, "failed")
+    assert.equal((await f.calls()).length, 1)
     assert.equal(await readFile(report, "utf8"), "Old report")
-    assert.equal(f.finishes.length, 1)
   })
 
   test(`${assistant} accounts for recorded tool failures, split UTF-8 and final completion`, async (t) => {
@@ -948,10 +918,27 @@ test("a ruler is sent back once to open what it named, and a second miss fails t
     sessionId: null,
   }
   const report = (source: string) =>
-    phaseStream(
-      "claude",
-      `### 1. [C] Keep the record\n- Opened: \`${source}\`\n\nWinner: abh. The drop held.\nPHASE RESULT: {"status":"finished","reason":null}`,
-    )
+    phaseStream("claude", {
+      status: "finished",
+      reason: null,
+      report: {
+        headDrift: "",
+        findings: {
+          1: {
+            points: [
+              {
+                question: "Does it hold?",
+                sources: [{ source, place: null }],
+                record: "The file settles it.",
+              },
+            ],
+            winner: ["abh"],
+            reason: "The drop held.",
+            openChoice: null,
+          },
+        },
+      },
+    })
   await f.configure({
     phases: {
       rule: { streams: [await report("fedcba"), await report(workflow)] },

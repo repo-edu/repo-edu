@@ -17,11 +17,9 @@ import type {
   ContestScope,
   Phase,
   PhaseControlResult,
-  PhaseFailure,
   PhaseInput,
   PhaseResult,
   RoundDependencies,
-  RulerScope,
 } from "./phase.js"
 import {
   hasPhaseResult,
@@ -32,8 +30,9 @@ import {
 import {
   closingNote,
   outputSchema,
+  roundReportContract,
   structuredPhaseResult,
-  usesStructuredResult,
+  usesClosingNote,
 } from "./phase-result-schema.js"
 import {
   type AssistantPrompt,
@@ -41,11 +40,7 @@ import {
   phaseRequest,
   rulerSourceRequest,
 } from "./requests.js"
-import {
-  type RulerReading,
-  readRulerReport,
-  unopenedSources,
-} from "./ruler-report.js"
+import { unopenedSources } from "./ruler-report.js"
 
 export type AssistantRuntime = CliRuntime & { readonly sessionsRoot?: string }
 
@@ -88,33 +83,6 @@ function openContests(input: AssistantTurnInput): readonly number[] {
   )
 }
 
-/**
- * Read a ruler's finished response against the findings it was given and the
- * round's panel, and name the sources its session did not open. A response
- * that did not finish returns null, because its phase result fails it anyway.
- */
-function readRuling(
-  input: PhaseInput<"rule">,
-  finalText: string,
-  toolLines: readonly string[],
-  supplied: readonly string[],
-): {
-  readonly reading: RulerReading
-  readonly missed: readonly string[]
-} | null {
-  if (phaseResult("", finalText).status !== "finished") return null
-  const scope = input.arguments.at(-1) as RulerScope
-  const reading = readRulerReport(
-    withoutPhaseResult(finalText),
-    scope.findings.map(({ finding, tier }) => ({ number: finding, tier })),
-    input.panel,
-  )
-  return {
-    reading,
-    missed: unopenedSources(reading.sources, toolLines, supplied),
-  }
-}
-
 export function runAssistantPhase<P extends Phase>(
   input: PhaseInput<P>,
   output: PhaseOutput,
@@ -143,29 +111,13 @@ export function runAssistantInvocation(
   runtime: AssistantRuntime,
   record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult> {
-  // The ruler's reading check reads its report before the runner admits it,
-  // and sends the session back once when the report names an unopened source.
-  const review =
-    input.phase === "rule"
-      ? (finalText: string, toolLines: readonly string[]) => {
-          const ruling = readRuling(
-            input,
-            finalText,
-            toolLines,
-            prompt.supplied,
-          )
-          return ruling === null || ruling.missed.length === 0
-            ? null
-            : rulerSourceRequest(input, ruling.missed)
-        }
-      : undefined
   return runAssistantTurn(
     input,
     prompt,
     output,
     runtime,
-    async (sessionId, finalText, toolLines, structuredOutput) => {
-      if (usesStructuredResult(input.phase)) {
+    (sessionId, finalText, structuredOutput) => {
+      if (usesClosingNote(input.phase)) {
         const { result, text } = structuredPhaseResult(
           input.phase,
           sessionId,
@@ -176,37 +128,6 @@ export function runAssistantInvocation(
       if (finalText === undefined)
         throw new Error("CLI ended without final text")
       const result = phaseResult(sessionId, finalText)
-      if (input.phase === "rule" && result.status === "finished") {
-        const ruling = readRuling(input, finalText, toolLines, prompt.supplied)
-        if (ruling === null) throw new Error("The ruler did not finish")
-        if (ruling.missed.length > 0)
-          throw new Error(
-            `The ruler report names sources its session did not open: ${ruling.missed.join(", ")}`,
-          )
-        // The ruler's output follows every vet report and the rebuttal report.
-        await writeFile(
-          input.arguments[input.arguments.length - 2] as string,
-          `${withoutPhaseResult(finalText)}\n`,
-          "utf8",
-        )
-        return {
-          phaseResult: result,
-          complete: () => ({ ...result, reading: ruling.reading }),
-        }
-      }
-      if (result.status === "finished") {
-        const report =
-          input.phase === "audit"
-            ? input.arguments[0]
-            : input.phase === "vet"
-              ? input.arguments[1]
-              : input.phase === "rebut"
-                ? // The rebuttal's output follows every vet report of the panel.
-                  input.arguments[input.arguments.length - 1]
-                : null
-        if (report !== null)
-          await writeFile(report, `${withoutPhaseResult(finalText)}\n`, "utf8")
-      }
       // The runner reads and saves split answers from the session's final text.
       if (
         (input.phase === "design" || input.phase === "pick") &&
@@ -235,11 +156,10 @@ export function runAssistantInvocation(
       }
     },
     record,
-    review,
   )
 }
 
-async function runAssistantTurn<T>(
+async function runAssistantTurn(
   input: AssistantTurnInput,
   prompt: AssistantPrompt,
   output: PhaseOutput,
@@ -247,17 +167,14 @@ async function runAssistantTurn<T>(
   admit: (
     sessionId: string,
     finalText: string | undefined,
-    toolLines: readonly string[],
     structuredOutput: unknown,
-  ) => Promise<{
+  ) => {
     readonly phaseResult: PhaseControlResult
     readonly text?: string
-    readonly complete: (completion: PhaseCompletion) => T
-  }>,
+    readonly complete: (completion: PhaseCompletion) => PhaseResult
+  },
   record?: (value: unknown) => Promise<void>,
-  /** Returns a request that sends the session back once, or null to admit the response. */
-  review?: (finalText: string, toolLines: readonly string[]) => string | null,
-): Promise<T | PhaseFailure> {
+): Promise<PhaseResult> {
   let sessionId = input.sessionId
   let recorder: PhaseRecorder | undefined
   // The invocation's tool lines, as the round log keeps them, for the reading check.
@@ -275,10 +192,11 @@ async function runAssistantTurn<T>(
       : undefined
   const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
   const env = childEnvironment(input, runtime.env)
-  const structuredPhase = usesStructuredResult(input.phase) ? input.phase : null
+  const notePhase = usesClosingNote(input.phase) ? input.phase : null
+  const report = roundReportContract(input)
   const schema =
-    structuredPhase === null ? undefined : outputSchema(structuredPhase)
-  const codexPhase = input.assistant === "codex" ? structuredPhase : null
+    report?.schema ?? (notePhase === null ? undefined : outputSchema(notePhase))
+  const codexStructured = input.assistant === "codex" && schema !== undefined
   let schemaDirectory: string | undefined
   /**
    * One CLI process on the session. A session is one or more turns and ends
@@ -310,16 +228,16 @@ async function runAssistantTurn<T>(
             } else if (event.type === "final") {
               // Codex's newest message may be the result. Display it as
               // commentary only when another message takes its place.
-              if (codexPhase !== null && finalText !== undefined) {
-                const note = closingNote(
-                  codexPhase,
-                  decodeCodexMessage(finalText),
-                )
+              if (codexStructured && finalText !== undefined) {
+                const note =
+                  notePhase === null
+                    ? undefined
+                    : closingNote(notePhase, decodeCodexMessage(finalText))
                 await observe({ type: "text", text: note ?? finalText })
               }
               finalText = event.text
               structuredOutput = event.structuredOutput
-            } else if (codexPhase === null || event.type !== "text") {
+            } else if (!codexStructured || event.type !== "text") {
               await observe(event)
             }
           }
@@ -331,7 +249,14 @@ async function runAssistantTurn<T>(
     if (turns === 0 || sessionId === null)
       throw new Error("CLI ended without a completed turn or session identity")
     await usage?.read(sessionId, observe, true)
-    return { sessionId, finalText, structuredOutput }
+    return {
+      sessionId,
+      finalText,
+      structuredOutput:
+        codexStructured && finalText !== undefined
+          ? decodeCodexMessage(finalText)
+          : structuredOutput,
+    }
   }
   try {
     try {
@@ -339,58 +264,76 @@ async function runAssistantTurn<T>(
       recorder = await output.start(input, prompt.log)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
       let schemaArgument = schema
-      if (schema !== undefined && codexPhase !== null) {
+      if (codexStructured) {
         schemaDirectory = await mkdtemp(join(tmpdir(), "audit-round-schema-"))
         schemaArgument = join(schemaDirectory, "result.json")
-        await writeFile(schemaArgument, schema, "utf8")
+        await writeFile(schemaArgument, schema as string, "utf8")
       }
-      let resultRequested = false
       // The model can leave the line off a finished response. The session is
       // asked once to end again, which repeats no phase work; a second
       // response without the line fails the phase as any other does.
-      const ended = async (
-        response: Awaited<ReturnType<typeof respond>>,
-      ): Promise<Awaited<ReturnType<typeof respond>>> => {
-        if (
-          resultRequested ||
-          prompt.resultRequest === undefined ||
-          response.finalText === undefined ||
-          hasPhaseResult(response.finalText)
-        )
-          return response
-        resultRequested = true
+      let response = await respond(prompt.text, schemaArgument)
+      if (
+        schema === undefined &&
+        prompt.resultRequest !== undefined &&
+        response.finalText !== undefined &&
+        !hasPhaseResult(response.finalText)
+      ) {
         await observe({
           type: "diagnostic",
           text: "The response ended without its PHASE RESULT line. Asking the session once to end with it.",
         })
-        return respond(prompt.resultRequest)
+        response = await respond(prompt.resultRequest)
       }
-      let response = await ended(await respond(prompt.text, schemaArgument))
-      const sendBack =
-        response.finalText === undefined
-          ? null
-          : (review?.(response.finalText, toolLines) ?? null)
-      if (sendBack !== null) {
-        await observe({
-          type: "diagnostic",
-          text: "The ruler report names sources the session did not open. Sending the session back once to open them.",
-        })
-        response = await ended(await respond(sendBack))
-      }
-      const structuredOutput =
-        codexPhase !== null && response.finalText !== undefined
-          ? decodeCodexMessage(response.finalText)
-          : response.structuredOutput
-      if (schema !== undefined) {
-        if (structuredOutput === undefined)
+      const readStructured = async (
+        ending: typeof response,
+      ): Promise<unknown> => {
+        if (ending.structuredOutput === undefined)
           throw new Error("CLI ended without a structured phase result")
-        await observe({ type: "structured-result", value: structuredOutput })
+        await observe({
+          type: "structured-result",
+          value: ending.structuredOutput,
+        })
+        return ending.structuredOutput
+      }
+      if (report !== undefined) {
+        const read = async (ending: typeof response) =>
+          report.read(ending.sessionId, await readStructured(ending))
+        const missed = (answer: Awaited<ReturnType<typeof read>>) =>
+          "reading" in answer.result
+            ? unopenedSources(
+                answer.result.reading.sources,
+                toolLines,
+                prompt.supplied,
+              )
+            : []
+        let answer = await read(response)
+        const unopened = missed(answer)
+        if (unopened.length > 0) {
+          await observe({
+            type: "diagnostic",
+            text: "The ruler report names sources the session did not open. Sending the session back once to open them.",
+          })
+          answer = await read(
+            await respond(rulerSourceRequest(input, unopened), schemaArgument),
+          )
+          const remaining = missed(answer)
+          if (remaining.length > 0)
+            throw new Error(
+              `The ruler report names sources its session did not open: ${remaining.join(", ")}`,
+            )
+        }
+        if ("text" in answer) {
+          await writeFile(report.file, `${answer.text}\n`, "utf8")
+          await observe({ type: "text", text: answer.text })
+        }
+        await recorder.finish(answer.result)
+        return answer.result
       }
       const admitted = await admit(
         response.sessionId,
         response.finalText,
-        toolLines,
-        structuredOutput,
+        schema === undefined ? undefined : await readStructured(response),
       )
       if (admitted.text) await observe({ type: "text", text: admitted.text })
       const completion = await recorder.finish(admitted.phaseResult)

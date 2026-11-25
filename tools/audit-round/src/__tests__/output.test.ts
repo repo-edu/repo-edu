@@ -325,6 +325,11 @@ test("commit stamps retain each phase's reported selection across later phases",
         ...(phase === "audit"
           ? {
               phase,
+              reportScope: {
+                target: "example.md 1",
+                planPhase: null,
+                heads: [],
+              },
               arguments: [
                 "example-impl-audit-01..01-01",
                 "example.md",
@@ -333,6 +338,8 @@ test("commit stamps retain each phase's reported selection across later phases",
           : phase === "rebut"
             ? {
                 phase,
+                findings: [],
+                reviews: [],
                 arguments: ["/report.md", "/vet.md", "/rebut.md"] as const,
               }
             : phase === "fix"
@@ -345,6 +352,7 @@ test("commit stamps retain each phase's reported selection across later phases",
                 ? { phase, evidence: "Episode facts", arguments: [] as const }
                 : {
                     phase,
+                    findings: [],
                     arguments: ["/report.md", run.documents.vets[0]] as const,
                   }),
 
@@ -395,6 +403,7 @@ test("reported model feedback prints a change notice after the phase line", asyn
   await inTurn(output).start(
     {
       phase: "audit",
+      reportScope: { target: "example.md 1", planPhase: null, heads: [] },
       assistant: "codex",
       model: pinned("codex"),
       ...testContext(f.root),
@@ -448,6 +457,7 @@ test("output records complete invocations incrementally and refreshes only while
     inTurn(output).start(
       {
         phase: "audit",
+        reportScope: { target: "example.md 1", planPhase: null, heads: [] },
         assistant: "codex",
         model: pinned("codex"),
         ...testContext(f.root),
@@ -516,8 +526,7 @@ test("output records complete invocations incrementally and refreshes only while
     'PHASE RESULT: {"status":"failed","reason":"Stopped"}',
   ])
     await inTurn(output).observe({ type: "text", text })
-  assert.equal(rendered.at(-1), "Final report")
-  assert.doesNotMatch(visible.join("\n"), /PHASE RESULT:/)
+  assert.match(rendered.at(-1) as string, /PHASE RESULT:/)
   assert.match(await readFile(output.paths.markdown, "utf8"), /PHASE RESULT:/)
   assert.doesNotMatch(
     await readFile(output.paths.log, "utf8"),
@@ -587,6 +596,7 @@ test("written status stamps chain into the running total", async (t) => {
   await inTurn(output).start(
     {
       phase: "audit",
+      reportScope: { target: "example.md 1", planPhase: null, heads: [] },
       assistant: "codex",
       model: pinned("codex"),
       ...testContext(f.root),
@@ -654,6 +664,7 @@ for (const assistant of ["claude", "codex"] as const) {
       await inTurn(output).start(
         {
           phase: "audit",
+          reportScope: { target: "example.md 1", planPhase: null, heads: [] },
           assistant,
           model: pinned(assistant),
           ...testContext(f.root),

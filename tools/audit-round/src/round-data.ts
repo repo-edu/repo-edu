@@ -134,9 +134,8 @@ export const roundFindingSchema = z
           .regex(/^[^\r\n]+$/),
         namedBy: z.enum(["user", "ruler"]),
         /**
-         * Present only when the user's answer added a choice to the winner.
-         * The choice itself is not stored, so a stopped round asks for it
-         * again.
+         * Present when the ruler left a choice open or the user added one to
+         * the winner. A stopped round asks for the choice again.
          */
         withChoice: z.literal(true).optional(),
       })
@@ -274,6 +273,12 @@ const phaseEntry = z.strictObject({
   phase: z.enum(["audit", "rebut", "rule", "fix", "watch", "judge"]),
   ...phaseMeasurement,
 })
+const storedReports = z.strictObject({
+  audit: z.literal(true),
+  vets: z.array(capabilityTag),
+  rebut: z.boolean(),
+  rule: z.boolean(),
+})
 const commonRoundData = z.strictObject({
   target: z.string().min(1),
   round: z.number().int().positive(),
@@ -302,6 +307,8 @@ const commonRoundData = z.strictObject({
     seat: z.strictObject({ model: z.string().min(1), effort }).optional(),
   }),
   phases: z.array(z.union([vetPhaseEntry, phaseEntry])),
+  /** Report results admitted into this entry. Older rounds cannot continue. */
+  reports: storedReports.optional(),
   commits: z.array(
     z.strictObject({
       repository,
@@ -415,7 +422,7 @@ export type RoundFinding = z.infer<typeof roundFindingSchema>
 export type SeriesAnswer = NonNullable<z.infer<typeof seriesAnswerSchema>>
 export type SeriesDecision = SeriesAnswer["answer"]
 export type RoundFindingReview = z.infer<typeof roundFindingReviewSchema>
-/** A finding the current audit report reader produced, always in the current rating form. */
+/** A finding admitted from an audit result in the current rating form. */
 export type ReportFinding = Omit<
   RoundFinding,
   | "reach"
@@ -495,10 +502,18 @@ export type PanelVet = {
   readonly reviews: readonly FindingReview[]
 }
 
+export type StoredReports = Readonly<{
+  audit: true
+  vets: readonly string[]
+  rebut: boolean
+  rule: boolean
+}>
+
 export type RoundAccount = {
   readonly settling: string
   readonly judgedRepos: readonly Repository[]
   readonly findings: readonly RoundFinding[]
+  readonly reports?: StoredReports
 }
 
 type FindingRecord = {

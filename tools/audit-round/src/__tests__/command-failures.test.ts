@@ -1,5 +1,5 @@
 import assert from "node:assert/strict"
-import { mkdir, readdir, symlink, writeFile } from "node:fs/promises"
+import { mkdir, readdir, symlink } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "./configured-runner.js"
@@ -8,6 +8,7 @@ import { roundFixture } from "./round-fixture.js"
 
 test("a single explicit auditor claims one round", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+  await f.steps(3)
   assert.equal(
     await runCommand(
       ["round", "example.md", "3", "--auditor", "o"],
@@ -152,9 +153,11 @@ test("discovery accepts aliases, subdirectories and unrelated directories", asyn
 for (const phase of ["audit", "vet"] as const) {
   test(`an invalid ${phase} response fails with its recovery session`, async (t) => {
     const f = await roundFixture(t)
-    const file =
-      phase === "audit" ? f.report : join(f.repoRoot, "VET-example.md")
-    await writeFile(file, "Malformed evidence")
+    f.phases[phase] = {
+      ...(f.phases[phase] as object),
+      result: { status: "finished", reason: null, report: {} },
+    }
+    await f.configure({ phases: f.phases })
     assert.equal(
       await runCommand(["round", "example.md", "1"], f.runtime, f.options),
       1,
@@ -172,7 +175,11 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
     const f = await roundFixture(t, "codex", "repo-edu", ruling, null, !ruling)
     f.phases[phase] = {
       ...(f.phases[phase] as object),
-      document: { text: " \n" },
+      ...(phase === "fix"
+        ? { document: { text: " \n" } }
+        : {
+            result: { status: "finished", reason: null, report: null },
+          }),
     }
     await f.configure({ phases: f.phases })
     assert.equal(
@@ -180,7 +187,13 @@ for (const phase of ["audit", "vet", "rebut", "fix"] as const) {
       1,
     )
     const { log } = await f.records()
-    assert.ok(log.includes(`[${phase}] failed: Phase output is empty:`))
+    assert.ok(
+      log.includes(
+        phase === "fix"
+          ? "[fix] failed: Phase output is empty:"
+          : `[${phase}] failed: A finished phase needs its report fields`,
+      ),
+    )
     assert.ok(log.includes(`Session: ${phase}-session`))
   })
 }
@@ -238,9 +251,10 @@ test("a failed planning audit retains its root and recovery session without star
   await f.configure({
     phases: {
       audit: {
+        result: undefined,
         stream: await phaseStream(
           "claude",
-          'Premise needs a decision.\nPHASE RESULT: {"status":"failed","reason":"Premise conflict"}',
+          { status: "failed", reason: "Premise conflict", report: null },
           "audit-session",
         ),
       },

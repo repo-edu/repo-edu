@@ -1,4 +1,5 @@
-import type { ReportFindings } from "./report.js"
+import { z } from "zod"
+import { type FindingIdentity, findingTier } from "./report.js"
 import type {
   FindingRebuttal,
   FindingReview,
@@ -7,222 +8,142 @@ import type {
   VetVerdict,
 } from "./round-data.js"
 
-export const vetVerdicts = {
-  Accept: "accept",
-  Revise: "revise",
-  Drop: "drop",
-  "Needs user's ruling": "needs-user-ruling",
-} as const satisfies Record<string, VetVerdict>
+const vetWords = {
+  accept: "Accept",
+  revise: "Revise",
+  drop: "Drop",
+  "needs-user-ruling": "Needs user's ruling",
+} as const satisfies Record<VetVerdict, string>
 
-export const rebuttalAnswers = {
-  Agree: "agree",
-  Contest: "contest",
-  "For user's ruling": "for-user-ruling",
-} as const satisfies Record<string, RebuttalAnswer>
+const rebuttalWords = {
+  agree: "Agree",
+  contest: "Contest",
+  "for-user-ruling": "For user's ruling",
+} as const satisfies Record<RebuttalAnswer, string>
 
-export type VetReading = {
-  readonly reviews: readonly FindingReview[]
-  readonly allAccepted: boolean
-}
-
-type Header<Word extends string> = {
-  readonly number: number
-  readonly tier: FindingReview["tier"]
-  readonly word: Word
-}
-
-type VetHeader = Header<keyof typeof vetVerdicts & string> & {
-  readonly revisedTier?: FindingReview["tier"]
-}
-
-type RebuttalHeader = Header<keyof typeof rebuttalAnswers & string> & {
-  readonly vet: string
-}
-
-/**
- * A verdict or answer header starts `<number>. [<tier>] <word>`. A revised vet
- * tier is the one admitted suffix, and a rebuttal answer names its vetter's tag in
- * brackets before the word. A line in that shape whose word is outside the
- * phase's list is refused by name rather than passed as free text, so a verdict
- * word on a rebuttal line, or the reverse, fails on the line that is wrong
- * instead of as a missing entry. Every other line is free text for the fix
- * phase. Surrounding whitespace and one final full stop carry no content.
- */
-function readHeaderLine(line: string): Header<string> | null {
-  const header = /^([1-9]\d*)\. \[([A-D])\] (.+)$/.exec(line.trim())
-  if (header === null) return null
-  return {
-    number: Number(header[1]),
-    tier: header[2] as FindingReview["tier"],
-    word: (header[3] as string).replace(/\.$/, ""),
-  }
-}
-
-function readRebuttalHeader(line: string): RebuttalHeader | null {
-  const header = readHeaderLine(line)
-  if (header === null) return null
-  const tagged = /^\[([^\]]+)\] (.+)$/.exec(header.word)
-  if (tagged === null)
-    throw new Error(
-      `Rebuttal answer ${header.number} names no vetter; put the vetter's tag in brackets after the tier`,
-    )
-  const word = tagged[2] as string
-  if (!Object.hasOwn(rebuttalAnswers, word))
-    throw new Error(
-      `Rebuttal answer ${header.number} uses the word "${word}"; use ${listWords(Object.keys(rebuttalAnswers))}`,
-    )
-  return {
-    number: header.number,
-    tier: header.tier,
-    vet: tagged[1] as string,
-    word: word as keyof typeof rebuttalAnswers & string,
-  }
-}
-
-function readVetHeader(line: string): VetHeader | null {
-  const header = readHeaderLine(line)
-  if (header === null) return null
-  const revised = /^Revise to \[([A-D])\]$/.exec(header.word)
-  if (revised !== null) {
-    const revisedTier = revised[1] as FindingReview["tier"]
-    if (revisedTier === header.tier)
-      throw new Error(
-        `Vet verdict ${header.number} keeps tier ${revisedTier}; use Revise without a tier`,
-      )
-    return { ...header, word: "Revise", revisedTier }
-  }
-  if (header.word.startsWith("Revise to "))
-    throw new Error(
-      `Vet verdict ${header.number} has malformed revised tier; use Revise to [A], [B], [C] or [D]`,
-    )
-  if (/ to \[.+\]$/.test(header.word))
-    throw new Error("Only Revise may name a replacement tier")
-  if (!Object.hasOwn(vetVerdicts, header.word))
-    throw new Error(
-      `Vet verdict ${header.number} uses the word "${header.word}"; use ${listWords(Object.keys(vetVerdicts))}`,
-    )
-  return {
-    ...header,
-    word: header.word as keyof typeof vetVerdicts & string,
-  }
-}
-
-function listWords(names: readonly string[]): string {
-  return names.length === 1
-    ? (names[0] ?? "")
-    : `${names.slice(0, -1).join(", ")} or ${names.at(-1)}`
-}
-
-function checkFindingIdentity(
-  number: number,
-  tier: string,
-  findings: ReportFindings,
-): void {
-  const finding = findings.find((candidate) => candidate.number === number)
-  if (finding === undefined || finding.tier !== tier)
-    throw new Error(
-      "Review finding numbers and tiers must match the audit report exactly",
-    )
-}
-
-export function readVet(source: string, findings: ReportFindings): VetReading {
-  const reviews: FindingReview[] = []
-  for (const line of source.split(/\r?\n/)) {
-    const header = readVetHeader(line)
-    if (header === null) continue
-    checkFindingIdentity(header.number, header.tier, findings)
-    reviews.push({
-      number: header.number,
-      tier: header.tier,
-      verdict: vetVerdicts[header.word],
-      ...(header.revisedTier === undefined
-        ? {}
-        : { revisedTier: header.revisedTier }),
-    })
-  }
-  if (
-    reviews.length !== findings.length ||
-    reviews.some((review, index) => review.number !== findings[index]?.number)
+export function vetSchema(findings: readonly FindingIdentity[]) {
+  const explanation = z
+    .string()
+    .describe("The verdict's explanation in Markdown")
+  const cleanVerdict = z.strictObject({
+    verdict: z.enum(["accept", "drop", "needs-user-ruling"]),
+    revisedTier: z.null(),
+    explanation,
+  })
+  const slots = Object.fromEntries(
+    findings.map(({ number, tier }) => [
+      number,
+      z.union([
+        cleanVerdict,
+        z.strictObject({
+          verdict: z.literal("revise"),
+          revisedTier: findingTier.exclude([tier]).nullable(),
+          explanation,
+        }),
+      ]),
+    ]),
   )
-    throw new Error(
-      "Vet verdict numbers must match the audit report's finding numbers exactly",
-    )
+  return z.strictObject({
+    headDrift: z.string().describe("The note on head drift in Markdown"),
+    verdicts: z
+      .strictObject(slots)
+      .describe("The verdict for each finding number"),
+  })
+}
+
+export function vetReport(
+  findings: readonly FindingIdentity[],
+  answer: z.infer<ReturnType<typeof vetSchema>>,
+): { readonly text: string; readonly reviews: readonly FindingReview[] } {
+  const entries = findings.map(({ number, tier }) => {
+    const { verdict, revisedTier, explanation } =
+      answer.verdicts[String(number)]
+    const word =
+      revisedTier === null ? vetWords[verdict] : `Revise to [${revisedTier}]`
+    return {
+      review: {
+        number,
+        tier,
+        verdict,
+        ...(revisedTier === null ? {} : { revisedTier }),
+      },
+      text: [`${number}. [${tier}] ${word}`, explanation.trim()]
+        .filter(Boolean)
+        .join("\n\n"),
+    }
+  })
   return {
-    reviews,
-    allAccepted: reviews.every((review) => review.verdict === "accept"),
+    text: [answer.headDrift.trim(), ...entries.map(({ text }) => text)]
+      .filter(Boolean)
+      .join("\n\n"),
+    reviews: entries.map(({ review }) => review),
   }
 }
 
-/**
- * Read the answers the rebuttal gave the panel after vetting. Each answer line
- * names the vetter it answers, so the reader takes the vetter from the line
- * alone. Answers follow audit report order and, within one finding, panel
- * order. An answer to a vetter outside the panel or to a verdict that accepted the finding is
- * refused by name, so a misnumbered or mistagged answer fails on its own line
- * instead of as a missing one.
- */
-export function readRebuttal(
-  source: string,
-  findings: ReportFindings,
+function needsAnswer(
   panel: readonly PanelVet[],
-): readonly FindingRebuttal[] {
-  const position = new Map(panel.map(({ vet }, index) => [vet, index]))
-  const rebuttals: FindingRebuttal[] = []
-  const order = (rebuttal: Pick<FindingRebuttal, "number" | "vet">) =>
-    rebuttal.number * panel.length + (position.get(rebuttal.vet) ?? 0)
-  for (const line of source.split(/\r?\n/)) {
-    const header = readRebuttalHeader(line)
-    if (header === null) continue
-    checkFindingIdentity(header.number, header.tier, findings)
-    const vet = panel.find((candidate) => candidate.vet === header.vet)
-    if (vet === undefined)
-      throw new Error(
-        `Rebuttal answer ${header.number} names ${header.vet}, which is no vetter of this round; use ${listWords(panel.map(({ vet }) => vet))}`,
-      )
-    if (
-      vet.reviews.find((review) => review.number === header.number)?.verdict ===
-      "accept"
+  number: number,
+): readonly string[] {
+  return panel.flatMap(({ vet, reviews }) =>
+    reviews.some(
+      (review) => review.number === number && review.verdict !== "accept",
     )
-      throw new Error(
-        `Rebuttal answer ${header.number} names ${header.vet}, which accepted finding ${header.number}; an accept needs no answer`,
-      )
-    if (
-      rebuttals.some(
-        (rebuttal) =>
-          rebuttal.number === header.number && rebuttal.vet === header.vet,
-      )
-    )
-      throw new Error(
-        `Rebuttal answers ${header.vet} on finding ${header.number} more than once`,
-      )
-    const previous = rebuttals.at(-1)
-    if (previous !== undefined && order(previous) >= order(header))
-      throw new Error(
-        "Rebuttal answers must follow audit report order, then panel order",
-      )
-    rebuttals.push({
-      number: header.number,
-      tier: header.tier,
-      vet: header.vet,
-      answer: rebuttalAnswers[header.word],
-    })
+      ? [vet]
+      : [],
+  )
+}
+
+export function rebuttalSchema(
+  findings: readonly FindingIdentity[],
+  panel: readonly PanelVet[],
+) {
+  const reply = z.strictObject({
+    answer: z.enum(["agree", "contest", "for-user-ruling"]),
+    explanation: z.string().describe("The answer's explanation in Markdown"),
+  })
+  const slots = Object.fromEntries(
+    findings.flatMap(({ number }) => {
+      const vets = needsAnswer(panel, number)
+      return vets.length === 0
+        ? []
+        : [
+            [
+              number,
+              z.strictObject(
+                Object.fromEntries(vets.map((vet) => [vet, reply])),
+              ),
+            ],
+          ]
+    }),
+  )
+  return z.strictObject({
+    answers: z
+      .strictObject(slots)
+      .describe("Answers by finding number and then vetter tag"),
+  })
+}
+
+export function rebuttalReport(
+  findings: readonly FindingIdentity[],
+  panel: readonly PanelVet[],
+  result: z.infer<ReturnType<typeof rebuttalSchema>>,
+): { readonly text: string; readonly answers: readonly FindingRebuttal[] } {
+  const entries = findings.flatMap(({ number, tier }) =>
+    needsAnswer(panel, number).map((vet) => {
+      const { answer, explanation } = result.answers[String(number)][vet]
+      return {
+        reading: { number, tier, vet, answer },
+        text: [
+          `${number}. [${tier}] [${vet}] ${rebuttalWords[answer]}`,
+          explanation.trim(),
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+      }
+    }),
+  )
+  return {
+    text: entries.map(({ text }) => text).join("\n\n"),
+    answers: entries.map(({ reading }) => reading),
   }
-  for (const finding of findings)
-    for (const { vet, reviews } of panel) {
-      const review = reviews.find(
-        (candidate) => candidate.number === finding.number,
-      )
-      if (
-        review !== undefined &&
-        review.verdict !== "accept" &&
-        !rebuttals.some(
-          (rebuttal) =>
-            rebuttal.number === finding.number && rebuttal.vet === vet,
-        )
-      )
-        throw new Error(
-          `Rebuttal needs an answer to ${vet} on finding ${finding.number}`,
-        )
-    }
-  return rebuttals
 }

@@ -15,8 +15,8 @@ report and a durable outcome, with a second assistant checking the first before 
 One reading by one assistant can be wrong in a confident voice. The round therefore splits the
 work so no phase checks itself:
 
-1. **Audit.** One assistant reads the bounded target and writes an audit report with findings or a
-   clean result.
+1. **Audit.** One assistant reads the bounded target and returns any findings. The runner writes
+   the audit report and records a clean result when there are no findings.
 2. **Vet.** Every vetter listed for the work class checks each finding for authority, evidence and
    fit, side by side and each from a fresh context. A reach, rarity or harm value that a vetter
    reads differently is an `Accept` with a note, and the audit report's value stands. It is a

@@ -133,9 +133,8 @@ to the finding's trade and ratings.
 ## Verdicts
 
 Use the shared round protocol's [Vet verdicts](../../../references/round-protocol.md#vet-verdicts)
-for verdict meanings and delivery and the
-[vet report grammar](../../../references/round-grammar.md#vet-report) for values,
-numbering and response shape.
+for verdict meanings and delivery. Return one verdict for each finding in the
+supplied schema.
 
 Use the shared planning rules'
 [Changes to what a plan holds](../../../../../plan/.agents/references/planning-rules.md#changes-to-what-a-plan-holds)

@@ -11,6 +11,7 @@ import { commitFixture, roundFixture } from "./round-fixture.js"
 
 test("one supplied configuration controls auditor phase arguments and output tags", async (t) => {
   const f = await roundFixture(t, "claude", "repo-edu", false, null, true)
+  await f.steps(3)
   const settings = structuredClone(testSettings)
   settings.defaults.claude = { model: "chosen-auditor", effort: "low" }
   settings.implementationAudit.watch = {
@@ -118,6 +119,7 @@ for (const auditor of ["claude", "codex"] as const) {
     for (const ruling of [false, true]) {
       test(`command runs ${auditor} audit, ${owner} routing and ${ruling ? "ruling" : "completion"}`, async (t) => {
         const f = await roundFixture(t, auditor, owner, ruling)
+        await f.steps(3)
         const argv = [
           "round",
           "example.md",
@@ -290,6 +292,7 @@ for (const auditor of ["claude", "codex"] as const) {
       "repo-edu",
       true,
     )
+    await f.steps(3)
     const argv = [
       "round",
       "example.md",
@@ -345,6 +348,7 @@ for (const auditor of ["claude", "codex"] as const) {
       false,
       true,
     )
+    await f.steps(3)
     const argv = [
       "round",
       "example.md",
@@ -442,7 +446,9 @@ for (const target of ["log", "markdown"] as const) {
           [target]: (text: string) => {
             if (
               text.includes(
-                target === "log" ? "printf audit-round-probe" : "Judged repos:",
+                target === "log"
+                  ? "printf audit-round-probe"
+                  : "The session is working.",
               )
             )
               throw new Error(`Required ${target} write failed`)

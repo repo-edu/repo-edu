@@ -94,6 +94,7 @@ test("startup writes only to the terminal before the models table opens the run 
 for (const auditor of ["codex", "claude"] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
+    await f.steps(3)
     const settings = structuredClone(testSettings)
     settings.implementationAudit.auditors = [
       { assistant: auditor, model: "pinned-auditor", effort: "medium" },
@@ -253,6 +254,7 @@ for (const auditor of ["codex", "claude"] as const) {
 
 test("auditor lists keep each entry's model and effort independent", async (t) => {
   const f = await roundFixture(t, "claude")
+  await f.steps(3)
   const settings = structuredClone(testSettings)
   settings.implementationAudit.auditors = [
     { assistant: "claude", model: "pinned-claude", effort: "low" },

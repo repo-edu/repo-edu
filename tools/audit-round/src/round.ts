@@ -1,4 +1,3 @@
-import { isDeepStrictEqual } from "node:util"
 import type { ClosedRoundFiles } from "./evidence.js"
 import { errorMessage, type ModelReleases } from "./feedback.js"
 import type { WatchGrade } from "./glance.js"
@@ -18,6 +17,7 @@ import {
   type DeferralScope,
   type Effort,
   efforts,
+  type FinishedReport,
   type FixerSide,
   type LandedRecord,
   noOverride,
@@ -26,6 +26,7 @@ import {
   type PhaseInput,
   type PhaseResult,
   type PhaseRun,
+  type ReportPhase,
   type RoundDependencies,
   type RoundFixer,
   type RoundPhases,
@@ -33,7 +34,7 @@ import {
   targetWorkClass,
   watchPhase,
 } from "./phase.js"
-import { type AuditReport, targetReportClass } from "./report.js"
+import type { AuditScope, FindingIdentity } from "./report.js"
 import {
   findingSplit,
   highestGrade,
@@ -63,6 +64,7 @@ import {
   type CommitGroup,
   type CommitTarget,
   commitAuditGroups,
+  parseStepScope,
   planPhase,
   planRepositoryPrefix,
   planStem,
@@ -213,14 +215,10 @@ export function referredFindings(account: RoundAccount): readonly number[] {
  * open choice for or whose stored winner the user gave with a choice. A
  * choice is not stored, so a stopped round asks it again.
  */
-export function rulingQuestions(
-  account: RoundAccount,
-  rulerChoices: readonly number[],
-): readonly RulingQuestion[] {
+function rulingQuestions(account: RoundAccount): readonly RulingQuestion[] {
   const winners = openSeriousFindings(account)
   const choices = new Set([
     ...referredFindings(account),
-    ...rulerChoices,
     ...account.findings.flatMap(({ number, ruling }) =>
       number !== null && ruling?.withChoice === true ? [number] : [],
     ),
@@ -277,12 +275,10 @@ function recordWinners(
 
 /** The tier the audit report gave one of its findings. */
 function auditTier(
-  evidence: AuditReport,
+  findings: readonly FindingIdentity[],
   number: number,
 ): RoundFinding["tier"] {
-  const finding = evidence.findings.find(
-    (candidate) => candidate.number === number,
-  )
+  const finding = findings.find((candidate) => candidate.number === number)
   if (finding === undefined)
     throw new Error(`The ruler was given no audit report finding ${number}`)
   return finding.tier
@@ -420,30 +416,26 @@ function settledAccount(stored: RoundData): boolean {
 function storedAccount(stored: RoundData): RoundAccount {
   return {
     settling: "settling" in stored ? stored.settling : "",
-    judgedRepos: "judgedRepos" in stored ? stored.judgedRepos : [],
+    judgedRepos: "judgedRepos" in stored ? stored.judgedRepos : ["plan"],
     findings: stored.findings,
+    ...(stored.reports === undefined ? {} : { reports: stored.reports }),
   }
 }
 
-/**
- * Carry the winners the user named in the stopped round onto the account its
- * kept reports rebuild. A winner judged one finding as its reviews then stood,
- * so it stands only while the reports rebuild that finding exactly as stored.
- * A changed panel can change the reviews, and the user then rules again.
- */
-function userWinners(account: RoundAccount, stored: RoundData): RoundAccount {
+/** Restore winners once the reports and reviews they judged have been retained. */
+function restoreWinners(
+  account: RoundAccount,
+  saved: RoundAccount,
+  namedBy: "ruler" | "user",
+): RoundAccount {
+  const rulings = new Map(
+    saved.findings.map(({ number, ruling }) => [number, ruling]),
+  )
   return {
     ...account,
     findings: account.findings.map((finding) => {
-      const earlier = stored.findings.find(
-        (candidate) =>
-          candidate.number !== null && candidate.number === finding.number,
-      )
-      if (earlier?.ruling?.namedBy !== "user") return finding
-      const { ruling, ...rebuilt } = earlier
-      return isDeepStrictEqual(finding, rebuilt)
-        ? { ...finding, ruling }
-        : finding
+      const ruling = rulings.get(finding.number)
+      return ruling?.namedBy === namedBy ? { ...finding, ruling } : finding
     }),
   }
 }
@@ -501,30 +493,16 @@ export type CloseResult =
     }
   | RoundFailure
 
-/** A completed report phase must have written its supplied output. */
-async function reportPhase<R extends PhaseResult>(
-  invoke: () => Promise<R>,
-  file: string,
-  dependencies: Pick<RoundDependencies, "checkFile">,
-): Promise<R | PhaseFailure> {
-  let result: R
+/** One report phase may fail before its session can start. */
+async function reportPhase<P extends ReportPhase>(
+  invoke: () => Promise<PhaseFailure | FinishedReport<P>>,
+): Promise<PhaseFailure | FinishedReport<P>> {
   try {
-    result = await invoke()
+    return await invoke()
   } catch (error) {
     return {
       status: "failed",
       sessionId: null,
-      reason: errorMessage(error),
-    }
-  }
-  if (result.status === "failed") return result
-  try {
-    await dependencies.checkFile(file)
-    return result
-  } catch (error) {
-    return {
-      status: "failed",
-      sessionId: result.sessionId,
       reason: errorMessage(error),
     }
   }
@@ -815,72 +793,95 @@ function phaseContext(input: RoundContext): RoundContext {
   }
 }
 
-/**
- * A kept report's reading, or null when its phase must run: the report is
- * missing, or the reader that admits it after its phase ran refuses it.
- */
-async function keptReport<T>(
-  file: string,
-  read: () => Promise<T>,
-  dependencies: Pick<RoundDependencies, "fileExists">,
-): Promise<T | null> {
-  try {
-    return (await dependencies.fileExists(file)) ? await read() : null
-  } catch {
-    return null
+/** Resolve the repository set and heads before the audit session starts. */
+async function auditScope(
+  input: RoundInput,
+  dependencies: Pick<RoundDependencies, "readHead" | "readSteps">,
+): Promise<AuditScope> {
+  const target = reportTarget(input)
+  if ("groups" in input) {
+    return {
+      target,
+      planPhase: null,
+      heads: (["plan", "repo-edu"] as const).flatMap((repository) => {
+        const group = input.groups.find(
+          (group) => group.repository === repository,
+        )
+        return group === undefined
+          ? []
+          : [{ repository, head: group.startingHead }]
+      }),
+    }
+  }
+  if (input.roundKind === "planning") {
+    return {
+      target,
+      planPhase: planPhase(input.plan),
+      heads: [
+        {
+          repository: "plan",
+          head: await dependencies.readHead(input.planRoot),
+        },
+      ],
+    }
+  }
+  const scope = parseStepScope(input.scope)
+  const steps = await dependencies.readSteps(input.plan)
+  if (!scope.ok || scope.last > steps.length)
+    throw new Error(
+      `Step scope ${input.scope} is outside the plan's ${steps.length} listed steps`,
+    )
+  const selected = new Set(
+    steps
+      .slice(scope.first - 1, scope.last)
+      .flatMap((step) => step.repositories),
+  )
+  if (input.deferrals?.length) selected.add("repo-edu")
+  const heads = await Promise.all(
+    (["plan", "repo-edu"] as const)
+      .filter((repository) => selected.has(repository))
+      .map(async (repository) => ({
+        repository,
+        head: await dependencies.readHead(
+          repository === "plan" ? input.planRoot : input.repoEduRoot,
+        ),
+      })),
+  )
+  return { target, planPhase: null, heads }
+}
+
+function findingIdentities(account: RoundAccount): readonly FindingIdentity[] {
+  return account.findings.flatMap(({ number, tier }) =>
+    number === null ? [] : [{ number, tier }],
+  )
+}
+
+function storedVet(stored: RoundData, tag: string): PanelVet {
+  return {
+    vet: tag,
+    reviews: stored.findings.flatMap(({ number, tier, reviews }) => {
+      const saved = reviews.find(({ vet }) => vet === tag)
+      if (number === null || saved === undefined) return []
+      const { verdict, revisedTier } = saved
+      return [
+        {
+          number,
+          tier,
+          verdict,
+          ...(revisedTier === undefined ? {} : { revisedTier }),
+        },
+      ]
+    }),
   }
 }
 
-/**
- * One report phase's reading: its kept report when that reads as valid,
- * otherwise a fresh run of the phase and the reading of the report it wrote. A
- * failed run, or a report its reader refuses after the run, stops the round
- * with the run's session.
- */
-async function reportReading<R extends PhaseResult, T>(
-  file: string,
-  read: () => Promise<T>,
-  run: () => Promise<R>,
-  dependencies: Pick<RoundDependencies, "checkFile" | "fileExists">,
-  ranReading: (result: Exclude<R, PhaseFailure>) => Promise<T> = read,
-): Promise<{ readonly status: "read"; readonly reading: T } | PhaseFailure> {
-  const kept = await keptReport(file, read, dependencies)
-  if (kept !== null) return { status: "read", reading: kept }
-  const result = await reportPhase(run, file, dependencies)
-  if (result.status === "failed") return result
-  try {
-    return {
-      status: "read",
-      reading: await ranReading(result as Exclude<R, PhaseFailure>),
-    }
-  } catch (error) {
-    return {
-      status: "failed",
-      sessionId: result.sessionId,
-      reason: errorMessage(error),
-    }
-  }
-}
-
-/** What the audit, the vet, the rebuttal and the ruler leave for the fix. */
 type Review = {
-  readonly evidence: AuditReport
   readonly account: RoundAccount
   /** The vet, rebuttal and ruler reports the fix reads after the audit report. */
   readonly twins: readonly string[]
-  /** The findings whose ruler entry names an open choice for the user. */
-  readonly rulerChoices: readonly number[]
 }
 
-/**
- * Run the audit, the vet, the rebuttal and the ruler in order, and skip each
- * phase whose kept report reads as valid. A new round keeps nothing, so every
- * phase runs. A continued round runs from the first phase without a valid
- * report, and of the panel only the vetters without one. The readers that
- * admit each report after its phase ran rebuild the round's account, so a
- * kept report needs no second copy of it. A stopped phase starts again in a
- * fresh session, and a report its reader refuses still fails the round.
- */
+/** Run the report phases, reusing only admitted results whose files and inputs still stand. */
 async function reviewRound(
   input: RoundInput,
   phases: RoundPhases,
@@ -889,6 +890,7 @@ async function reviewRound(
 ): Promise<Review | FailedRound> {
   const context = phaseContext(input)
   const { report, rebut, ruler } = input.documents
+  const stored = input.stored
   let account: RoundAccount = { settling: "", judgedRepos: [], findings: [] }
   const stopped = (
     phase: Phase,
@@ -904,19 +906,16 @@ async function reviewRound(
   })
   const deferralScope: readonly DeferralScope[] =
     input.deferrals === undefined ? [] : [{ deferrals: input.deferrals }]
-  const audited = await reportReading(
-    report,
-    () =>
-      dependencies.readReport(
-        report,
-        targetReportClass(input),
-        reportTarget(input),
-      ),
-    () =>
+  let audit: RoundAccount
+  if (stored?.reports !== undefined) {
+    audit = storedAccount(stored)
+  } else {
+    const audited = await reportPhase<"audit">(async () =>
       dependencies.runPhase.audit({
         phase: "audit",
         ...phases.audit,
         ...context,
+        reportScope: await auditScope(input, dependencies),
         arguments:
           "groups" in input
             ? [report, ...commitAuditGroups(input)]
@@ -925,121 +924,174 @@ async function reviewRound(
               : [report, input.plan, input.scope, ...deferralScope],
         sessionId: null,
       }),
-    dependencies,
-  )
-  if (audited.status === "failed")
-    return stopped("audit", phases.audit, audited)
-  const evidence = audited.reading
-  account = {
-    settling: evidence.settling,
-    judgedRepos: evidence.judgedRepos,
-    findings: reviewedRoundFindings(evidence.findings),
+    )
+    if (audited.status === "failed")
+      return stopped("audit", phases.audit, audited)
+    audit = {
+      settling: audited.report.settling,
+      judgedRepos: audited.report.judgedRepos,
+      findings: reviewedRoundFindings(audited.report.findings),
+    }
   }
-  // Zero findings complete in the runner. No later assistant can add anything
-  // needed to close this audit.
-  if (evidence.findings.length === 0)
-    return { evidence, account, twins: [], rulerChoices: [] }
-
-  // Every vetter without a kept vet report reads the audit report on its own
-  // and at the same time. The round waits for the slowest; a failed vetter
-  // fails the round, and the finished vetters' vet reports stay in place.
-  const vetted = await Promise.all(
-    panel.map((vet) =>
-      reportReading(
-        vet.report,
-        () => dependencies.readVet(vet.report, evidence.findings),
-        () =>
-          dependencies.runPhase.vet({
-            phase: "vet",
-            ...vet.run,
-            ...context,
-            arguments: [report, vet.report],
-            sessionId: null,
-          }),
-        dependencies,
-      ),
-    ),
+  const baseFindings = audit.findings.map(
+    ({ ruling: _ruling, ...finding }) => ({ ...finding, reviews: [] }),
   )
-  const vets: PanelVet[] = []
-  let accepted = true
-  for (const [index, vet] of panel.entries()) {
-    const reading = vetted[index]
-    if (reading.status === "failed") return stopped("vet", vet.run, reading)
-    vets.push({ vet: vet.tag, reviews: reading.reading.reviews })
-    accepted &&= reading.reading.allAccepted
+  account = {
+    ...audit,
+    findings: baseFindings,
+    reports: { audit: true, vets: [], rebut: false, rule: false },
+  }
+  const findings = findingIdentities(account)
+  if (findings.length === 0) return { account, twins: [] }
+
+  const keptVets = stored?.reports?.vets ?? []
+  const vetted = await Promise.all(
+    panel.map(async (vet) => {
+      const kept =
+        stored !== undefined &&
+        keptVets.includes(vet.tag) &&
+        (await dependencies.fileExists(vet.report))
+      const result = kept
+        ? storedVet(stored, vet.tag)
+        : await reportPhase<"vet">(() =>
+            dependencies.runPhase.vet({
+              phase: "vet",
+              ...vet.run,
+              ...context,
+              findings,
+              arguments: [report, vet.report],
+              sessionId: null,
+            }),
+          )
+      return { vet, kept, result }
+    }),
+  )
+  const vets = vetted.flatMap(({ vet, result }) =>
+    "reviews" in result ? [{ vet: vet.tag, reviews: result.reviews }] : [],
+  )
+  const savedVets = {
+    audit: true as const,
+    vets: vets.map(({ vet }) => vet),
+    rebut: false,
+    rule: false,
   }
   account = {
     ...account,
-    findings: reviewedRoundFindings(evidence.findings, vets),
+    reports: savedVets,
+    findings: baseFindings.map((finding) => ({
+      ...finding,
+      reviews: vets.flatMap(({ vet, reviews }) => {
+        const review = reviews.find(({ number }) => number === finding.number)
+        if (review === undefined) return []
+        const { verdict, revisedTier } = review
+        return [
+          {
+            vet,
+            verdict,
+            ...(revisedTier === undefined ? {} : { revisedTier }),
+            answer: null,
+          },
+        ]
+      }),
+    })),
   }
+  for (const { vet, result } of vetted)
+    if ("status" in result && result.status === "failed")
+      return stopped("vet", vet.run, result)
+
   const twins = panel.map((vet) => vet.report)
-  const rulerChoices: number[] = []
-  // The rebuttal runs once for the whole panel, unless every vetter accepted
-  // every finding.
-  if (!accepted) {
-    const rebutted = await reportReading(
-      rebut,
-      () => dependencies.readRebuttal(rebut, evidence.findings, vets),
-      () =>
-        dependencies.runPhase.rebut({
-          phase: "rebut",
-          ...phases.rebut,
-          ...context,
-          arguments: [report, ...panel.map((vet) => vet.report), rebut],
-          sessionId: null,
-        }),
-      dependencies,
+  if (
+    vets.every(({ reviews }) =>
+      reviews.every(({ verdict }) => verdict === "accept"),
+    )
+  )
+    return { account, twins }
+
+  const keptPanel =
+    keptVets.length === panel.length && vetted.every(({ kept }) => kept)
+  const keptRebut =
+    stored?.reports?.rebut === true &&
+    keptPanel &&
+    (await dependencies.fileExists(rebut))
+  if (keptRebut) {
+    const reviews = new Map(
+      audit.findings.map((finding) => [finding.number, finding.reviews]),
+    )
+    account = {
+      ...account,
+      findings: account.findings.map((finding) => {
+        const saved = reviews.get(finding.number)
+        return {
+          ...finding,
+          reviews: finding.reviews.map((review) => ({
+            ...review,
+            answer:
+              saved?.find(({ vet }) => vet === review.vet)?.answer ?? null,
+          })),
+        }
+      }),
+    }
+  } else {
+    const rebutted = await reportPhase<"rebut">(() =>
+      dependencies.runPhase.rebut({
+        phase: "rebut",
+        ...phases.rebut,
+        ...context,
+        findings,
+        reviews: vets,
+        arguments: [report, ...twins, rebut],
+        sessionId: null,
+      }),
     )
     if (rebutted.status === "failed")
       return stopped("rebut", phases.rebut, rebutted)
     account = {
       ...account,
-      findings: reviewedRoundFindings(
-        evidence.findings,
-        vets,
-        rebutted.reading,
-      ),
+      findings: account.findings.map((finding) => ({
+        ...finding,
+        reviews: finding.reviews.map((review) => ({
+          ...review,
+          answer:
+            rebutted.answers.find(
+              ({ number, vet }) =>
+                number === finding.number && vet === review.vet,
+            )?.answer ?? null,
+        })),
+      })),
     }
-    twins.push(rebut)
-    // The ruler names the winner of every contest and split on a C or D
-    // finding before the fix starts, so the fix applies winners and never
-    // picks a side. It runs only when such a dispute exists. A choice it
-    // leaves open joins the questions the user answers before the fix, while
-    // its winner stays credited to it.
-    const given = rulerFindings(account).map((number) => ({
-      number,
-      tier: auditTier(evidence, number),
-    }))
-    if (given.length > 0) {
-      const tags = panel.map((vet) => vet.tag)
-      const ruled = await reportReading(
-        ruler,
-        () => dependencies.readRuler(ruler, given, tags),
-        () =>
-          dependencies.runPhase.rule({
-            phase: "rule",
-            ...phases.rule,
-            ...context,
-            arguments: [
-              report,
-              ...panel.map((vet) => vet.report),
-              rebut,
-              ruler,
-              {
-                findings: given.map(({ number, tier }) => ({
-                  finding: number,
-                  tier,
-                })),
-              },
-            ],
-            panel: tags,
-            sessionId: null,
-          }),
-        dependencies,
-        // The ruler's reading check already read the report it saved.
-        async (result) => result.reading,
+  }
+  const savedRebut = { ...savedVets, rebut: true }
+  account = { ...account, reports: savedRebut }
+  twins.push(rebut)
+
+  const given = rulerFindings(account).map((number) => ({
+    finding: number,
+    tier: auditTier(findings, number),
+  }))
+  if (given.length > 0) {
+    const keptRuler =
+      keptRebut &&
+      stored?.reports?.rule === true &&
+      (await dependencies.fileExists(ruler))
+    if (keptRuler) {
+      account = restoreWinners(account, audit, "ruler")
+    } else {
+      const ruled = await reportPhase<"rule">(() =>
+        dependencies.runPhase.rule({
+          phase: "rule",
+          ...phases.rule,
+          ...context,
+          arguments: [report, ...twins, ruler, { findings: given }],
+          panel: panel.map(({ tag }) => tag),
+          sessionId: null,
+        }),
       )
       if (ruled.status === "failed") return stopped("rule", phases.rule, ruled)
+      const choices = new Set(
+        ruled.reading.winners.flatMap(({ number, choice }) =>
+          choice === null ? [] : [number],
+        ),
+      )
       account = recordWinners(
         account,
         ruled.reading.winners.map(({ number, winner, reason }) => ({
@@ -1048,18 +1100,18 @@ async function reviewRound(
           reason,
         })),
         "ruler",
+        choices,
       )
-      for (const { number, choice } of ruled.reading.winners)
-        if (choice !== null) rulerChoices.push(number)
-      twins.push(ruler)
     }
+    account = {
+      ...account,
+      reports: { ...savedRebut, rule: true },
+    }
+    twins.push(ruler)
   }
   return {
-    evidence,
-    account:
-      input.stored === undefined ? account : userWinners(account, input.stored),
+    account: keptRebut ? restoreWinners(account, audit, "user") : account,
     twins,
-    rulerChoices,
   }
 }
 
@@ -1238,16 +1290,16 @@ export async function runRound(
   )
   const review = await reviewRound(input, phases, panel, dependencies)
   if ("status" in review) return review
-  const { evidence, twins, rulerChoices } = review
+  const { twins } = review
   let account = review.account
-  if (evidence.findings.length === 0) {
+  if (account.findings.length === 0) {
     let landedClean: readonly LandedCommit[]
     try {
       landedClean = (
         await dependencies.completeClean({
           ...input,
           report,
-          judgedRepos: evidence.judgedRepos,
+          judgedRepos: account.judgedRepos,
         })
       ).commits
     } catch (error) {
@@ -1278,7 +1330,7 @@ export async function runRound(
   const fixerSide = selectedFixerSide(phases, panel, releases)
   const tags = panel.map((vet) => vet.tag)
   const reports = [report, ...twins]
-  const questions = rulingQuestions(account, rulerChoices)
+  const questions = rulingQuestions(account)
   let choices: ChoiceScope["choices"] = []
   if (questions.length > 0) {
     const asked = stored?.commits ?? []

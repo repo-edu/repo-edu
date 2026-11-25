@@ -88,6 +88,7 @@ import {
   roundFixer,
   targetWorkClass,
 } from "./phase.js"
+import { readPlanSteps } from "./plan-steps.js"
 import {
   type AuditorEntry,
   auditorSetting,
@@ -96,7 +97,6 @@ import {
   writeQueue,
 } from "./queue.js"
 import { replayReport } from "./replay.js"
-import { readReport } from "./report.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
@@ -122,7 +122,6 @@ import {
   roundSubject,
   targetLabel,
 } from "./round-paths.js"
-import { readRulerReport } from "./ruler-report.js"
 import {
   answerFormText,
   listenForRuling,
@@ -162,7 +161,6 @@ import {
   splitSource,
   type TargetRequest,
 } from "./target.js"
-import { readRebuttal, readVet } from "./vet.js"
 
 /** What the command line selected, captured by the subcommand actions. */
 type Invocation =
@@ -1593,18 +1591,11 @@ export async function runCommand(
         active.cleanCompletion(completion.message)
         return completion
       },
-      readReport: async (file, kind, target) =>
-        readReport(await readFile(file, "utf8"), kind, target),
-      readVet: async (file, findings) =>
-        readVet(await readFile(file, "utf8"), findings),
-      readRebuttal: async (file, findings, panel) =>
-        readRebuttal(await readFile(file, "utf8"), findings, panel),
-      readRuler: async (file, findings, panel) =>
-        readRulerReport(await readFile(file, "utf8"), findings, panel),
       seriesEvidence: readSeriesEvidence,
       chainDeferrals,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
+      readSteps: async (plan) => readPlanSteps(await readFile(plan, "utf8")),
       resolvePlan,
       fileExists: async (file) => {
         try {

@@ -23,15 +23,17 @@ import {
   type RulerScope,
   type RulingRequest,
 } from "../phase.js"
+import type { AuditReport } from "../report.js"
 import {
   continuedSetup,
   openSeriousFindings,
   rulerFindings,
-  runRound as runRoundOn,
+  runRound as runRoundCore,
   seriousFindings,
 } from "../round.js"
 import type {
   FindingRebuttal,
+  FindingReview,
   ImplementationRoundData,
   LandedCommit,
   PlanningRoundData,
@@ -43,7 +45,6 @@ import type {
 import type { RulingInput, RulingQuestion } from "../ruling-wait.js"
 import { RunClock } from "../run-clock.js"
 import { type CommitGroup, commitTargetRequest } from "../target.js"
-import type { VetReading } from "../vet.js"
 import {
   type Assistant,
   roundRun as allocateRound,
@@ -56,7 +57,6 @@ import {
   type RoundDependencies,
   RoundOutput,
   runClose,
-  runRound as runRoundWithAccount,
   testSettings,
   testVetter,
   testWatch,
@@ -173,6 +173,60 @@ function withoutAccount<T extends object>(result: T): Omit<T, "account"> {
   return rest
 }
 
+type TestRoundDependencies = RoundDependencies & {
+  readonly auditResult?: () => Promise<AuditReport>
+  readonly vetResult?: (
+    file: string,
+  ) => Promise<{ readonly reviews: readonly FindingReview[] }>
+  readonly rebutResult?: () => Promise<readonly FindingRebuttal[]>
+}
+
+function runRoundOn(
+  input: Parameters<typeof runRoundCore>[0],
+  dependencies: TestRoundDependencies,
+  roundReleases: Parameters<typeof runRoundCore>[2] = releases,
+  settings: Parameters<typeof runRoundCore>[3] = testSettings,
+) {
+  const phases = dependencies.runPhase
+  return runRoundCore(
+    input,
+    {
+      ...dependencies,
+      runPhase: {
+        ...phases,
+        async audit(call) {
+          const result = await phases.audit(call)
+          return result.status === "failed" ||
+            dependencies.auditResult === undefined
+            ? result
+            : { ...result, report: await dependencies.auditResult() }
+        },
+        async vet(call) {
+          const result = await phases.vet(call)
+          return result.status === "failed" ||
+            dependencies.vetResult === undefined
+            ? result
+            : {
+                ...result,
+                ...(await dependencies.vetResult(call.arguments[1])),
+              }
+        },
+        async rebut(call) {
+          const result = await phases.rebut(call)
+          return result.status === "failed" ||
+            dependencies.rebutResult === undefined
+            ? result
+            : { ...result, answers: await dependencies.rebutResult() }
+        },
+      },
+    },
+    roundReleases,
+    settings,
+  )
+}
+
+const runRoundWithAccount = runRoundOn
+
 const runRound: typeof runRoundWithAccount = async (...arguments_) =>
   withoutAccount(await runRoundWithAccount(...arguments_)) as Awaited<
     ReturnType<typeof runRoundWithAccount>
@@ -221,23 +275,16 @@ function controlledRound(
   let glance: GlanceDecision = { due: false, text: "No rule holds." }
   // A close that finished moved its plan unless a test leaves it in place.
   let planRemains = false
-  // The reports a stopped round kept, and those of them their readers refuse.
-  // A phase that runs writes its report afresh, which its reader admits.
   const kept = new Set<string>()
-  const refused = new Set<string>()
-  const admit = (file: string) => {
-    if (refused.has(file)) throw new Error(`Refused kept report ${file}`)
-  }
-  const wrote = (file: string) => {
-    kept.add(file)
-    refused.delete(file)
-  }
+  const wrote = (file: string) => kept.add(file)
   // The commits a stopped fix landed, read back by their full IDs.
   const storedRecords = new Map<string, LandedRecord>()
   // The choice the stub ruler leaves open on every finding it is given.
   const ruler: { choice: string | null } = { choice: null }
   const results: {
-    [P in RoundPhase]: PhaseResult<P>
+    [P in RoundPhase]: P extends "audit" | "vet" | "rebut"
+      ? PhaseResult<"close">
+      : PhaseResult<P>
   } = {
     audit: {
       status: "finished",
@@ -302,7 +349,7 @@ function controlledRound(
     rebuttalAnswer: "agree",
     subjects: ["example/impl-audit-1 oth clean: settled"],
   }
-  const vetReading = (): VetReading => ({
+  const vetReading = (): { readonly reviews: readonly FindingReview[] } => ({
     reviews: evidence.findings.map((finding) => ({
       number: finding.number,
       tier: finding.tier,
@@ -311,7 +358,6 @@ function controlledRound(
         ? {}
         : { revisedTier: evidence.revisedTier }),
     })),
-    allAccepted: evidence.accepted,
   })
   const rebuttalReading = (): FindingRebuttal[] =>
     evidence.accepted
@@ -345,36 +391,11 @@ function controlledRound(
       completions.push(input)
       return { message: "Clean audit recorded", commits: [] }
     },
-    readReport: async (file) => {
-      admit(file)
-      return {
-        settling: evidence.settling,
-        findings: evidence.findings,
-        judgedRepos: ["repo-edu"],
-      }
-    },
-    readVet: async (file) => {
-      admit(file)
-      return vetReading()
-    },
-    readRebuttal: async (file) => {
-      admit(file)
-      return rebuttalReading()
-    },
-    // A kept ruler report names `report` on every finding the ruler is given.
-    readRuler: async (file, given) => {
-      admit(file)
-      return {
-        winners: given.map(({ number, tier }) => ({
-          number,
-          tier,
-          winner: "report",
-          reason: "The finding stands.",
-          choice: ruler.choice,
-        })),
-        sources: [],
-      }
-    },
+    readSteps: async () =>
+      Array.from({ length: 10 }, (_, index) => ({
+        number: index + 1,
+        repositories: ["repo-edu"],
+      })),
     readHead: async (root) => `before-${root}`,
     resolvePlan: async (roots, stem) => join(roots.activeRoot, `${stem}.md`),
     fileExists: async (file) => planRemains || kept.has(file),
@@ -414,15 +435,30 @@ function controlledRound(
     runPhase: {
       async audit(input) {
         await record(input)
-        return results.audit
+        return results.audit.status === "failed"
+          ? results.audit
+          : {
+              ...results.audit,
+              report: {
+                settling: evidence.settling,
+                findings: evidence.findings,
+                judgedRepos: input.reportScope.heads.map(
+                  ({ repository }) => repository,
+                ),
+              },
+            }
       },
       async vet(input) {
         await record(input)
-        return results.vet
+        return results.vet.status === "failed"
+          ? results.vet
+          : { ...results.vet, ...vetReading() }
       },
       async rebut(input) {
         await record(input)
-        return results.rebut
+        return results.rebut.status === "failed"
+          ? results.rebut
+          : { ...results.rebut, answers: rebuttalReading() }
       },
       async rule(input) {
         await record(input)
@@ -494,7 +530,6 @@ function controlledRound(
       roundDataCommit = commit
     },
     kept,
-    refused,
     storedRecords,
     ruler,
   }
@@ -717,7 +752,7 @@ test("a panel of both assistants vets side by side, and every vet report reaches
         }
       },
       // Claude accepts the B finding and Codex drops it, so the panel splits.
-      readVet: async (vetReport) => ({
+      vetResult: async (vetReport) => ({
         reviews: [
           {
             number: 1,
@@ -725,9 +760,8 @@ test("a panel of both assistants vets side by side, and every vet report reaches
             verdict: vetReport === panelReports[0] ? "accept" : "drop",
           },
         ],
-        allAccepted: vetReport === panelReports[0],
       }),
-      readRebuttal: async () => [
+      rebutResult: async () => [
         { number: 1, tier: "B", vet: "obh", answer: "agree" },
       ],
     },
@@ -790,7 +824,7 @@ async function panelSplit(
     },
     {
       ...round.dependencies,
-      readVet: async (vetReport) => ({
+      vetResult: async (vetReport) => ({
         reviews: [
           {
             number: 1,
@@ -798,9 +832,8 @@ async function panelSplit(
             verdict: vetReport === panelReports[0] ? "accept" : "drop",
           },
         ],
-        allAccepted: vetReport === panelReports[0],
       }),
-      readRebuttal: async () => [
+      rebutResult: async () => [
         { number: 1, tier, vet: "obh", answer: "agree" },
       ],
     },
@@ -852,6 +885,33 @@ test("a split on a C finding goes to the ruler, whose winner reaches the fix wit
   })
 })
 
+test("a continued round asks again for the choice stored with the ruler's winner", async () => {
+  const round = controlledRound()
+  round.ruler.choice = "Which option should land?"
+  const initial = await panelSplit(round, "C")
+  assert.equal(initial.status, "awaiting-ruling")
+  assert.equal(initial.account.findings[0]?.ruling?.withChoice, true)
+  const calls = round.calls.length
+  const continued = await runRoundOn(
+    {
+      ...files,
+      documents: { ...files.documents, vets: panelReports },
+      plan: "example.md",
+      scope: "1",
+      stored: storedEntry(initial, "awaiting-ruling"),
+    },
+    round.dependencies,
+    releases,
+    panelSettings,
+  )
+  assert.equal(continued.status, "awaiting-ruling")
+  assert.equal(round.calls.length, calls)
+  assert.deepEqual(
+    round.rulings.map(({ questions }) => questions),
+    [[{ finding: 1, needs: "choice" }], [{ finding: 1, needs: "choice" }]],
+  )
+})
+
 test("a split on a B finding runs no ruler and goes to the user", async () => {
   const round = controlledRound()
   const result = await panelSplit(round, "B")
@@ -900,7 +960,11 @@ test("a failed vetter of a panel fails the round once every vetter has ended", a
           round.calls.push(input)
           return input.arguments[1] === panelReports[1]
             ? failure
-            : round.results.vet
+            : {
+                status: "finished",
+                sessionId: "vet-session",
+                reviews: [{ number: 1, tier: "B", verdict: "accept" }],
+              }
         },
       },
     },
@@ -911,6 +975,10 @@ test("a failed vetter of a panel fails the round once every vetter has ended", a
     round.calls.map((call) => call.phase),
     ["audit", "vet", "vet"],
   )
+  assert.deepEqual(result.account.reports?.vets, ["abh"])
+  assert.deepEqual(result.account.findings[0]?.reviews, [
+    { vet: "abh", verdict: "accept", answer: null },
+  ])
   const [, codexVet] = panelPhases("implementation", panelSettings)
   assert.deepEqual(withoutAccount(result), {
     ...failure,
@@ -989,7 +1057,7 @@ test("one wait before the fix asks every serious finding, and the fix's first ca
     { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
-      readRebuttal: async () =>
+      rebutResult: async () =>
         [1, 2].map((number) => ({
           number,
           tier: "B" as const,
@@ -1142,6 +1210,7 @@ for (const choice of [null, "Whether to keep the field."] as const) {
       winner: "report",
       reason: "The finding stands.",
       namedBy: "ruler",
+      ...(choice === null ? {} : { withChoice: true }),
     })
     const fix = round.calls.find((call) => call.phase === "fix")
     assert.deepEqual(fix?.arguments.slice(4), [
@@ -1172,15 +1241,14 @@ test("a mixed round asks the user's winner, the ruler's open choice and an agree
     { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
-      readVet: async () => ({
+      vetResult: async () => ({
         reviews: round.evidence.findings.map((finding) => ({
           number: finding.number,
           tier: finding.tier,
           verdict: finding.number === 3 ? "needs-user-ruling" : "revise",
         })),
-        allAccepted: false,
       }),
-      readRebuttal: async () =>
+      rebutResult: async () =>
         round.evidence.findings.map((finding) => ({
           number: finding.number,
           tier: finding.tier,
@@ -1297,6 +1365,14 @@ function storedEntry(
     commits: [...stopped.commits],
     findings: [...stopped.account.findings],
     judgedRepos: [...stopped.account.judgedRepos],
+    ...(stopped.account.reports === undefined
+      ? { reports: { audit: true, vets: [vetTag], rebut: true, rule: false } }
+      : {
+          reports: {
+            ...stopped.account.reports,
+            vets: [...stopped.account.reports.vets],
+          },
+        }),
   }
 }
 
@@ -1489,7 +1565,7 @@ test("a winner answered with a choice before a stopped fix stands, and only its 
   ])
 })
 
-test("a stored winner stands only while the kept reports rebuild its finding as stored", async () => {
+test("a stored winner stands while the reviews it judged are kept", async () => {
   const round = controlledRound()
   round.evidence.rebuttalAnswer = "contest"
   const initial = await runRoundWithAccount(
@@ -1522,8 +1598,7 @@ test("a stored winner stands only while the kept reports rebuild its finding as 
     )
   const asked = round.rulings.length
 
-  // The kept reports rebuild the finding as stored, so its winner stands and
-  // the fix finishes without asking again.
+  // The stored reviews and winner stand, so the fix finishes without asking again.
   round.results.fix = {
     status: "finished",
     sessionId: "fix-session",
@@ -1542,8 +1617,9 @@ test("a stored winner stands only while the kept reports rebuild its finding as 
   assert.equal(round.rulings.length, asked)
   assert.deepEqual(openInCall(round.calls.at(-1) as PhaseInput), [])
 
-  // A winner given on a drop the kept vet report no longer gives judged other
-  // reviews, so the user rules again before any fix starts.
+  // The missing report needs a new verdict and rebuttal. The old winner
+  // judged a drop, so the user rules on the new review.
+  round.kept.delete(vetReport)
   const calls = round.calls.length
   const changed = await runRoundWithAccount(
     {
@@ -1558,7 +1634,10 @@ test("a stored winner stands only while the kept reports rebuild its finding as 
   assert.deepEqual(round.rulings.at(-1)?.questions, [
     { finding: 1, needs: "winner" },
   ])
-  assert.equal(round.calls.length, calls)
+  assert.deepEqual(
+    round.calls.slice(calls).map(({ phase }) => phase),
+    ["vet", "rebut"],
+  )
 })
 
 test("a continued vet runs only the vetters of the current panel without a kept vet report", async () => {
@@ -1577,7 +1656,13 @@ test("a continued vet runs only the vetters of the current panel without a kept 
         account: {
           settling: "",
           judgedRepos: ["repo-edu"],
-          findings: [{ ...reviewedFinding, reviews: [] }],
+          findings: [
+            {
+              ...reviewedFinding,
+              reviews: [{ vet: "abh", verdict: "accept", answer: null }],
+            },
+          ],
+          reports: { audit: true, vets: ["abh"], rebut: false, rule: false },
         },
       }),
     },
@@ -1598,11 +1683,11 @@ test("a continued vet runs only the vetters of the current panel without a kept 
   )
 })
 
-test("a kept report its reader refuses runs its phase again in a fresh session", async () => {
+test("a missing vet report reruns the vet and its dependent rebuttal", async () => {
   const round = controlledRound()
   for (const file of [files.documents.report, vetReport, files.documents.rebut])
     round.kept.add(file)
-  round.refused.add(vetReport)
+  round.kept.delete(vetReport)
   const result = await runRoundWithAccount(
     {
       ...files,
@@ -1624,6 +1709,7 @@ test("a kept report its reader refuses runs its phase again in a fresh session",
     round.calls.map((call) => [call.phase, call.sessionId]),
     [
       ["vet", null],
+      ["rebut", null],
       ["fix", null],
     ],
   )
@@ -1674,6 +1760,12 @@ for (const ended of ["fix", "clean completion"] as const) {
       judgedRepos: ["repo-edu"],
       findings:
         ended === "fix" ? [{ ...reviewedFinding, outcome: "kept" }] : [],
+      reports: {
+        audit: true,
+        vets: ended === "fix" ? [vetTag] : [],
+        rebut: ended === "fix",
+        rule: false,
+      },
     }
     const result = await runRoundWithAccount(
       {
@@ -1907,6 +1999,7 @@ test("the round data retains review, rebuttal and settlement outcomes", async ()
   assert.deepEqual(result.account, {
     settling: "",
     judgedRepos: ["repo-edu"],
+    reports: { audit: true, vets: [vetTag], rebut: true, rule: false },
     findings: [
       {
         ...reportFinding,
@@ -1984,7 +2077,7 @@ for (const grade of ["green", "amber"] as const) {
       { ...files, plan: "../plan/archive/example/plan.md", scope: "1" },
       {
         ...round.dependencies,
-        readReport: async () => ({
+        auditResult: async () => ({
           settling: "",
           findings: [reportFinding],
           judgedRepos: ["plan", "repo-edu"],
@@ -2071,38 +2164,28 @@ test("a due watch receives the current round's dropped findings from joined evid
   )
 })
 
-for (const [ending, sequence] of endings) {
-  for (const phase of sequence.filter((phase) => phase !== "fix")) {
-    test(`missing output stops ${phase} before the next phase on the ${ending} route`, async () => {
-      const round = controlledRound()
-      arrange(round, ending)
-      const result = await runRound(
-        { ...files, plan: "example.md", scope: "1" },
-        {
-          ...round.dependencies,
-          async checkFile(file) {
-            const call = round.calls.at(-1)
-            if (call?.phase === phase)
-              throw new Error(`Missing output: ${file}`)
-          },
-          async writeWatchDocument(file, document) {
-            if (phase === "watch") throw new Error(`Missing output: ${file}`)
-            await round.dependencies.writeWatchDocument(file, document)
-          },
-        },
-      )
-      assert.equal(result.status, "failed")
-      if (result.status !== "failed") return
-      assert.equal(result.phase, phase)
-      assert.equal(result.sessionId, `${phase}-session`)
-      assert.deepEqual(
-        round.calls.map((call) => call.phase),
-        sequence.slice(0, sequence.indexOf(phase) + 1),
-      )
-      assert.deepEqual(round.rulings, [])
-    })
-  }
-}
+test("a failed watch document write stops the round", async () => {
+  const round = controlledRound()
+  arrange(round, "watch")
+  const result = await runRound(
+    { ...files, plan: "example.md", scope: "1" },
+    {
+      ...round.dependencies,
+      async writeWatchDocument(file) {
+        throw new Error(`Missing output: ${file}`)
+      },
+    },
+  )
+  assert.equal(result.status, "failed")
+  if (result.status !== "failed") return
+  assert.equal(result.phase, "watch")
+  assert.equal(result.sessionId, "watch-session")
+  assert.deepEqual(
+    round.calls.map(({ phase }) => phase),
+    watchPhases,
+  )
+  assert.deepEqual(round.rulings, [])
+})
 
 type ControlledRound = ReturnType<typeof controlledRound>
 
@@ -2166,6 +2249,11 @@ for (const auditor of ["claude", "codex"] as const) {
       assert.deepEqual(round.calls, [
         {
           phase: "audit",
+          reportScope: {
+            target: "example.md 2-3",
+            planPhase: null,
+            heads: [{ repository: "repo-edu", head: `before-${repoRoot}` }],
+          },
           assistant: auditor,
           model: pinned(auditor),
           ...testContext(repoRoot),
@@ -2180,6 +2268,7 @@ for (const auditor of ["claude", "codex"] as const) {
         },
         {
           phase: "vet",
+          findings: [{ number: 1, tier: "B" }],
           ...testVetter(),
           ...testContext(repoRoot),
           cwd: ownerRoot,
@@ -2188,6 +2277,13 @@ for (const auditor of ["claude", "codex"] as const) {
         },
         {
           phase: "rebut",
+          findings: [{ number: 1, tier: "B" }],
+          reviews: [
+            {
+              vet: vetTag,
+              reviews: [{ number: 1, tier: "B", verdict: "revise" }],
+            },
+          ],
           assistant: auditor,
           model: pinned(auditor),
           ...testContext(repoRoot),
@@ -3464,44 +3560,15 @@ test("a finished close whose round data cannot be archived fails with its sessio
   assert.deepEqual(round.moved, [])
 })
 
-test("the round reads each supplied file and records both heads immediately before the fix", async () => {
+test("the round captures judged heads before the audit and both heads before the fix", async () => {
   const round = controlledRound()
   const reads: unknown[] = []
   const result = await runRound(
     { ...files, plan: "example.md", scope: "1" },
     {
       ...round.dependencies,
-      async readReport(file, kind) {
-        reads.push([file, kind])
-        return {
-          settling: "",
-          findings: [reportFinding, secondReportFinding],
-          judgedRepos: ["repo-edu"],
-        }
-      },
-      async readVet(file, findings) {
-        reads.push([file, findings])
-        return {
-          reviews: [
-            {
-              number: 1,
-              tier: "B",
-              verdict: "revise",
-            },
-            {
-              number: 2,
-              tier: "C",
-              verdict: "accept",
-            },
-          ],
-          allAccepted: false,
-        }
-      },
       async readHead(root) {
-        assert.deepEqual(
-          round.calls.map((call) => call.phase),
-          ["audit", "vet", "rebut"],
-        )
+        reads.push([root, round.calls.map((call) => call.phase)])
         return `head-${root}`
       },
       async readRecords(root, before, repository) {
@@ -3523,8 +3590,9 @@ test("the round reads each supplied file and records both heads immediately befo
     },
   )
   assert.deepEqual(reads, [
-    [`${repoRoot}/AUDIT-example.md`, "implementation"],
-    [vetReport, [reportFinding, secondReportFinding]],
+    [files.repoEduRoot, []],
+    [files.repoEduRoot, ["audit", "vet", "rebut"]],
+    [files.planRoot, ["audit", "vet", "rebut"]],
   ])
   assert.deepEqual(result, {
     status: "finished",
@@ -3567,9 +3635,8 @@ test("landed plan corrections do not make an audit clean", async () => {
 })
 
 for (const [reader, phase, sessionId, called] of [
-  ["readReport", "audit", "audit-session", ["audit"]],
-  ["readVet", "vet", "vet-session", ["audit", "vet"]],
-  ["readHead", "fix", null, ["audit", "vet", "rebut"]],
+  ["readSteps", "audit", null, []],
+  ["readHead", "audit", null, []],
   ["readRecords", "fix", "fix-session", ["audit", "vet", "rebut", "fix"]],
 ] as const) {
   test(`${reader} failure stops the round with the owning phase and recovery session`, async () => {

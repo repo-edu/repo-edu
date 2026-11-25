@@ -401,6 +401,7 @@ const implementationReport = (target: string) =>
 async function stoppedRound(
   setup: Parameters<typeof roundRun>[0],
   report: string | null,
+  saved = report !== null,
 ) {
   const run = await roundRun(setup, 0, releases)
   const output = new RoundOutput(run, options)
@@ -414,19 +415,30 @@ async function stoppedRound(
     model: pinned("claude"),
     ...testContext(setup.repoEduRoot),
     commits: [],
-    account: { settling: "", judgedRepos: [], findings: [] },
+    account: {
+      settling: "",
+      judgedRepos: [],
+      findings: [],
+      ...(saved
+        ? {
+            reports: {
+              audit: true,
+              vets: [],
+              rebut: false,
+              rule: false,
+            } as const,
+          }
+        : {}),
+    },
   })
   output.close()
   return run
 }
 
-test("a call continues its target's newest stopped round on the kept audit report", async (t) => {
+test("a call continues a stopped round when its audit report was edited", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
-  const stopped = await stoppedRound(
-    setup,
-    implementationReport("example.md 1"),
-  )
+  const stopped = await stoppedRound(setup, "Edited audit report.\n")
   // The kept audit report fixes the auditor, whatever the call asks.
   const next = await roundRun({ ...setup, auditor: "claude" }, 0, releases)
   assert.equal(next.nameStart, stopped.nameStart)
@@ -480,10 +492,11 @@ test("a stopped round without a valid kept audit report leaves the call a new ro
   assert.equal(afterAudit.nameStart, "example-impl-audit-01..01-02")
   assert.equal(afterAudit.stored, undefined)
   new RoundOutput(afterAudit, options).close()
-  // A report that names another target does not read as valid.
+  // A report from before the runner stored outcomes does not continue.
   const mistargeted = await stoppedRound(
     setup,
-    implementationReport("example.md 2"),
+    implementationReport("example.md 1"),
+    false,
   )
   assert.equal(mistargeted.nameStart, "example-impl-audit-01..01-03")
   const refused = await roundRun(setup, 0, releases)

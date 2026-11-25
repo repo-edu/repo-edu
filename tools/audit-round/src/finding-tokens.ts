@@ -137,7 +137,7 @@ export type FindingTokenPrefix = {
 
 /**
  * Read the shared `[key:value]` token sequence at the start of a finding line.
- * Audit report findings require an empty remainder; record bullets require prose.
+ * Record bullets require prose after the tokens.
  */
 export function readFindingTokenPrefix(
   source: string,
@@ -211,82 +211,3 @@ export function deferralCitationTokenKeys(
     keys.push("applies")
   return keys
 }
-
-export type ReportLocationToken = "section" | "area" | "plan"
-export type ReportLocationAdmission =
-  | "plan"
-  | "repo-edu"
-  | "deferred-plan"
-  | "deferred-repo-edu"
-
-export type ReportLocationCell =
-  | {
-      readonly caseId: string
-      readonly outcome: "parsed"
-      readonly admission: ReportLocationAdmission
-    }
-  | {
-      readonly caseId: string
-      readonly outcome: "refused"
-      readonly refusal: "invalid plan deferral" | "invalid plan location"
-    }
-
-export type JudgedRepositorySet = "plan" | "repo-edu" | "plan, repo-edu"
-
-/** The audit report grammar's complete judged-repo-set/location decision table. */
-export const reportLocationTable = {
-  plan: {
-    section: {
-      caseId: "report/location-plan-section",
-      outcome: "parsed",
-      admission: "plan",
-    },
-    area: {
-      caseId: "report/location-plan-area",
-      outcome: "parsed",
-      admission: "deferred-repo-edu",
-    },
-    plan: {
-      caseId: "report/location-plan-plan",
-      outcome: "refused",
-      refusal: "invalid plan deferral",
-    },
-  },
-  "repo-edu": {
-    section: {
-      caseId: "report/location-repo-edu-section",
-      outcome: "refused",
-      refusal: "invalid plan location",
-    },
-    area: {
-      caseId: "report/location-repo-edu-area",
-      outcome: "parsed",
-      admission: "repo-edu",
-    },
-    plan: {
-      caseId: "report/location-repo-edu-plan",
-      outcome: "parsed",
-      admission: "deferred-plan",
-    },
-  },
-  "plan, repo-edu": {
-    section: {
-      caseId: "report/location-both-section",
-      outcome: "parsed",
-      admission: "plan",
-    },
-    area: {
-      caseId: "report/location-both-area",
-      outcome: "parsed",
-      admission: "repo-edu",
-    },
-    plan: {
-      caseId: "report/location-both-plan",
-      outcome: "refused",
-      refusal: "invalid plan deferral",
-    },
-  },
-} as const satisfies Record<
-  JudgedRepositorySet,
-  Record<ReportLocationToken, ReportLocationCell>
->

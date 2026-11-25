@@ -68,7 +68,8 @@ runner code reads it. A plain choice with no fact in dispute still carries a
 record. That record is short: it names the sources the options rest on and says
 that no point is in dispute.
 
-An example of a record with two points:
+In a ruler result put each point's question, sources and evidence in the
+supplied fields. A ruling document may use the following prose form:
 
 ```text
 Point 1: whether the report reader admits an empty plan target.

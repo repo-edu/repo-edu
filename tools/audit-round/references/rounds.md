@@ -84,63 +84,33 @@ entry. The [watch](watch.md#watch) then runs, and an automatic series applies it
 [decision](series.md#automatic-series). The watch still runs when the fix changed the plan's phase,
 but the series decision does not.
 
-## Report readers
+## Report results
 
-The coordinator receives its readers through `RoundDependencies`: the audit report reader, the vet
-report reader, and the HEAD and subject reads. The ruler report reader and the read of one landed
-record by its full ID are supplied the same way, because a continued round reads its kept ruler
-report and the commits its stopped fix landed.
+The runner validates each report result against the schema it gave the session.
+It writes the Markdown, displays it and keeps the fields needed for routing in
+the round entry. Vet explanations, audit evidence and the ruler's evidence
+record stay in the report.
 
 ### Audit report
 
-`report.ts` uses `mdast-util-from-markdown` to read the document-level opening and the finding
-fields.
-
-- The first grammar-owned field heading ends the opening. Other level-2 headings stay inside it, so
-  presentation depth cannot hide the workflow, target or judged repositories from the reader.
-- The target is compared with its literal spelling in the opening paragraph because a path such
-  as `src/__tests__/round.test.mv.md` contains Markdown formatting characters.
-- Planning audit reports have Excess functionality and Missing functionality fields.
-  Implementation audit reports have one Findings field, which includes deferred findings.
-- Each field holds depth-3 finding headings or its exact empty-field sentence. A heading form keeps
-  evidence free of the indentation a numbered list needs, which grew by one space at the tenth
-  finding and was missed.
-- Finding titles are distinct across the whole audit report, because the vet and the rebuttal name
-  findings by them. Round data joins findings to record bullets by the `[finding:<n>]` number each
-  bullet opens with.
-- Quoted evidence and code blocks supply no findings.
-- A widening audit report must end with the grammar's settling line as its last paragraph. The
-  reader takes the line from its source, so a formatted reason keeps its words, and returns it as
-  the audit report's settling value. It refuses a settling line on any other audit report class
-  and returns an empty value there. A clean widening round retains the audit report's line as its
-  settling recommendation, since no fix ran to replace it.
+The runner supplies the target and the judged repositories with their heads.
+It writes the opening metadata and numbers the findings. In a planning audit it
+groups excess before missing. It writes the recommendation last for a widening
+audit and retains its value for the series when a clean audit needs no fix.
 
 ### Vet and rebuttal reports
 
-`vet.ts` reads the fixed verdict and answer lines and ignores every other line.
-
-- It requires verdicts for the audit report's finding numbers in order.
-- A `Revise to [<tier>]` suffix records a changed tier. An unchanged tier stays plain `Revise`.
-- A rebuttal answer line names the vetter it answers by its tag, so the reader takes the vetter
-  from the line alone.
-- It requires one answer for each revise, drop and ruling verdict of each panel vetter, in audit
-  report order and then panel order.
-- It refuses by name an answer that names no vetter, a vetter outside the panel or a vetter that
-  accepted the finding. A misnumbered or mistagged answer therefore fails on its own line rather
-  than as a missing one.
+The vet schema has a slot for each audit finding. The rebuttal schema has a
+slot for each review that needs an answer. The runner writes findings in audit
+order and includes the audit's tier. Each rebuttal finding follows panel order.
 
 ### Ruler report
 
-`ruler-report.ts` reads the ruler report under the grammar's
-[Ruler report](../../../.agents/references/round-grammar.md#ruler-report), against the findings the
-ruler was given and the round's panel. It returns one winner, one-line reason and any open choice
-per given finding in audit report order, and every source the report names as opened, each once.
-
-A source is a file's absolute path or a commit's first six characters, so it can be matched as
-plain text against the ruler's own tool lines. `unopenedSources` is that reading check: a source
-counts as opened when its text appears in a tool invocation line of the session, or when it is the
-path of a file the first prompt supplied whole. The assistant boundary sends a ruler that missed a
-source back once with `rulerSourceRequest`, and a second miss fails the phase.
+The ruler schema names each finding the ruler judges and the panel tags
+available as winners. A source is an absolute path or the first six characters
+of a commit ID. The runner checks these names against actual tool calls and the
+files supplied whole in the prompt. It asks the same session once to open any
+missing sources and obtain a new result. A second miss fails the phase.
 
 ## Winners and rulings
 

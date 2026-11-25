@@ -221,7 +221,7 @@ export function rulerSourceRequest(
   missed: readonly string[],
 ): string {
   return `${phaseOpening(input, "resumed")}
-Your ruler report names sources this session did not open: ${missed.map((source) => `\`${source}\``).join(", ")}. Open each one now with a tool call that holds that name as written: a file read by its absolute path, or a command that holds the path or the commit's six characters, as the shared protocol's Ruler duties require. Judge again from what you read. Then return your complete ruler report again and end it with the PHASE RESULT line. The runner reads only the new response, and a second miss fails the round.
+Your ruler report names sources this session did not open: ${missed.map((source) => `\`${source}\``).join(", ")}. Open each one now with a tool call that holds that name as written: a file read by its absolute path, or a command that holds the path or the commit's six characters, as the shared protocol's Ruler duties require. Judge again from what you read. Return the complete result again under the supplied schema. The runner uses the new result, and a second miss fails the round.
 ${runnerResultRule(input.repoEduRoot)}`
 }
 
@@ -232,7 +232,7 @@ function formatPhasePrompt(
 ): string {
   const { repoEduRoot, cwd } = input
   const ending = usesStructuredResult(input.phase)
-    ? "Return your final response in the supplied schema. Use the schema for this invocation even when continuing an earlier session."
+    ? `${runnerResultRule(repoEduRoot)}\nReturn your final response in the supplied schema. Use the schema for this invocation even when continuing an earlier session.`
     : runnerResultRule(repoEduRoot)
   const prompt = `${phaseOpening(input, input.sessionId === null ? "fresh" : "resumed")}
 Working directory: ${cwd}
@@ -240,7 +240,7 @@ Repo Edu checkout: ${repoEduRoot}
 Plan checkout: ${input.planRoot}
 ${instructions === null ? "Continue the supplied workflow in this resumed session." : `Follow the supplied workflow below. The workflow's listed files are supplied whole under their source paths; do not fetch them again.\n\n${instructions}\n\nEnd of supplied phase instructions.`}
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
-Workflow: ${phaseWorkflow(input)}
+${input.phase === "audit" ? `Audit scope (JSON): ${JSON.stringify(input.reportScope)}\n` : ""}Workflow: ${phaseWorkflow(input)}
 The supplied workflow and phase arguments are already resolved. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
 ${ending}${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : ""}`
   if (input.phase !== "fix" && input.phase !== "implement") return prompt

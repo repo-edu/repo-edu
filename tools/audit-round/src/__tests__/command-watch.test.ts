@@ -9,6 +9,7 @@ import { roundFixture } from "./round-fixture.js"
 
 test("repeated auditor entries run beyond the old cap with one startup", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, "b")
+  await f.steps(3)
   assert.equal(
     await runCommand(
       ["round", "example.md", "3", "--auditor", "codex,codex,codex,codex"],
@@ -150,6 +151,7 @@ test("a red watch stops the auditor sequence before the next queued round", asyn
 
 test("a due glance admits and publishes the returned watch without round session files", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  await f.steps(3)
   assert.equal(
     await runCommand(["round", "example.md", "3"], f.runtime, f.options),
     0,
@@ -204,6 +206,7 @@ test("a due glance admits and publishes the returned watch without round session
 
 test("a compacted watch publishes neither its document nor cadence record", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  await f.steps(3)
   const watchPhase = f.phases.watch as {
     usage: { path: string; text: string }
   }
@@ -291,6 +294,7 @@ for (const target of ["implementation", "planning", "commits"] as const) {
 
 test("--no-watch skips the glance and the watch, whatever the record says", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
+  await f.steps(3)
   assert.equal(
     await runCommand(
       ["round", "example.md", "3", "--no-watch", "--auditor", "o"],

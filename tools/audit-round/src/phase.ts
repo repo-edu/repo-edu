@@ -7,9 +7,11 @@ import type { GlanceDecision, GlanceInput, WatchGrade } from "./glance.js"
 import type { SeriesEvidence, SeriesEvidenceInput } from "./judge.js"
 import type { LifecycleCommit } from "./lifecycle.js"
 import type { OpenDeferral } from "./open-deferrals.js"
-import type { AuditReport, ReportClass, ReportFindings } from "./report.js"
+import type { PlanStep } from "./plan-steps.js"
+import type { AuditReport, AuditScope, FindingIdentity } from "./report.js"
 import type {
   FindingRebuttal,
+  FindingReview,
   LandedCommit,
   PanelVet,
   ReportFinding,
@@ -31,7 +33,6 @@ import type {
   RoundContext,
   RoundKind,
 } from "./target.js"
-import type { VetReading } from "./vet.js"
 
 export type Assistant = "claude" | "codex"
 
@@ -590,8 +591,7 @@ export type ChoiceScope = {
 export type FixerSide = "auditor" | "neither" | { readonly vet: string }
 
 /**
- * The findings a ruler judges, each with the tier its audit report gave it,
- * which the ruler report's heading repeats.
+ * The findings a ruler judges, each with the tier its audit report gave it.
  */
 export type RulerScope = {
   readonly findings: readonly {
@@ -637,6 +637,7 @@ type PhaseArguments = {
     readonly sessionId: null
   }
   audit: {
+    readonly reportScope: AuditScope
     readonly arguments: readonly [
       report: string,
       target: string | CommitAuditGroup,
@@ -645,10 +646,13 @@ type PhaseArguments = {
     readonly sessionId: null
   }
   vet: {
+    readonly findings: readonly FindingIdentity[]
     readonly arguments: readonly [report: string, vet: string]
     readonly sessionId: null
   }
   rebut: {
+    readonly findings: readonly FindingIdentity[]
+    readonly reviews: readonly PanelVet[]
     /** Every vet report of the panel, in panel order, before the output. */
     readonly arguments: readonly [
       report: string,
@@ -799,6 +803,8 @@ type ImplementResult =
 /** A finished ruler returns its admitted winners and the sources it opened. */
 export type RuleResult = ReportResult & { readonly reading: RulerReading }
 
+export type ReportPhase = "audit" | "vet" | "rebut" | "rule"
+
 /**
  * A finished design or pick session returns its document for the runner to save.
  */
@@ -825,9 +831,9 @@ export type PhaseControlResult<P extends Phase = Phase> =
 type PhaseResults = {
   pick: DesignResult
   design: DesignResult
-  audit: ReportResult
-  vet: ReportResult
-  rebut: ReportResult
+  audit: ReportResult & { readonly report: AuditReport }
+  vet: ReportResult & { readonly reviews: readonly FindingReview[] }
+  rebut: ReportResult & { readonly answers: readonly FindingRebuttal[] }
   rule: RuleResult
   fix: FixResult
   implement: ImplementResult
@@ -839,6 +845,9 @@ type PhaseResults = {
 export type PhaseResult<P extends Phase = Phase> =
   | PhaseFailure
   | PhaseResults[P]
+
+export type FinishedReport<P extends ReportPhase = ReportPhase> =
+  PhaseResults[P]
 
 /**
  * A session the user is handed or told how to resume. It carries its phase's run, so
@@ -852,27 +861,8 @@ export type InteractiveSession = PhaseRun &
 export type RoundDependencies = {
   readonly checkFile: (file: string) => Promise<void>
   readonly completeClean: (input: CleanInput) => Promise<CleanCompletion>
-  readonly readReport: (
-    file: string,
-    reportClass: ReportClass,
-    target: string,
-  ) => Promise<AuditReport>
-  readonly readVet: (
-    file: string,
-    findings: ReportFindings,
-  ) => Promise<VetReading>
-  readonly readRebuttal: (
-    file: string,
-    findings: ReportFindings,
-    panel: readonly PanelVet[],
-  ) => Promise<readonly FindingRebuttal[]>
-  /** Read a ruler report against the findings the ruler is given and the round's panel tags. */
-  readonly readRuler: (
-    file: string,
-    findings: readonly Pick<ReportFinding, "number" | "tier">[],
-    panel: readonly string[],
-  ) => Promise<RulerReading>
   readonly readHead: (root: string) => Promise<string>
+  readonly readSteps: (plan: string) => Promise<readonly PlanStep[]>
   /** Resolve the plan's current file after a fix may have changed its phase. */
   readonly resolvePlan: (roots: PlanRoots, stem: string) => Promise<string>
   /**

@@ -31,13 +31,13 @@ Follow the shared protocol's **Runner result** for every ending.
 ## Audit report discovery
 
 Follow the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
-for path resolution and argument order. Follow the
-[audit report grammar](../../../references/round-grammar.md#audit-report) for
-the judged repos and heads.
+for path resolution and argument order. Read the judged repos and heads in
+the audit report's opening.
 
 ## Rebuttal file
 
-Follow the shared round protocol's **Rebuttal answers** for delivery.
+Follow the shared round protocol's **Rebuttal answers** and return the answers
+in the supplied schema.
 
 Your answers decide whether two vetters' revisions of one finding split under the
 shared **Reconciliation**. Agreeing with both leaves the choice between them to

@@ -97,9 +97,14 @@ for (const auditor of ["codex", "claude"] as const) {
         audit: {
           ...(f.phases.audit as object),
           assistants: undefined,
+          result: undefined,
           stream: await phaseStream(
             auditor,
-            'Premise needs a decision.\nPHASE RESULT: {"status":"failed","reason":"Premise conflict"}',
+            {
+              status: "failed",
+              reason: "Premise conflict. The premise needs a decision.",
+              report: null,
+            },
             "audit-session",
           ),
         },
@@ -118,9 +123,11 @@ for (const auditor of ["codex", "claude"] as const) {
       ),
       1,
     )
-    const { log, markdown } = await f.records()
-    assert.match(markdown, /Premise needs a decision/)
-    assert.match(log, /\[audit\] failed: Premise conflict/)
+    const { log } = await f.records()
+    assert.match(
+      log,
+      /\[audit\] failed: Premise conflict\. The premise needs a decision\./,
+    )
     assert.doesNotMatch(log, /\[(?:vet|rebut|fix|rule|watch)\] starting/)
     assert.match(log, /^Session: audit-session$/m)
     assert.equal(

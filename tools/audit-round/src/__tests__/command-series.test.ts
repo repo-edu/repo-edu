@@ -6,7 +6,14 @@ import { execa } from "execa"
 import { documentTag, seriesArchiveFolder } from "../round-paths.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream } from "./helpers.js"
-import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
+import {
+  auditFixture,
+  commitFixture,
+  fixtureFinding,
+  rebutFixture,
+  roundFixture,
+  vetFixture,
+} from "./round-fixture.js"
 
 const singleAuditorSettings = {
   ...testSettings,
@@ -143,9 +150,10 @@ test("a rerun asks again for a stopped serious contest on its kept reports befor
       ...f.phases,
       rebut: {
         ...(f.phases.rebut as Record<string, unknown>),
-        document: {
-          text: "1. [B] [<vet>] Contest\n\nThe report quotes the owning contract.\n",
-        },
+        result: rebutFixture(
+          "contest",
+          "The report quotes the owning contract.",
+        ),
       },
     },
   })
@@ -290,9 +298,10 @@ test("a targetless round's rerun names its plan and continues it after another p
       ...f.phases,
       rebut: {
         ...(f.phases.rebut as Record<string, unknown>),
-        document: {
-          text: "1. [B] [<vet>] Contest\n\nThe report quotes the owning contract.\n",
-        },
+        result: rebutFixture(
+          "contest",
+          "The report quotes the owning contract.",
+        ),
       },
     },
   })
@@ -411,14 +420,14 @@ test("a rerun asks again for a stopped panel split before a fresh fix that reads
       ...f.phases,
       vet: {
         ...(f.phases.vet as Record<string, unknown>),
-        documents: {
-          claude: { text: "1. [B] Accept\n" },
-          codex: { text: "1. [B] Drop\n\nThe contract already holds.\n" },
+        results: {
+          claude: vetFixture("accept"),
+          codex: vetFixture("drop", "The contract already holds."),
         },
       },
       rebut: {
         ...(f.phases.rebut as Record<string, unknown>),
-        document: { text: "1. [B] [obh] Contest\n\nThe contract is unmet.\n" },
+        result: rebutFixture("contest", "The contract is unmet.", "obh"),
       },
     },
   })
@@ -572,14 +581,14 @@ test("a fix that failed after the user named a split's winner finishes on the re
       ...f.phases,
       vet: {
         ...(f.phases.vet as Record<string, unknown>),
-        documents: {
-          claude: { text: "1. [B] Accept\n" },
-          codex: { text: "1. [B] Drop\n\nThe contract already holds.\n" },
+        results: {
+          claude: vetFixture("accept"),
+          codex: vetFixture("drop", "The contract already holds."),
         },
       },
       rebut: {
         ...(f.phases.rebut as Record<string, unknown>),
-        document: { text: "1. [B] [obh] Agree\n" },
+        result: rebutFixture("agree", "", "obh"),
       },
       fix: await fixPhase(
         '{"status":"failed","reason":"Selected model is at capacity."}',
@@ -681,9 +690,10 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
       ...f.phases,
       rebut: {
         ...(f.phases.rebut as Record<string, unknown>),
-        document: {
-          text: "1. [B] [<vet>] Contest\n\nThe report quotes the owning contract.\n",
-        },
+        result: rebutFixture(
+          "contest",
+          "The report quotes the owning contract.",
+        ),
       },
     },
   })
@@ -1012,53 +1022,40 @@ async function configureWideningSeries(
 const deferralRatings =
   "[growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]"
 
-function implementationDeferralReport(head: string): string {
-  return `Implementation audit workflow
-Target: example.md 1
-Judged repos: repo-edu@${head}
-
-## Findings
-
-### 1. C: Decide the plan correction
-
-[plan:../plan/example.md#decisions] ${deferralRatings}
-
-The plan needs the deferred decision.
-`
+function implementationDeferralReport() {
+  return auditFixture([
+    {
+      ...fixtureFinding,
+      title: "Decide the plan correction",
+      tier: "C",
+      location: {
+        kind: "deferred",
+        repository: "plan",
+        plan: "../plan/example.md#decisions",
+      },
+      evidence: "The plan needs the deferred decision.",
+    },
+  ])
 }
 
-function cleanImplementationReport(head: string): string {
-  return `Implementation audit workflow
-Target: example.md 1
-Judged repos: repo-edu@${head}
-
-## Findings
-
-No findings.
-`
-}
-
-function planningDeferralReport(head: string, clean: boolean): string {
-  return `Planning round workflow
-Target: example.md
-Judged repos: plan@${head}
-
-## Excess functionality
-
-No excess findings.
-
-## Missing functionality
-
-${
-  clean
-    ? "No missing findings."
-    : `### 1. B: Apply the deferred decision
-
-[field:missing] [section:decisions] ${deferralRatings}
-
-Apply the correction admitted by the implementation audit.`
-}
-`
+function planningDeferralReport(clean: boolean) {
+  return auditFixture(
+    clean
+      ? []
+      : [
+          {
+            ...fixtureFinding,
+            title: "Apply the deferred decision",
+            location: {
+              kind: "planning",
+              field: "missing",
+              section: "decisions",
+            },
+            evidence:
+              "Apply the correction admitted by the implementation audit.",
+          },
+        ],
+  )
 }
 
 async function commitWithBody(
@@ -1111,16 +1108,10 @@ async function seedRepoEduDeferral(
 }
 
 async function auditStreams(
-  reports: readonly string[],
+  reports: readonly object[],
 ): Promise<readonly string[]> {
   return Promise.all(
-    reports.map((report) =>
-      phaseStream(
-        "codex",
-        `${report.trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
-        "audit-session",
-      ),
-    ),
+    reports.map((report) => phaseStream("codex", report, "audit-session")),
   )
 }
 
@@ -1140,18 +1131,14 @@ test("one plan uses its planning and implementation auditor lists independently"
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        document: undefined,
+        result: undefined,
         streams: [
           await phaseStream(
             "claude",
-            `${planningDeferralReport(f.heads.plan, true).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            planningDeferralReport(true),
             "audit-session",
           ),
-          await phaseStream(
-            "codex",
-            `${cleanImplementationReport(f.heads["repo-edu"]).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
-            "audit-session",
-          ),
+          await phaseStream("codex", auditFixture(), "audit-session"),
         ],
       },
     },
@@ -1210,32 +1197,15 @@ for (const target of [
       "repo-edu",
       true,
     )
-    const judgedRepos =
-      target.args.length === 2
-        ? `plan@${f.heads.plan}, repo-edu@${f.heads["repo-edu"]}`
-        : target.args[0] === "plan@HEAD"
-          ? `plan@${f.heads.plan}`
-          : `repo-edu@${f.heads["repo-edu"]}`
-    const report = `Implementation audit workflow
-Target: ${target.args.join(" ")}
-Judged repos: ${judgedRepos}
-
-## Findings
-
-No findings.
-`
+    const report = auditFixture()
     await f.configure({
       phases: {
         ...f.phases,
         audit: {
           ...(f.phases.audit as Record<string, unknown>),
-          document: undefined,
+          result: undefined,
           streams: [
-            await phaseStream(
-              target.assistant,
-              `${report.trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
-              "audit-session",
-            ),
+            await phaseStream(target.assistant, report, "audit-session"),
           ],
         },
       },
@@ -1302,23 +1272,23 @@ test("an implementation deferral chains a clean planning round before the series
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        document: undefined,
+        result: undefined,
         streams: [
           await phaseStream(
             "codex",
-            `${implementationDeferralReport(f.heads["repo-edu"]).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            implementationDeferralReport(),
             "audit-session",
           ),
           await phaseStream(
             "claude",
-            `${planningDeferralReport(f.heads.plan, true).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            planningDeferralReport(true),
             "audit-session",
           ),
         ],
       },
       vet: {
         ...(f.phases.vet as Record<string, unknown>),
-        document: { text: "1. [C] Accept\n" },
+        result: vetFixture("accept"),
       },
       fix: {
         ...(f.phases.fix as Record<string, unknown>),
@@ -1384,15 +1354,15 @@ test("a red implementation watch leaves a new plan deferral open", async (t) => 
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        document: undefined,
+        result: undefined,
         streams: await auditStreams([
-          implementationDeferralReport(f.heads["repo-edu"]),
-          planningDeferralReport(f.heads.plan, true),
+          implementationDeferralReport(),
+          planningDeferralReport(true),
         ]),
       },
       vet: {
         ...(f.phases.vet as Record<string, unknown>),
-        document: { text: "1. [C] Accept\n" },
+        result: vetFixture("accept"),
       },
       fix: {
         ...(f.phases.fix as Record<string, unknown>),
@@ -1439,24 +1409,19 @@ test("an automatic series opens with a chained deferral round", async (t) => {
     true,
   )
   await seedPlanDeferral(f)
-  const repoHead = await shortCommit(f.repoRoot, "HEAD")
   await f.configure({
     phases: {
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        document: undefined,
+        result: undefined,
         streams: [
           await phaseStream(
             "claude",
-            `${planningDeferralReport(f.heads.plan, true).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            planningDeferralReport(true),
             "audit-session",
           ),
-          await phaseStream(
-            "codex",
-            `${cleanImplementationReport(repoHead).trimEnd()}\nPHASE RESULT: {"status":"finished","reason":null}`,
-            "audit-session",
-          ),
+          await phaseStream("codex", auditFixture(), "audit-session"),
         ],
       },
     },
@@ -1498,10 +1463,8 @@ test("a ruling in the chained deferral round stops the implementation series", a
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        document: undefined,
-        streams: await auditStreams([
-          planningDeferralReport(f.heads.plan, false),
-        ]),
+        result: undefined,
+        streams: await auditStreams([planningDeferralReport(false)]),
       },
       fix: {
         ...(f.phases.fix as Record<string, unknown>),
@@ -1562,14 +1525,13 @@ test("an applied deferral does not start a chained planning round", async (t) =>
     "example/plan-audit oth clean: record that the plan stands",
     `- [applies:${deferral}/1] The plan stands.`,
   )
-  const repoHead = await shortCommit(f.repoRoot, "HEAD")
   await f.configure({
     phases: {
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        document: undefined,
-        streams: await auditStreams([cleanImplementationReport(repoHead)]),
+        result: undefined,
+        streams: await auditStreams([auditFixture()]),
       },
     },
   })
@@ -1601,21 +1563,20 @@ test("a vet-dropped deferral lands an untiered citation", async (t) => {
     true,
   )
   const deferral = await seedPlanDeferral(f)
-  const repoHead = await shortCommit(f.repoRoot, "HEAD")
   await f.configure({
     phases: {
       ...f.phases,
       audit: {
         ...(f.phases.audit as Record<string, unknown>),
-        document: undefined,
+        result: undefined,
         streams: await auditStreams([
-          planningDeferralReport(f.heads.plan, false),
-          cleanImplementationReport(repoHead),
+          planningDeferralReport(false),
+          auditFixture(),
         ]),
       },
       vet: {
         ...(f.phases.vet as Record<string, unknown>),
-        document: { text: "1. [B] Drop\nThe plan already stands.\n" },
+        result: vetFixture("drop", "The plan already stands."),
       },
       fix: {
         ...(f.phases.fix as Record<string, unknown>),
@@ -2306,8 +2267,6 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
     true,
     false,
   )
-  const reportSource = f.report
-  const detailingReport = await readFile(reportSource, "utf8")
   const settled = join(f.activeRoot, "example.md")
   const widening = join(f.activeRoot, "example-widen.md")
 
@@ -2320,11 +2279,9 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
         awaitAnswer: async () => {
           await rm(widening)
           await rename(settled, widening)
-          // The reopened plan's next audit reads a widening audit report, which
-          // ends on its settling line.
-          await writeFile(
-            reportSource,
-            `${detailingReport}\nSettling: keep open. The reopened decision still needs evidence.\n`,
+          f.auditSettling(
+            "keep open",
+            "The reopened decision still needs evidence.",
           )
           await finishFixOnReply(f, undefined, {
             recommendation: "keep open",
@@ -2431,9 +2388,9 @@ test("a widening series ends on its settled recommendation", async (t) => {
     false,
   )
   await rm(join(f.activeRoot, "example.md"))
-  await writeFile(
-    f.report,
-    `${await readFile(f.report, "utf8")}\nSettling: keep open. Finding 1 must land before the shape can close.\n`,
+  f.auditSettling(
+    "keep open",
+    "Finding 1 must land before the shape can close.",
   )
   await configureWideningSeries(f, {
     recommendation: "settle",
@@ -2501,10 +2458,11 @@ test("a widening keep-open recommendation stops the series without settling", as
     false,
   )
   await rm(join(f.activeRoot, "example.md"))
-  await writeFile(
-    f.report,
-    `${await readFile(f.report, "utf8")}\nSettling: keep open. The shape question needs evidence only the user can supply.\n`,
+  f.auditSettling(
+    "keep open",
+    "The shape question needs evidence only the user can supply.",
   )
+  await f.configure({ phases: f.phases })
   assert.equal(
     await runCommand(["round", "example-widen.md", "--no-watch"], f.runtime, {
       ...f.options,
@@ -2588,9 +2546,10 @@ test("a failed round stops a scope list before later scopes", async (t) => {
       audit: {
         ...(f.phases.audit as object),
         assistants: undefined,
+        result: undefined,
         stream: await phaseStream(
           "codex",
-          'Audit failed.\nPHASE RESULT: {"status":"failed","reason":"Audit failure"}',
+          { status: "failed", reason: "Audit failure", report: null },
           "audit-session",
         ),
       },
@@ -2690,6 +2649,7 @@ test("a scope list runs one automatic series per scope in list order", async (t)
     "repo-edu",
     true,
   )
+  await f.steps(2)
   assert.equal(
     await runCommand(["round", "example.md", "1,2", "--no-watch"], f.runtime, {
       ...f.options,
