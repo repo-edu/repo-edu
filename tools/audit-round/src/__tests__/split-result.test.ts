@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { readPick } from "../move-list.js"
+import { readMoveList, readPick } from "../move-list.js"
 import { readSplitResult, splitResultLine } from "../split-result.js"
-import { roundGrammarExamples } from "./round-grammar.js"
+import { roundGrammarExample, roundGrammarExamples } from "./round-grammar.js"
 
 test("the round grammar's split-result examples are reader fixtures that the writer reproduces", () => {
   for (const example of roundGrammarExamples("split-result/")) {
@@ -61,4 +61,17 @@ test("pick report examples name an existing answer or supply a new document", ()
         message: entry.refusal ?? "",
       })
   }
+})
+
+test("a pick can end with a full stop before an indented replacement list", () => {
+  const source = roundGrammarExample("move-list/no-split").source
+  const indented = source
+    .split("\n")
+    .map((line) => `  ${line}`)
+    .join("\n")
+  const pick = readPick(`Keep the source together.\nPick: none.\n\n${indented}`)
+  assert.equal(pick.number, null)
+  assert.equal(pick.report, "Keep the source together.\nPick: none.")
+  assert.ok(pick.document)
+  assert.deepEqual(readMoveList(pick.document), readMoveList(source))
 })

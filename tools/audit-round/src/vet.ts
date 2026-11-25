@@ -46,8 +46,7 @@ type RebuttalHeader = Header<keyof typeof rebuttalAnswers & string> & {
  * phase's list is refused by name rather than passed as free text, so a verdict
  * word on a rebuttal line, or the reverse, fails on the line that is wrong
  * instead of as a missing entry. Every other line is free text for the fix
- * phase. Whitespace at either end, such as a Markdown hard break, carries no
- * content.
+ * phase. Surrounding whitespace and one final full stop carry no content.
  */
 function readHeaderLine(line: string): Header<string> | null {
   const header = /^([1-9]\d*)\. \[([A-D])\] (.+)$/.exec(line.trim())
@@ -55,7 +54,7 @@ function readHeaderLine(line: string): Header<string> | null {
   return {
     number: Number(header[1]),
     tier: header[2] as FindingReview["tier"],
-    word: header[3] as string,
+    word: (header[3] as string).replace(/\.$/, ""),
   }
 }
 

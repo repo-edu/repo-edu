@@ -11,6 +11,7 @@ test("the round grammar's plan-step examples are parser fixtures", () => {
     "plan-step/plan": ["plan"],
     "plan-step/both": ["plan", "repo-edu"],
     "plan-step/preface": ["repo-edu"],
+    "plan-step/title-without-full-stop": ["repo-edu"],
   } as const
   for (const example of roundGrammarExamples("plan-step/")) {
     if (example.outcome === "refused") {

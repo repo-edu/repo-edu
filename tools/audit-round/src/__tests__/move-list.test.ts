@@ -61,6 +61,17 @@ test("a move list gives its source, hash, area and moves in list order", () => {
   )
 })
 
+test("path punctuation, indentation and spacing after range commas preserve the moves", () => {
+  const source = roundGrammarExample("move-list/moves").source
+  const formatted = source
+    .replace(/^(Source: .+|### .+)$/gm, "$1.")
+    .replaceAll(", ", ",")
+    .split("\n")
+    .map((line) => `  ${line}`)
+    .join("\n")
+  assert.deepEqual(readMoveList(formatted), readMoveList(source))
+})
+
 test("a move list refuses a missing section, a move without its lines and text after its result", () => {
   const opening = [
     "# Move list",

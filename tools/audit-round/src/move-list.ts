@@ -39,7 +39,7 @@ export type MoveList = Opening &
 
 const listResults: readonly ListResult[] = ["fine", "needs-plan"]
 const areaPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-const moveHeading = /^### (\S+)\. `([^`]+)`$/
+const moveHeading = /^### (\S+)\. `([^`]+)`\.?$/
 const rangePattern = /^([1-9]\d*)(?:-([1-9]\d*))?$/
 
 /** The document's lines in groups that empty lines separate. */
@@ -49,7 +49,7 @@ function blocks(text: string): string[][] {
   for (const line of text
     .trim()
     .split("\n")
-    .map((line) => line.trimEnd())) {
+    .map((line) => line.trim())) {
     if (line !== "") {
       current.push(line)
       continue
@@ -67,7 +67,7 @@ function readOpening(lines: readonly string[] | undefined): Opening {
       "Move list needs Source:, Hash:, Area: and Size: lines after its heading",
     )
   const [sourceLine, hashLine, areaLine, sizeLine] = lines
-  const source = /^Source: `([^`]+)`$/.exec(sourceLine)?.[1]
+  const source = /^Source: `([^`]+)`\.?$/.exec(sourceLine)?.[1]
   if (source === undefined)
     throw new Error("Move list Source: line must name one path in backticks")
   const hash = /^Hash: (.*)$/.exec(hashLine)?.[1]
@@ -88,7 +88,7 @@ function readOpening(lines: readonly string[] | undefined): Opening {
 }
 
 function readRanges(text: string, move: number): LineRange[] {
-  return text.split(", ").map((range) => {
+  return text.split(/,[ \t]*/).map((range) => {
     const match = rangePattern.exec(range)
     if (match === null)
       throw new Error(`Move list move ${move} has the malformed range ${range}`)
@@ -169,17 +169,27 @@ export function readMoveList(text: string): MoveList {
 
 /** Only a new answer follows the pick report. An unchanged pick names the saved answer. */
 export function readPick(text: string) {
-  const boundary = /^# Move list$/m.exec(text)
-  const report = text.slice(0, boundary?.index ?? text.length).trim()
-  const lines = report.split("\n").filter((line) => line.startsWith("Pick:"))
-  const choice = /^Pick: (none|[0-9]+)$/.exec(lines[0] ?? "")
-  if (lines.length !== 1 || !choice || report.split("\n").at(-1) !== lines[0])
+  const lines = text.trim().split("\n")
+  const last = lines.findIndex((line) => line.startsWith("Pick:"))
+  const choice = /^Pick: (none|[0-9]+)\.?$/.exec(lines[last]?.trimEnd() ?? "")
+  const appended = lines
+    .slice(last + 1)
+    .join("\n")
+    .trim()
+  if (!choice || (appended && !/^# Move list[ \t]*(?:\r?\n|$)/.test(appended)))
     throw new Error(
       "The pick report must end with one Pick: line naming an answer number or none",
     )
   const number = choice[1] === "none" ? null : Number(choice[1])
-  const document = boundary ? text.slice(boundary.index).trimEnd() + "\n" : null
+  const document = appended ? appended + "\n" : null
   if (number === null && document === null)
     throw new Error("A pick of none must supply its no-split answer")
-  return { report, number, document }
+  return {
+    report: lines
+      .slice(0, last + 1)
+      .join("\n")
+      .trimEnd(),
+    number,
+    document,
+  }
 }

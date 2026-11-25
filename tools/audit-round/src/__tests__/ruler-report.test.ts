@@ -34,7 +34,8 @@ test("the ruler reader returns each winner, its open choice and every named sour
       "### 1. [C] Keep the record",
       "",
       "  - Opened: `/path/to/repo-edu/tools/audit-round/src/report.ts`",
-      "- Opened: `abc123`",
+      "- Opened: `abc123`.",
+      "- Opened: `/repo/tools/sweep/src`. No file there mentions `audit-round` or `SPLIT RESULT`.",
       "",
       "Winner: abx, obh. Both revisions land one correction.",
       "",
@@ -71,6 +72,7 @@ test("the ruler reader returns each winner, its open choice and every named sour
       "/path/to/plan/active/example.md",
       "/path/to/repo-edu/tools/audit-round/src/report.ts",
       "abc123",
+      "/repo/tools/sweep/src",
     ],
   })
 })

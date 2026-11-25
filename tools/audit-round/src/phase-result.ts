@@ -31,7 +31,7 @@ export function watchOutput(text: string): {
   const gradeLine = lines.pop() ?? ""
   if (!gradeLine.startsWith(watchGradePrefix))
     throw new Error("Missing watch grade line")
-  const grade = gradeLine.slice(watchGradePrefix.length)
+  const grade = gradeLine.slice(watchGradePrefix.length).replace(/\.$/, "")
   if (!watchGrades.has(grade as WatchGrade))
     throw new Error("Invalid watch grade line")
   const document = lines.join("\n").trimEnd()

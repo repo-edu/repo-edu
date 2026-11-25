@@ -56,6 +56,6 @@ The runner prints `audit-round: <reason>` and lands nothing.
    [`pnpm audit-round settle`](/repo-edu/tooling/settle/) first.
 2. **The plan already has a ready marker.** `<stem>.md already has ready marker <sha> <subject>.`
 3. **The step list or audit ranges do not parse.** The message names the item or range that broke
-   the form, such as a missing full stop after a bold title or a gap before a step.
+   the form, such as a missing host sentence or a gap before a step.
 4. **The plan file is not committed as it stands**, or no active plan has the stem.
 5. **The `coders` list is empty.**

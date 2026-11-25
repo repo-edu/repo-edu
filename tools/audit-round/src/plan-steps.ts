@@ -130,20 +130,14 @@ export function readPlanSteps(source: string): readonly PlanStep[] {
     const title = first?.type === "paragraph" ? first.children[0] : undefined
     const hostText =
       first?.type === "paragraph" && first.children[1]?.type === "text"
-        ? first.children[1].value.replace(/\s+/g, " ").trimStart()
+        ? first.children[1].value.replace(/^\.?\s+/, "").replace(/\s+/g, " ")
         : ""
     const host = hostForms.find(({ sentence }) => hostText.startsWith(sentence))
-    const titleEnd =
-      title?.type === "strong" ? title.children.at(-1) : undefined
     if (
       title?.type !== "strong" ||
-      titleEnd?.type !== "text" ||
-      !titleEnd.value.endsWith(".")
+      !nodeText(title).trim() ||
+      host === undefined
     )
-      throw new Error(
-        `Implementation plan item ${index + 1} needs a bold title ending in a full stop.`,
-      )
-    if (host === undefined)
       throw new Error(
         `Implementation plan item ${index + 1} must open with a bold title followed by "Hosted in Repo Edu.", "Hosted in the plan repo." or "Hosted in both repos."`,
       )
@@ -164,7 +158,7 @@ export function readAuditRanges(
       'Audit ranges sentence must use "Audit ranges: 1-3, 4, 5-6.".',
     )
 
-  const ranges = match[1].split(", ").map((scope) => {
+  const ranges = match[1].split(/,[ \t]*/).map((scope) => {
     const range = parseStepScope(scope)
     if (!range.ok && range.reason === "shape")
       throw new Error(

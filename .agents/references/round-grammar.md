@@ -39,6 +39,7 @@ names the parser refusal it demonstrates.
 
 ```text
 <n>                  ::= <non-zero-digit><digit>*
+<comma>              ::= "," followed by zero or more spaces or tabs
 <digit>              ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 <non-zero-digit>     ::= 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 <tier>               ::= A | B | C | D
@@ -611,9 +612,9 @@ A finding that needs no condition carries no harm level.
 
 ```text
 <vet-report>        ::= (<free-line> | <vet-verdict-line>)*
-<vet-verdict-line>  ::= <n>". ["<tier>"] "<vet-verdict>
-                      | <n>". ["<tier>"] Revise to ["<tier>"]"
+<vet-verdict-line>  ::= <n>". ["<tier>"] "<vet-verdict>"."?
 <vet-verdict>       ::= Accept | Revise | Drop | Needs user's ruling
+                      | "Revise to ["<tier>"]"
 <free-line>         ::= any line that does not have the numbered tier-header shape
 ```
 
@@ -644,7 +645,7 @@ Use the shared token definition.
 #### `vet/revise-tier` — parsed
 
 ```text
-1. [B] Revise to [A]
+1. [B] Revise to [A].
 ```
 
 #### `vet/drop` — parsed
@@ -693,7 +694,7 @@ Refusal: `Vet verdict 1 has malformed revised tier; use Revise to [A], [B], [C] 
 
 ```text
 <rebuttal-report>     ::= (<free-line> | <rebut-answer-line>)*
-<rebut-answer-line>   ::= <n>". ["<tier>"] ["<vetter-tag>"] "<rebut-answer>
+<rebut-answer-line>   ::= <n>". ["<tier>"] ["<vetter-tag>"] "<rebut-answer>"."?
 <vetter-tag>          ::= the capability tag of one vetter of the round's panel
 <rebut-answer>        ::= Agree | Contest | For user's ruling
 ```
@@ -720,6 +721,12 @@ finding 1 `[B]` and revised finding 2 `[C]`. Vetter `obh` accepted both.
 
 ```text
 2. [C] [abx] Agree
+```
+
+#### `rebuttal/answer-with-full-stop` — parsed
+
+```text
+2. [C] [abx] Agree.
 ```
 
 #### `rebuttal/contest` — parsed
@@ -783,12 +790,13 @@ The revision of finding 2 holds.
                        (<ruler-free-line> | <source-line> | <winner-line> | <choice-line>)*
 <ruler-heading>    ::= "### "<n>". ["<tier>"]"(" "<heading-text>)?
 <heading-text>     ::= any text on one line
-<source-line>      ::= ("- ")?"Opened: `"<source>"`"(", "<place>)?
+<source-line>      ::= ("- ")?"Opened: `"<source>"`"(", "<place> | "."(" "<note>)?)?
 <source>           ::= <absolute-path> | <short-sha>
 <absolute-path>    ::= "/" and a character other than whitespace, then text without "`"
 <place>            ::= non-empty text on one line
+<note>             ::= non-empty text on one line
 <winner-line>      ::= "Winner: "<winner>". "<one-line-reason>
-<winner>           ::= report | neither | <vetter-tag>(", "<vetter-tag>)*
+<winner>           ::= report | neither | <vetter-tag>(<comma><vetter-tag>)*
 <choice-line>      ::= "Open choice: "<one-line-question>
 <one-line-question> ::= non-empty text on one line
 <ruler-free-line>  ::= any line that is no <ruler-heading> and opens with none of
@@ -803,15 +811,15 @@ line. ruling.md's [Reading order](../skills/fix/references/ruling.md#reading-ord
 record says, and its free lines carry the points, each side's claims, the passages read and what
 each passage settles.
 
-A source line names one source the ruler opened, in backticks: a file by its absolute path or a
-commit by its first six characters. A place in the source may follow after a comma. The form is
-fixed because the runner matches each name as plain text against the ruler's logged tool lines and
-the files it supplied whole, and resolves no relative path. Each entry names at least one source. A
+A source line puts one source the ruler opened in backticks. It names a file by its absolute path
+or a commit by its first six characters. A comma may introduce a place in the source. A full stop
+may end the line or introduce a sentence. The runner matches the text inside the backticks against
+its logged tool lines and the files it supplied whole. Each entry names at least one source. A
 source line before the first heading belongs to no entry but still counts among the report's
 sources.
 
-The winner line names one winner in the user's winner words: `report`, `neither` or one or more tags
-of the round's panel joined by a comma and a space. The one-line reason follows after a full stop.
+The winner line names `report`, `neither` or one or more of the round's vetter tags, separated by
+commas. The one-line reason follows after a full stop.
 Each entry has exactly one winner line.
 
 An entry has at most one open-choice line. It states, as one line, the choice the ruler leaves to
@@ -871,9 +879,9 @@ Open choice: whether the reader keeps the field or the fix drops it.
 ```markdown
 ### 2. [C] Keep the record
 
-- Opened: `/path/to/repo-edu/tools/audit-round/src/report.ts`
+- Opened: `/path/to/repo-edu/tools/audit-round/src/report.ts`. The reader checks the target.
 
-Winner: abx, obh. Both revisions land the same correction.
+Winner: abx,obh. Both revisions land the same correction.
 ```
 
 #### `ruler/relative-source` — refused
@@ -1177,7 +1185,7 @@ Refusal: `a [harm:...] token after [rarity:ordinary]`
 <implementation-plan> ::= "## Implementation plan" BLANK <step-preface>?<step-list>
 <step-preface>        ::= free Markdown without an ordered list
 <step-list>           ::= <step>+
-<step>                ::= <n>". **"<step-title>".** "<host-sentence><step-detail>
+<step>                ::= <n>". **"<step-title>"**"["."]" "<host-sentence><step-detail>
 <step-title>          ::= non-empty text
 <host-sentence>       ::= Hosted in Repo Edu.
                         | Hosted in the plan repo.
@@ -1187,7 +1195,7 @@ Refusal: `a [harm:...] token after [rarity:ordinary]`
 
 The first ordered list below the single depth-2 `Implementation plan` heading
 is the step list. Its items are numbered by list order. The bold title and host
-sentence open each item.
+sentence open each item. A title's optional full stop can sit inside or just after the bold text.
 
 ### Examples
 
@@ -1208,7 +1216,7 @@ sentence open each item.
 
 ## Implementation plan
 
-1. **Update the doctrine.** Hosted in the plan repo. Link the grammar.
+1. **Update the doctrine**. Hosted in the plan repo. Link the grammar.
 ```
 
 #### `plan-step/both` — parsed
@@ -1233,9 +1241,7 @@ The steps follow this short preface.
 1. **Write the parser.** Hosted in Repo Edu. Add the shared reader.
 ```
 
-#### `plan-step/title-without-full-stop` — refused
-
-Refusal: `Implementation plan item 1 needs a bold title ending in a full stop.`
+#### `plan-step/title-without-full-stop` — parsed
 
 ```markdown
 # Example
@@ -1252,7 +1258,7 @@ Refusal: `Implementation plan item 1 needs a bold title ending in a full stop.`
 ```text
 <execution-and-audits> ::= "### Execution and audits" BLANK <audit-prose>
 <audit-prose>          ::= free Markdown containing exactly one <audit-ranges>
-<audit-ranges>         ::= "Audit ranges: "<step-scope>(", "<step-scope>)*"."
+<audit-ranges>         ::= "Audit ranges: "<step-scope>(<comma><step-scope>)*"."
 ```
 
 The audit-range sentence sits in the depth-3 `Execution and audits` subsection
@@ -1277,7 +1283,7 @@ precede or follow the sentence in the same paragraph.
 
 ### Execution and audits
 
-The first three steps change the runner. Audit ranges: 1-2, 3, 4-5.
+The first three steps change the runner. Audit ranges: 1-2,3, 4-5.
 ```
 
 #### `audit-ranges/full` — parsed
@@ -1437,7 +1443,7 @@ PHASE RESULT: {"status":"needs-ruling","reason":null}
 ### Production
 
 ```text
-<watch-grade-line> ::= "Watch grade: "<grade>
+<watch-grade-line> ::= "Watch grade: "<grade>"."?
 <grade>            ::= green | amber | red
 ```
 
@@ -1456,7 +1462,7 @@ Watch grade: green
 #### `watch-grade/amber` — parsed
 
 ```text
-Watch grade: amber
+Watch grade: amber.
 ```
 
 #### `watch-grade/red` — parsed
@@ -1594,14 +1600,14 @@ Refusal: `Watch record is missing the repo-edu head`
 ```text
 <move-list>      ::= "# Move list" BLANK <source-line> NL <hash-line> NL <area-line>
                      NL <size-line> BLANK (<moves> | <no-split>)
-<source-line>    ::= "Source: `"<repo-path>"`"
+<source-line>    ::= "Source: `"<repo-path>"`"["."]
 <hash-line>      ::= "Hash: "<blob-hash>
 <area-line>      ::= "Area: "<label>
 <size-line>      ::= "Size: "(0 | <n>)" lines"
 <moves>          ::= "## Moves" BLANK <move>(BLANK <move>)*
-<move>           ::= "### "<n>". `"<repo-path>"`" BLANK
+<move>           ::= "### "<n>". `"<repo-path>"`"["."] BLANK
                      "Responsibility: "<sentence> NL
-                     "Ranges: "<line-range>(", "<line-range>)*
+                     "Ranges: "<line-range>(<comma><line-range>)*
 <line-range>     ::= <n> | <n>"-"<n>
 <no-split>       ::= "## No split" BLANK "Result: "<list-result>". "<one-line-reason>
 <list-result>    ::= fine | needs-plan
@@ -1625,8 +1631,8 @@ The no-split form gives the result `fine` when the file should stay whole or
 `needs-plan` when its division needs a plan. The reason follows the result on
 the same line.
 
-The document holds nothing else. Leading and trailing whitespace carry no
-content, and one or more empty lines count as one `BLANK`.
+The document holds nothing else. The reader ignores whitespace at either end of each line.
+One or more empty lines count as one `BLANK`.
 
 ### Examples
 
@@ -1781,7 +1787,7 @@ answer number, or `none` for the picker's own no-split answer.
 ### Production
 
 ```text
-<pick>         ::= <report-prose> NL "Pick: " (<number> | "none") [BLANK <move-list>]
+<pick>         ::= <report-prose> NL "Pick: " (<number> | "none")"."? [BLANK <move-list>]
 <number>       ::= one supplied answer number, with or without leading zeroes
 ```
 
@@ -1794,7 +1800,7 @@ moves. A pick of `none` appends a move list with a no-split result.
 
 ```text
 Answer 01 keeps the shared setup with its callers. Answer 02 separates them.
-Pick: 01
+Pick: 01.
 ```
 
 #### `pick/missing-answer` — refused

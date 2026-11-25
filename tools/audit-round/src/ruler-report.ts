@@ -53,7 +53,7 @@ function listWords(names: readonly string[]): string {
  * against the ruler's logged tool lines without resolving anything.
  */
 function readSource(rest: string, entry: Entry | undefined): string {
-  const named = /^ `([^`]+)`(?:, .+)?$/.exec(rest.trimEnd())
+  const named = /^ `([^`]+)`(?:[,.] .+|\.)?$/.exec(rest.trimEnd())
   const source = named?.[1]
   if (
     source === undefined ||
@@ -74,7 +74,7 @@ function readWinner(
   const words = line?.[1] ?? rest.trim()
   const reason = line?.[2]
   const winner: RulingWinner =
-    words === "report" || words === "neither" ? words : words.split(", ")
+    words === "report" || words === "neither" ? words : words.split(/,[ \t]*/)
   if (Array.isArray(winner)) {
     for (const word of winner) {
       if (!capabilityTag.safeParse(word).success)
