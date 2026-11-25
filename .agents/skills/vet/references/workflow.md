@@ -3,7 +3,6 @@ reads:
   - ../../../../glossaries/audit-round.md
   - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
-  - ../../../references/round-grammar.md
   - ../../../../../plan/.agents/references/planning-rules.md
   - ../../../../../plan/BOUNDARIES.md
   - ../../../../../plan/GROWTH-PATTERNS.md
@@ -30,8 +29,7 @@ Follow the shared protocol's **Runner result** for every ending.
 The [shared round protocol](../../../references/round-protocol.md) owns evidence
 rules, tiers, rating meanings, verdict meanings and runner result meanings. Use
 the runner's [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing)
-for argument order and the [audit report grammar](../../../references/round-grammar.md#audit-report)
-for the judged repos and heads.
+for argument order. Read the judged repos and heads from the audit report's opening.
 
 When an audited head differs from its repo's current head, follow
 [Head drift](../../../references/round-protocol.md#head-drift) before vetting

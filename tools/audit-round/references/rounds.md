@@ -71,10 +71,10 @@ landed records and validates every subject under its repository's grammar.
   listed-file change lands no record. A finished commit entry settles the runner's read without a
   landed record.
 
-Reader failures retain the owning phase and its session for recovery.
+Phase failures retain the owning phase and its session for recovery.
 
 After the fix, `round.ts` resolves the plan's current filename. A widening fix must return
-settling advice. That advice replaces the audit report's closing line as the entry's
+settling advice. That advice replaces the audit result's advice as the entry's
 retained settling recommendation, because the fix ends the round and has answered every ruling it
 asked. A fix outside widening must return none.
 
@@ -108,7 +108,8 @@ order and includes the audit's tier. Each rebuttal finding follows panel order.
 The ruler schema names each finding the ruler judges and the panel tags
 available as winners. A source is an absolute path or the first six characters
 of a commit ID. The runner checks these names against actual tool calls and the
-files supplied whole in the prompt. It asks the same session once to open any
+files supplied whole in the prompt. It leaves out the call that returns the
+result because that call repeats the names. It asks the same session once to open any
 missing sources and obtain a new result. A second miss fails the phase.
 
 ## Winners and rulings

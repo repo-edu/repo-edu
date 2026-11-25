@@ -73,9 +73,9 @@ evidence for the decision:
 
 The answer follows from that evidence:
 
-- When every listed auditor has a current read, widening follows the current round's parsed
-  settling line, detailing answers ready before the ready marker and every other series answers
-  stop.
+- When every listed auditor has a current read, widening follows the current round's retained
+  settling recommendation, detailing answers ready before the ready marker and every other series
+  answers stop.
 - Otherwise the runner selects the listed auditor without a current read that read the scope least
   recently. List order breaks a never-read tie, so the auditor of this round goes last.
 - The reason names the chosen auditor's last read of the target and the latest event, or says that

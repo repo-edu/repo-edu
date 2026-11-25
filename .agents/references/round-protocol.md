@@ -5,8 +5,8 @@ and the sibling plan repo. It defines finding grades, evidence rules, trade
 pricing, reconciliation and settlement. Rules labelled for implementation apply
 only to implementation rounds.
 
-The [round document grammar](round-grammar.md) owns every assistant-written form
-the audit-round runner parses. The
+The [round document grammar](round-grammar.md) owns the text forms the runner
+reads or writes. The runner's schemas own unattended phase results. The
 [subject grammar](subject-grammar.md) owns commit subjects and model records.
 The [runner documentation](../../tools/audit-round/CLAUDE.md) owns file paths,
 target resolution, phase arguments, retained machine data and command effects.
@@ -98,12 +98,11 @@ outweighs the other. This is the commit-level instance of the account rule in
 ## Finding metadata
 
 Every graded concern carries its finding number and metadata from its audit
-report into the round's durable record. The
-[round document grammar](round-grammar.md#audit-report) owns the audit report
-block and location cases. Its
-[commit record bullet](round-grammar.md#commit-record-bullet) production owns
-the matching body form. The parsers share the rating-token definition, so the
-report and record cannot give one finding two spellings.
+report into the round's durable record. The runner writes the report's token
+line from the audit result. The grammar's
+[commit record bullet](round-grammar.md#commit-record-bullet) owns the matching
+body form. The report writer and the record reader share the rating-token
+definition, so the fix can copy those tokens into its commit.
 
 Location says which owner the correction belongs to:
 
@@ -112,9 +111,15 @@ Location says which owner the correction belongs to:
 - A local Repo Edu finding names its primary area and any cross-cutting cover
   areas from `tools/architecture-check/src/area-model.json`.
 - A cross-repo finding names the destination owner. It is a deferral only when
-  that destination is outside the judged repo set. The grammar's
-  [implementation location table](round-grammar.md#implementation-location-table)
-  makes that boundary explicit.
+  that destination is outside the judged repo set.
+
+The implementation audit schema offers these locations for the judged repo set:
+
+| Judged repos | Plan section | Repo Edu area and optional cover areas | Plan target |
+| --- | --- | --- | --- |
+| Plan | Local | Deferral into Repo Edu | |
+| Repo Edu | | Local | Deferral into the plan repo |
+| Both | Local | Local | |
 
 A deferral exists so a round can record a defect it proved without writing in a
 repo it was not authorised to change. It never turns a repo already in the
@@ -356,10 +361,6 @@ planning rules'
 Case: [`raise-rule`](../../../plan/CASES.md#raise-rule).
 
 ## Finding explanations
-
-The [round grammar](round-grammar.md#audit-report) owns the finding heading,
-token order, field order and empty forms. This section owns what the
-explanation must prove.
 
 Briefly state the problem, its consequence and the correction, supported by
 decisive evidence from sources the auditor read. Include useful paths and
@@ -876,7 +877,7 @@ reading what to add. Each empty field is a checked verdict, never an omission.
 Implementation audit reports keep local and cross-repo findings in one field because
 the judged repo set and location table already identify their owners.
 
-An audit report contains only the parts its workflow and grammar require. A planned
+An audit report contains only the parts its workflow requires. A planned
 edit no finding asks for joins the opening so the vet can check it. Material for
 the next round goes in the handoff. A finding dropped under the route's own
 rules stays out of both.
@@ -978,8 +979,8 @@ Empty records and markers carry no conventional kind:
   until a later destination-repo round cites and applies them.
 - `impl-audit-<step scope>` with `clean` in the sequence's place records a clean
   implementation-audit round. It lands once per round, in the sole judged repo
-  or in Repo Edu when both repos were judged. The round grammar's
-  [audit report](round-grammar.md#audit-report) identifies the judged repo set.
+  or in Repo Edu when both repos were judged. The audit report's opening
+  identifies the judged repo set.
   A repo whose files took no finding gets no record from a round that found
   some elsewhere, so a both-repo round with findings in one repo lands one
   record, and the peer repo's trajectory reads that record through the judged
@@ -1094,5 +1095,5 @@ success when all required work is complete. Judge what remains blocked, not
 whether an earlier tool call failed.
 
 The result grants no permission to bypass a gate or make the user's decision.
-Workflows own the outcome; the runner validates parsed documents and landed
+Workflows own the outcome. The runner validates phase results and landed
 subjects without judging tool failures.

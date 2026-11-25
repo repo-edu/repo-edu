@@ -72,15 +72,14 @@ In a ruler result put each point's question, sources and evidence in the
 supplied fields. A ruling document may use the following prose form:
 
 ```text
-Point 1: whether the report reader admits an empty plan target.
-- Audit report: the reader stores it as a deferral.
-- Vetter abx: the reader refuses it.
-- Opened: .agents/references/round-grammar.md, the case
-  report/empty-plan-target.
-- Read: "Refusal: `Finding 1 has an empty plan target`".
-- Settles: the reader refuses it, so vetter abx is right.
+Point 1: whether a deferral citation can use an abbreviated commit ID.
+- Audit report: the reader accepts six characters.
+- Vetter abx: the reader requires the full ID.
+- Opened: .agents/references/round-grammar.md, Common terminals.
+- Read: "An `<applies-token>` keeps the full commit ID and resolves it exactly".
+- Settles: the citation requires the full ID, so vetter abx is right.
 
-Point 2: whether a past round wrote an empty plan target.
+Point 2: whether a past round wrote an abbreviated citation.
 - Rebuttal: two rounds did.
 - Unchecked: the rebuttal names no round, and no source this
   session opened shows one.

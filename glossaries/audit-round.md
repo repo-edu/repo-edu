@@ -61,8 +61,8 @@ of report. Each kind is named in full.
   instead of settling it. Like any verdict it is a claim about the evidence,
   and a later phase may overturn it.
 - **Ruling**: a decision a round or a plan step leaves to the user, and the
-  request that asks for it. Before an audit fix the runner asks, from the
-  round's reports, for every winner and choice the reviews leave open, and the
+  request that asks for it. Before an audit fix the runner asks for every
+  winner and choice the reviews leave open, and the
   fix starts on the answer. During the fix or a plan step the fix or the
   implementation worker writes a document, the user answers it with a reply in
   the ruling chat and the same session then resumes. A reply always means the
@@ -94,6 +94,8 @@ of report. Each kind is named in full.
 
 ## Reports and files
 
+The runner writes the four reports from the results of their phases.
+
 - **Audit report**: the audit's document. Its opening names the target and the
   judged repo set, and its fields hold the findings.
 - **Vet report**: one vetter's document, with one verdict for each finding of
@@ -103,11 +105,12 @@ of report. Each kind is named in full.
 - **Ruler report**: the ruler's document, with an evidence record and one
   winner for each finding the ruler was given, and any open choice a winner
   leaves.
-- **Phase result**: the control line that ends an unattended phase's response.
-  It tells the runner whether the phase finished, failed or needs a ruling.
-- **Settling line**: the one line that ends a widening audit report and a
-  widening fix. It advises settle or keep open, with a one-line reason, and the
-  runner keeps the latest one as the round's settling recommendation.
+- **Phase result**: the object an unattended phase returns in the form the
+  runner supplies. It tells the runner whether the phase finished, failed or
+  needs a ruling and carries the fields for that phase.
+- **Settling line**: the runner's display of a widening phase's advice to
+  settle or keep the shape open, with a one-line reason. It ends the audit
+  report or follows the fix's closing note.
 - **Evidence repo**: the private checkout `plan-evidence` beside the plan and
   Repo Edu checkouts. It holds the round folder and each closed plan's round
   files. It keeps completed commit series under `commits/` and the files from
@@ -194,9 +197,9 @@ of report. Each kind is named in full.
   own planning-round number unless it continues a stopped chained round.
 - **Stopped round**: a round whose round data entry ends `failed`,
   `interrupted` or `awaiting-ruling`. The command that opens a round on its
-  target continues it when it is the target's newest round and its kept audit
-  report still reads as valid. The continued round keeps its number and files
-  and runs only the phases whose kept reports do not read as valid.
+  target can continue its newest stopped round when the audit result was
+  stored and its report file still exists. The continued round keeps its
+  number and files and runs the phases still needed.
 - **Chain**: one succession of rounds along one branch of history, together
   with the handoffs those rounds write. A second branch carries its own chain.
 

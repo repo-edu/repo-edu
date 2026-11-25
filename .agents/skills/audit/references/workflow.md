@@ -3,7 +3,6 @@ reads:
   - ../../../../glossaries/audit-round.md
   - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
-  - ../../../references/round-grammar.md
   - commit-scope.md
   - ../../../../../plan/GROWTH-PATTERNS.md
   - ../../../../../plan/BOUNDARIES.md
@@ -128,10 +127,12 @@ Every round inspects the complete in-range implementation and checks every
 binding **Decisions** entry without adding decision rows. Violations land as
 findings.
 
-Close the table with the coverage line of the
-[audit report grammar](../../../references/round-grammar.md#audit-report). The table proves the
-round inspected its whole scope rather than only the areas where findings cluster. A clean audit
-report still includes the table and the coverage line before it says there are no findings.
+Close the table with the counts in this line.
+
+`Implementation coverage: I/T implemented; V deviated; N incomplete; R dropped.`
+
+The table shows the scope the round inspected. A clean audit report includes the
+table and its counts before it says there are no findings.
 
 ## Listed files
 
@@ -197,8 +198,7 @@ Judge every supplied deferral into Repo Edu against current code. A missing
 correction becomes a finding that names the deferring full commit ID and
 position. Its fix record cites that item. When current code already holds the
 correction, the audit reports no finding for that item. Instead, its audit report
-opening adds one satisfied-deferral line in the
-[audit report grammar](../../../references/round-grammar.md#audit-report) form.
+opening adds one line in the form `Satisfied deferral: <full-sha>/<position> <title>.`.
 The audit report opening carries that judgement into the fix, and the runner
 passes the fix the same object. The audit report must account for every supplied
 item through either a satisfied-deferral line or a finding. Every completed

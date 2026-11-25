@@ -3,7 +3,6 @@ reads:
   - ../../../../glossaries/audit-round.md
   - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-protocol.md
-  - ../../../references/round-grammar.md
   - ../../fix/references/ruling.md
   - ../../../../../plan/BOUNDARIES.md
   - ../../../../../plan/GROWTH-PATTERNS.md

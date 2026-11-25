@@ -117,7 +117,8 @@ runner's work timing.
    work.
 
 A round left at its questions or at a fix's ruling prints its `Rerun:` command. Running it
-continues the round on its kept reports. It asks the questions still open, then starts a fresh fix.
+continues from the saved results and reports. It asks the questions still open,
+then starts a fresh fix.
 An implementation worker left at a ruling prints the assistant's recovery command. Answer there,
 then rerun the original `pnpm audit-round implement ...` or full-plan command so the runner can
 read Git and continue. See [Recover a run](/repo-edu/tooling/recover-run/).

@@ -109,14 +109,14 @@ continues the run itself.
    [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase or worker failed.** Fix any outside problem the failure names, then run the printed
    `Rerun:` command, which is `pnpm audit-round run <stem>`, or the printed `--resume` form of it
-   for a failed worker. The rerun continues a stopped round on its kept reports. See
-   [Recover a run](/repo-edu/tooling/recover-run/).
+   for a failed worker. The rerun can continue a stopped round from its saved results and reports.
+   See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** Read the named `-watch.md` file and act on it before you
    rerun.
 4. **A fix changed the plan's phase.** For example an implementation-audit fix renamed the plan to
    `<topic>-widen.md`. Read the correction, then rerun to start from the new phase.
-5. **Widening or detailing ended without settle or ready.** A retained `keep open` line or the
-   round maximum ends the run in these stages. Supply the evidence or decision its reason names,
+5. **Widening or detailing ended without settle or ready.** A retained `keep open` recommendation or
+   the round maximum ends the run in these stages. Supply the evidence or decision its reason names,
    then rerun.
 6. **Settle or ready refused.** The lifecycle call refuses, for example when the plan file has
    uncommitted changes. Resolve the named condition and rerun.

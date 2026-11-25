@@ -314,8 +314,7 @@ When asked to review implementation code, prefix every finding title with an imp
 tier. Use the [implementation tiers](.agents/references/round-protocol.md#implementation-tiers) in
 the shared round protocol.
 
-Use the [audit report grammar](.agents/references/round-grammar.md#audit-report)
-for finding order and numbering and the shared protocol's
+Number findings in report order. Use the shared protocol's
 [Finding explanations](.agents/references/round-protocol.md#finding-explanations)
 for their substance.
 

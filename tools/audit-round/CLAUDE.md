@@ -147,8 +147,8 @@ subject reads find each hosted step, its repo's newest step and its newest `impl
   the step list. It continues the plan's `-plan-audit` round series and data file, so the round
   lands the ordinary `plan-audit` record. The plan doctrine's
   [Ready marker](../../../plan/CLAUDE.md#ready-marker) owns when the user reaches for it.
-- A concrete step scope selects an implementation audit and is refused before any step lands. It
-  returns after the landed-step check without reading the step list.
+- A concrete step scope selects an implementation audit and is refused before any step lands.
+  Before starting its audit, the runner reads the step list to check the scope and find its hosts.
 - A list of step scopes, as in `pnpm audit-round round <stem> 2,3-5,6-7`, selects one
   implementation audit per scope and runs an automatic series on each in list order, as typed.
   `resolveTargets` returns that ordered list, one target per scope, so every round still runs on
@@ -348,13 +348,13 @@ are never edited by hand.
   and effort the tool reported and the launched selection the settings named. A vetter's vet phase
   entry also carries the vetter's tag, which links its reviews to its model and effort;
 - its finding review and outcome data;
+- which report results were stored, including each vetter's result separately;
 - for a new automatic round, the ordered resolved auditor list used for its series answer;
 - for a planning entry, the required `settling` field. It keeps the widening round's settling
-  recommendation as it stands when the round ends: the fix's advice, or the audit report's
-  closing settling line when the clean audit ran no fix. Detailing entries use `""`;
+  recommendation as it stands when the round ends. It comes from the fix result, or from the
+  audit result on the direct clean route. Detailing entries use `""`;
 - for a commit entry, its original groups, advancing groups and judged repos. Each advancing group
-  keeps the references the round carried, because the audit report's `Target:` line repeats them
-  and a continued round reads that report against them;
+  keeps the references the round carried so a continued round can reuse its exact scope;
 - for a chained planning round, the deferral list its audit judged, which marks the round as
   chained;
 - for a plan-scoped implementation round, the deferral list into Repo Edu its audit received, an
@@ -368,12 +368,11 @@ tier and the rebuttal's answer to it.
   narrowing changed them, because those three set the commit subject's marks.
 - An entry written before the rarity token keeps its old reach value and carries no rarity, harm or
   final rarity. The schema admits it and no reader converts it.
-- A vet report reading carries each finding's audit report number, audit report tier, verdict and
-  optional revised tier. A review records a revised tier only when its `Revise to [<tier>]` line
-  differs from the audit report tier.
+- A review records the verdict and any revised tier from the vet result.
 - A finding with a contest or a split may also store its winner: `report`, `neither` or a list of
   vetter tags, with its reason and who named it, the user or the ruler. A user's winner also
-  records whether the user's answer added a choice to it, but never the choice itself.
+  records whether the user's answer added a choice to it. A ruler's winner records whether it
+  left a choice open. The runner asks for open choices again on a rerun.
 
 **A later ruling** records its date and full reason in the `disproved` list. A detached entry
 names the auditor's model and effort. An attached entry names its target, round and finding.
@@ -419,8 +418,8 @@ restore the working directory.
   commit set as `originalCommits` and its resolved `shortReferences`
 - vet: audit report input, vet report output; no vetter receives another vetter's vet report
 - rebuttal: audit report input, every vet report input in panel order, rebuttal report output; each
-  answer line names the vetter it answers by the tag in that vet report's input filename. The runner
-  saves the rebuttal to the last argument
+  answer in the result is keyed by finding number and vetter tag. The runner saves the rebuttal
+  report to the last argument
 - rule: audit report input, every vet report input in panel order, the rebuttal report input,
   ruler report output and a findings object holding each contest and split on a C or D finding with
   its audit tier; the input separately carries the panel. The runner saves the ruler report to the
@@ -443,6 +442,8 @@ restore the working directory.
 
 The runner writes the audit, vet, rebuttal and ruler reports from their checked results.
 Report phases finish only when their supplied output exists and is non-empty.
+Every unattended phase receives its result schema. The runner shows the report or closing note
+as the phase ends. [One invocation](references/sessions.md#one-invocation).
 
 The watch has no path argument because the runner owns both of its writes, under
 [Watch](references/watch.md#watch).
@@ -464,8 +465,9 @@ stopped early, stored an audit result, kept its audit report and is a
 chained round exactly when the call is one. `roundRun` in `output.ts` is the one owner of the rule,
 so `run`, `round`, a scope list and a chained round need no rule of their own.
 
-- A round that stopped in its audit kept no audit report, so the call opens a new round, and
-  `--first`, `--auditor` and the current settings apply to it.
+- A round without a stored audit result opens a new round. This includes rounds stopped in
+  their audit and rounds kept before structured results. The current settings and any
+  `--first` or `--auditor` option apply to the new round.
 - Only the newest round counts: a stopped round that a later round followed is never continued.
 - A runner that is killed writes no entry, so its round is not continued either.
 - A chained round's entry stores its deferral list, and a planning entry with that list marks the
@@ -505,6 +507,7 @@ plan-scoped implementation round.
 
 The coordinator starts from the stored round entry. A report phase runs in a fresh session when
 its result or report is missing. A planning round continues only in the same planning phase.
+A hand edit to a report changes what a reader sees. Routing uses the stored results.
 A continued round whose fix or clean completion already ended runs only what follows it.
 
 ### Auditor options on a rerun

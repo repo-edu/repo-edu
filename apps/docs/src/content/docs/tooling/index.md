@@ -65,7 +65,7 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
 | The runner is waiting for a ruling | [`/ruling [stem]`](/repo-edu/tooling/answer-ruling/) in Claude or `$ruling [stem]` in Codex | The chat explains what is open and sends your confirmed answer; the fix starts or the same assistant session resumes |
-| A phase failed or I left without replying | [Follow the recovery](/repo-edu/tooling/recover-run/) printed by the runner | The printed rerun continues the stopped round on its kept reports; a worker or close resumes its session |
+| A phase failed or I left without replying | [Follow the recovery](/repo-edu/tooling/recover-run/) printed by the runner | The rerun uses saved round results and their reports. A worker or close resumes its session. |
 
 ### Source upkeep
 

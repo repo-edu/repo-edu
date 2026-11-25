@@ -114,14 +114,14 @@ rules.
 1. **Automatic series**, without `--auditor`. Planning targets and plan-only commit targets use
    `planningAudit.auditors`. Implementation targets and any commit target with a Repo Edu group use
    `implementationAudit.auditors`. The `--first` selection opens; it must name an auditor from the
-   target work class's list. Without it, the retained round data opens on a listed auditor
-   without a current read when another has one, so a rerun continues where the series stood;
-   otherwise the configured default auditor opens, and a `random` default picks it again for each
-   scope. After each round that is not red, the runner applies three rules. A read is current only
-   after the latest settle, reopen, plan step, plan edit outside a round or audit with a real bug.
-   Each listed auditor needs its own current read, so two models or efforts of one assistant are
-   two readers. Once every listed auditor has a current read, widening follows the retained
-   settling line, detailing answers ready before the ready marker and every other series answers
+   target work class's list. Without it, the retained round data opens on a listed auditor without a
+   current read when another has one, so a rerun continues where the series stood; otherwise the
+   configured default auditor opens, and a `random` default picks it again for each scope. After
+   each round that is not red, the runner applies three rules. A read is current only after the
+   latest settle, reopen, plan step, plan edit outside a round or audit with a real bug. Each listed
+   auditor needs its own current read, so two models or efforts of one assistant are two readers.
+   Once every listed auditor has a current read, widening follows the retained settling
+   recommendation, detailing answers ready before the ready marker and every other series answers
    stop. Otherwise the next round goes to the listed auditor without a current read that read the
    scope least recently. `maximumAutomaticRounds` in the settings caps the series, counting its
    first round.
@@ -214,9 +214,9 @@ and any other with status 1.
    your choice. Ctrl-C in the terminal keeps the round's files, prints the command that continues
    the round and ends the series. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Rerun:`
-   command. It continues the stopped round on its kept reports and starts the first phase without
-   one in a new session. A round that stopped in its audit kept no audit report, so the rerun opens
-   a new round. See [Recover a run](/repo-edu/tooling/recover-run/).
+   command. The runner continues from the saved audit result when its report
+   still exists. It starts a fresh session for each report phase still needed.
+   See [Recover a run](/repo-edu/tooling/recover-run/).
 3. **The watch grades the episode red.** The series stops before another round. Read the watch and
    act on it first.
 4. **A fix changed the plan's phase.** The round finishes without a series decision and the series

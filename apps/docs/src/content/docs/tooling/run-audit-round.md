@@ -90,18 +90,19 @@ plan's phase. Before the fix the runner asks once for every winner and choice th
 you and says whether the fix uses the auditor's model, a vetter's model or neither. A fix's own
 ruling resumes the same fix on your reply before the series continues.
 
-A round that stops early prints a `Rerun:` line with the command that continues it. Running it
-continues the stopped round on its kept reports. See
+A round that stops early prints a `Rerun:` line. Run that command to pick up
+from the saved audit result and report, when both exist. See
 [Recover a run](/repo-edu/tooling/recover-run/).
 
-The runner answers stop after the read floor. For a widening plan, the retained settling line may
+The runner answers stop after the read floor. For a widening plan, the retained recommendation may
 instead answer settle. During detailing before the ready marker, the answer is ready. These answers
 do not make the user's lifecycle call; the full-plan run acts on settle and ready only because
 its invocation granted them in advance.
 
 ## Following a round
 
-The terminal shows the target, phase selection, elapsed time and each phase's Markdown. The
+The terminal shows the target, phase selection, elapsed time and each phase's Markdown. Each
+session returns a result in a fixed form, and the runner writes the readable report from it. The
 evidence checkout's `../plan-evidence/active/` folder keeps the transcript, tool log and retained
 round data. Use
 [Find round outputs](/repo-edu/tooling/find-round-outputs/) when you need the audit report, a vet

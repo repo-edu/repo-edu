@@ -39,7 +39,11 @@ which reviews and decisions still apply. A phase still to run takes the current 
 vetter you switched after a usage limit runs on the new selection. The audit and the rebuttal keep
 the auditor of the kept audit report.
 
-A round that stopped before saving its audit result opens a new round. This is
+Editing a report changes what people and later sessions read. The runner uses
+the saved results to decide which phases still need to run.
+
+A round without a stored audit result opens a new round. This includes rounds
+that stopped in their audit and rounds kept before structured results. This is
 also how a premise stop is answered: record the decision in the plan or in `BOUNDARIES.md`, then
 run the printed command, and the new audit reads the changed text.
 

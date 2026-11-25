@@ -2,7 +2,6 @@
 reads:
   - ../../../../glossaries/audit-round.md
   - ../../../../../plan/home/claude/commands/simple.md
-  - ../../../references/round-grammar.md
   - ../../../references/round-protocol.md
   - ../../../../tools/statement-move/CLAUDE.md
   - ../../../../tools/architecture-check/src/area-model.json
@@ -27,8 +26,7 @@ The phase arguments are exactly:
    session started
 3. this designer's density, `normal` or `coarse`
 
-The runner writes each saved answer in the round grammar's
-[Move list](../../../references/round-grammar.md#move-list) form. The statement move tool's
+The runner writes each saved answer as Markdown. The statement move tool's
 [documentation](../../../../tools/statement-move/CLAUDE.md) owns which ranges a
 move admits and how the tool carries out a whole list.
 

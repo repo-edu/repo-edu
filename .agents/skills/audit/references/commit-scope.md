@@ -99,8 +99,10 @@ not the message names it.
 - `short`: the substantive intent is not fully delivered.
 - `superseded`: a later commit in the range undid the change.
 
-Close the table with the commit coverage line of the
-[audit report grammar](../../../references/round-grammar.md#audit-report).
+Prefix each commit's six-character ID in the table with its repo, as in
+`repo-edu@c5c651` or `plan@e8128b`. Close the table with
+`Commit coverage: C/T commits hold; V overreached; N short; R superseded.`
+Replace the letters with the respective counts.
 
 ## What this round looks for
 
