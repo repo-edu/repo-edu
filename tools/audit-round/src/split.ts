@@ -99,14 +99,6 @@ export async function runChecks(
   return null
 }
 
-/** The committed move list for a source, used by the round reader. */
-export async function heldListText(planRoot: string, source: string) {
-  const file = await committedListPath(planRoot, source)
-  if (!file) throw new Error(`No committed move list for ${source}`)
-  return (await execa("git", ["show", `HEAD:${file}`], { cwd: planRoot }))
-    .stdout
-}
-
 /** The paths of the file set that Git shows with any change beside HEAD. */
 async function uncommitted(
   root: string,

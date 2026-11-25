@@ -3,8 +3,8 @@ import { join } from "node:path"
 import { execa } from "execa"
 import { errorMessage } from "./feedback.js"
 import {
+  type ArchiveKind,
   planRoundFile,
-  type SeriesKind,
   seriesArchiveFolder,
   seriesFile,
 } from "./round-paths.js"
@@ -132,7 +132,7 @@ async function seriesFiles(
 }
 
 /**
- * Move every file of one finished commit or move-list series from the round
+ * Move every file of a finished commit series or split call from the round
  * folder into its own folder under its kind's archive root, `commits/` or
  * `splits/`, so the round folder lists live work only. The series' files are
  * found through the names `round-paths.ts` owns, so a neighbouring label
@@ -144,7 +144,7 @@ async function seriesFiles(
 export async function archiveSeries(
   evidenceRoot: string,
   roundRoot: string,
-  kind: SeriesKind,
+  kind: ArchiveKind,
   label: string,
 ): Promise<MovedSeriesFiles> {
   const folder = seriesArchiveFolder(evidenceRoot, kind, label)
@@ -164,7 +164,7 @@ export async function archiveSeries(
 export async function restoreSeries(
   evidenceRoot: string,
   roundRoot: string,
-  kind: SeriesKind,
+  kind: ArchiveKind,
   label: string,
 ): Promise<MovedSeriesFiles> {
   const archived = seriesArchiveFolder(evidenceRoot, kind, label)

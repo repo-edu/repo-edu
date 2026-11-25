@@ -6,11 +6,10 @@ import { execa } from "execa"
 import { completeClean } from "../clean.js"
 import { stampCommitMessage } from "../commit-msg.js"
 import { seriesArchiveFolder } from "../round-paths.js"
-import { parseSubject } from "../subject.js"
 import { planStem } from "../target.js"
 import { runCommand, testSettings } from "./configured-runner.js"
-import { fixture, recordedTag } from "./helpers.js"
-import { commitFixture, roundFixture, shortCommit } from "./round-fixture.js"
+import { recordedTag } from "./helpers.js"
+import { roundFixture, shortCommit } from "./round-fixture.js"
 
 const singleAuditorSettings = {
   ...testSettings,
@@ -409,36 +408,4 @@ test("clean records share archived and widening plan identities with output file
     ),
     /audit's model/,
   )
-})
-
-test("a clean move-list audit records in the plan repo under its series label", async (t) => {
-  const f = await fixture(t)
-  const { planRoot } = f.runtime
-  const git = async (...args: string[]) =>
-    (await execa("git", args, { cwd: planRoot })).stdout
-  await commitFixture(planRoot)
-  const phases = "audit: gpt-5.6-sol xhigh\nAudit took 2 min."
-
-  const completion = await completeClean(
-    {
-      ...f.runtime,
-      roundKind: "split",
-      cwd: f.runtime.repoEduRoot,
-      source: "packages/domain/src/roster.ts",
-      report: join(f.runtime.roundRoot, "split-01-2-audit.obx.md"),
-      judgedRepos: ["plan"],
-    },
-    { auditor: "obx", phases, series: null },
-  )
-
-  const subject =
-    "split-roster.ts-58b58/split-audit obx clean: record audit with no findings"
-  assert.equal(
-    await git("log", "-1", "--format=%B"),
-    `${subject}\n\n${phases}\n`,
-  )
-  assert.deepEqual(completion.commits, [
-    { repository: "plan", sha: await git("rev-parse", "HEAD") },
-  ])
-  assert.equal(parseSubject(subject, "plan").class, "S2")
 })

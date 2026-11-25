@@ -46,12 +46,11 @@ export function reportKind(source: string): RoundKind {
     [
       ["planning", /\bPlanning round workflow\b/i],
       ["implementation", /\bImplementation audit workflow\b/i],
-      ["split", /\bMove-list audit workflow\b/i],
     ] as const
   ).filter(([, phrase]) => phrase.test(opening))
   if (named.length !== 1)
     throw new Error(
-      "Audit report opening must name one of Planning round workflow, Implementation audit workflow or Move-list audit workflow",
+      "Audit report opening must name Planning round workflow or Implementation audit workflow",
     )
   return named[0][0]
 }
@@ -66,15 +65,10 @@ export type AuditReport = {
   readonly judgedRepos: readonly Repository[]
 }
 
-export type ReportClass =
-  | "widening"
-  | "detailing"
-  | "implementation"
-  | "move-list"
+export type ReportClass = "widening" | "detailing" | "implementation"
 
 /** The class of audit report a target's audit writes. */
 export function targetReportClass(target: AuditTarget): ReportClass {
-  if ("source" in target) return "move-list"
   if (target.roundKind === "implementation") return "implementation"
   return planPhase(target.plan)
 }
@@ -84,14 +78,7 @@ const classKinds = {
   widening: "planning",
   detailing: "planning",
   implementation: "implementation",
-  "move-list": "split",
 } as const satisfies Record<ReportClass, RoundKind>
-
-/**
- * A move-list finding concerns one numbered move, or several moves or the
- * whole list.
- */
-const moveListSection = /^(?:moves|move-[1-9]\d*)$/
 
 /**
  * A widening audit report ends on its settling line, so its reader meets the advice
@@ -212,13 +199,11 @@ function findingData(
     throw new Error(`Finding ${heading[1]} title cannot contain ": "`)
   const { tokens } = tokenPrefix
   const locationTokenKeys =
-    reportClass === "move-list"
-      ? (["section"] as const)
-      : reportClass !== "implementation"
-        ? (["field", "section"] as const)
-        : tokens[0]?.key === "section" || tokens[0]?.key === "plan"
-          ? ([tokens[0].key] as const)
-          : areaLocationTokenKeys(tokens, 0)
+    reportClass !== "implementation"
+      ? (["field", "section"] as const)
+      : tokens[0]?.key === "section" || tokens[0]?.key === "plan"
+        ? ([tokens[0].key] as const)
+        : areaLocationTokenKeys(tokens, 0)
   const expectedTokenKeys = [
     ...locationTokenKeys,
     ...findingRatingTokenKeys(tokens, locationTokenKeys.length),
@@ -240,12 +225,7 @@ function findingData(
   const ratings = readFindingRatings(tokens, fail)
 
   let location: RoundFindingLocation
-  if (reportClass === "move-list") {
-    const section = one("section")
-    if (!moveListSection.test(section))
-      throw new Error(`Finding ${heading[1]} has an invalid move-list section`)
-    location = { kind: "plan", section }
-  } else if (reportClass !== "implementation") {
+  if (reportClass !== "implementation") {
     const foundField = one("field")
     const section = one("section")
     if (
@@ -339,7 +319,7 @@ export function readReport(
       `Audit report opening names the ${namedKind} workflow but the reader expected ${expectedKind}`,
     )
   const definitions =
-    reportClass === "implementation" || reportClass === "move-list"
+    reportClass === "implementation"
       ? [{ heading: "Findings", empty: "No findings.", field: null }]
       : [
           {

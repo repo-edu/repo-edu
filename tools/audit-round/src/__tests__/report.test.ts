@@ -20,7 +20,6 @@ const targets = {
   widening: "example-widen.md",
   detailing: "example.md",
   implementation: "example.md 1",
-  "move-list": "splits/packages/domain/src/roster.mv.md",
 } as const
 const readAuditReport = (
   source: string,
@@ -43,13 +42,11 @@ test("the round grammar's audit report examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("report/")) {
     // A refused example without the line is held to the class default.
     const target = /^Target: (.+)$/m.exec(example.source)?.[1]
-    const kind = example.source.includes("Move-list audit workflow")
-      ? "move-list"
-      : !example.source.includes("Planning round workflow")
-        ? "implementation"
-        : target?.endsWith("-widen.md")
-          ? "widening"
-          : "detailing"
+    const kind = !example.source.includes("Planning round workflow")
+      ? "implementation"
+      : target?.endsWith("-widen.md")
+        ? "widening"
+        : "detailing"
     if (example.outcome === "parsed") {
       assert.doesNotThrow(
         () => readAuditReport(example.source, kind, target),
@@ -117,11 +114,8 @@ test("audit report routing reads the named workflow only in the opening", () => 
     ),
     "implementation",
   )
-  assert.equal(
-    reportKind("# Move-list audit workflow\n\nJudged repos: plan@abc123"),
-    "split",
-  )
   for (const source of [
+    "# Move-list audit workflow",
     "Judged repos: plan@abc123",
     "> Planning round workflow",
     "```text\nImplementation audit workflow\n```",
@@ -271,22 +265,6 @@ test("the audit report opening names the round's target exactly once in plain te
     () => readAuditReport(valid, "widening"),
     /naming example-widen\.md$/,
   )
-})
-
-test("a move-list target keeps its literal path through Markdown parsing", () => {
-  const target = "splits/tools/audit-round/src/__tests__/round.test.mv.md"
-  const example = roundGrammarExample("report/move-list-findings").source
-  const line = `Target: ${target}`
-  const report = example.replace(`Target: ${targets["move-list"]}`, line)
-  assert.doesNotThrow(() => readAuditReport(report, "move-list", target))
-  for (const other of [
-    line.replace("__tests__", "**tests**"),
-    `\`Example:\n${line}\nEnd\``,
-  ])
-    assert.throws(
-      () => readAuditReport(report.replace(line, other), "move-list", target),
-      /Audit report needs one Target:/,
-    )
 })
 
 test("settled audit reports carry findings and judged repositories after routing", () => {
@@ -996,38 +974,5 @@ test("rebuttal refuses an answer that names no vetter, a vetter outside the pane
     assertNamedRefusal(
       () => readRebuttal(source, twoFindings, reviews),
       refusal,
-    )
-})
-
-test("a move-list audit report locates each finding at a move or the whole list", () => {
-  const example = roundGrammarExample("report/move-list-findings")
-  const report = readAuditReport(example.source, "move-list")
-  assert.deepEqual(report.judgedRepos, ["plan"])
-  assert.deepEqual(
-    report.findings.map(({ number, tier, location }) => ({
-      number,
-      tier,
-      location,
-    })),
-    [
-      { number: 1, tier: "B", location: { kind: "plan", section: "move-2" } },
-      { number: 2, tier: "D", location: { kind: "plan", section: "moves" } },
-    ],
-  )
-  // A move-list audit report is read only as one, never as another class.
-  assert.throws(
-    () =>
-      readAuditReport(example.source, "implementation", targets["move-list"]),
-    /names the split workflow but the reader expected implementation/,
-  )
-  for (const section of ["move-0", "move-01", "move-", "decisions"])
-    assert.throws(
-      () =>
-        readAuditReport(
-          example.source.replace("[section:move-2]", `[section:${section}]`),
-          "move-list",
-        ),
-      /Finding 1 has an invalid move-list section/,
-      section,
     )
 })

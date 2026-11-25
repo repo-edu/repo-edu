@@ -110,32 +110,6 @@
       "effort": "default"
     }
   },
-  "splitAudit": {
-    "auditors": [
-      {
-        "assistant": "codex",
-        "model": "gpt-5.6-sol",
-        "effort": "high"
-      }
-    ],
-    "vetters": [
-      {
-        "assistant": "claude",
-        "model": "default",
-        "effort": "default"
-      }
-    ],
-    "ruler": {
-      "assistant": "claude",
-      "model": "default",
-      "effort": "default"
-    },
-    "fixer": {
-      "assistant": "codex",
-      "model": "default",
-      "effort": "default"
-    }
-  },
   "maximumAutomaticRounds": 10,
   "strengthModels": {
     "claude": {

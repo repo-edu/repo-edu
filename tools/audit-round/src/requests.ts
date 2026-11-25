@@ -113,9 +113,7 @@ function phaseInstructions(workflow: string): ReadonlyMap<string, string> {
     if (files.has(source)) return
     const content = readFileSync(source, "utf8")
     files.set(source, content)
-    // A workflow is `workflow.md`, or `<kind>-workflow.md` beside the one its
-    // phase runs in other rounds; every other supplied file is read whole.
-    if (!/^(?:.+-)?workflow\.md$/.test(basename(source))) return
+    if (basename(source) !== "workflow.md") return
     const file = new VFile({ path: source, value: content })
     matter(file)
     const header = workflowHeader.safeParse(file.data.matter)
@@ -149,7 +147,6 @@ export type AssistantPrompt = {
 const roundNames = {
   planning: "planning",
   implementation: "implementation-audit",
-  split: "move-list",
 } as const satisfies Record<RoundKind, string>
 
 /** Opens every phase prompt and names the unattended phase the session runs. */

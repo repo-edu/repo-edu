@@ -24,9 +24,7 @@ export type CleanCompletion = {
  * Keep the audit report as evidence and leave handoffs untouched: no correction
  * consumed their reasoning. The one empty record lands in the sole judged repo,
  * or in Repo Edu when both were judged. A plan's record opens with its stem and
- * a commit audit's or a move-list round's with its series label, so the log
- * shows that the audit ran. A move-list audit judges the plan repo alone, so
- * its record lands there, beside its list.
+ * a commit audit's record opens with its series label.
  */
 export async function completeClean(
   input: CleanInput,
@@ -42,9 +40,7 @@ export async function completeClean(
   const form =
     "groups" in input
       ? `${targetLabel(input)}/commit-audit`
-      : "source" in input
-        ? `${targetLabel(input)}/split-audit`
-        : `${planStem(input.plan)}/${input.roundKind === "planning" ? "plan-audit" : `impl-audit-${input.scope}`}`
+      : `${planStem(input.plan)}/${input.roundKind === "planning" ? "plan-audit" : `impl-audit-${input.scope}`}`
   const subject = `${form} ${stamps.auditor} clean: record audit with no findings`
   parseSubject(subject, repository)
   const citations = (input.deferrals ?? []).map(

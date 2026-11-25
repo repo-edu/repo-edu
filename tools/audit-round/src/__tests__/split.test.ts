@@ -58,7 +58,7 @@ async function splitFixture(t: TestContext) {
     await mkdtemp(join(tmpdir(), "audit-round-split-")),
   )
   t.after(() => rm(directory, { recursive: true, force: true }))
-  const context = testContext(join(directory, "repo-edu"), "split")
+  const context = testContext(join(directory, "repo-edu"))
   await repository(context.repoEduRoot)
   await mkdir(join(context.repoEduRoot, "packages/demo/src"), {
     recursive: true,

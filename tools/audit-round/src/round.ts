@@ -1,4 +1,3 @@
-import { join } from "node:path"
 import { isDeepStrictEqual } from "node:util"
 import type { ClosedRoundFiles } from "./evidence.js"
 import { errorMessage, type ModelReleases } from "./feedback.js"
@@ -68,9 +67,7 @@ import {
   planRepositoryPrefix,
   planStem,
   type RoundContext,
-  type RoundKind,
   reportTarget,
-  roundListPath,
 } from "./target.js"
 
 /**
@@ -634,7 +631,6 @@ async function runWatch(
   input: RoundContext &
     Pick<RoundInput, "watch"> & {
       readonly plan: string
-      readonly roundKind: Exclude<RoundKind, "split">
     },
   dependencies: Pick<
     RoundDependencies,
@@ -924,11 +920,9 @@ async function reviewRound(
         arguments:
           "groups" in input
             ? [report, ...commitAuditGroups(input)]
-            : "source" in input
-              ? [report, join(input.planRoot, roundListPath(input.source))]
-              : input.roundKind === "planning"
-                ? [report, input.plan, ...deferralScope]
-                : [report, input.plan, input.scope, ...deferralScope],
+            : input.roundKind === "planning"
+              ? [report, input.plan, ...deferralScope]
+              : [report, input.plan, input.scope, ...deferralScope],
         sessionId: null,
       }),
     dependencies,
@@ -1118,8 +1112,7 @@ async function concludeClean(
 /**
  * Finish a round once its fix ended: publish the settled account, run the
  * watch that follows a plan round, chain any planning round for open deferrals
- * and apply the series rules. A fix that changed the plan's phase or withdrew
- * the move list ends the series before the rules apply.
+ * and apply the series rules unless the fix changed the plan's phase.
  */
 async function concludeFixed(
   input: RoundInput,
@@ -1158,18 +1151,11 @@ async function concludeFixed(
       ? await runWatch(input, dependencies, settings)
       : { grade: null }
   if ("status" in watched) return { ...watched, commits, account }
-  let seriesMayContinue: boolean
-  try {
-    seriesMayContinue =
-      "groups" in input ||
-      ("source" in input
-        ? (await dependencies.readMoveList(input.source)).kind === "moves"
-        : currentPlan !== null &&
-          planPhase(currentPlan) === planPhase(input.plan) &&
-          watched.grade !== "red")
-  } catch (error) {
-    return failed(error)
-  }
+  const seriesMayContinue =
+    "groups" in input ||
+    (currentPlan !== null &&
+      planPhase(currentPlan) === planPhase(input.plan) &&
+      watched.grade !== "red")
   let deferralChain: DeferralChainOutcome = "none"
   if (seriesMayContinue) {
     try {
@@ -1528,16 +1514,14 @@ export async function runRound(
           throw new Error("Only a widening fix returns a settling line")
         if (fix.settling !== null)
           account = { ...account, settling: fix.settling }
-        // A plan or move-list fix lands the round's record with its change;
+        // A plan fix lands the record with its change;
         // only a commit round whose findings all need a listed-file change
         // lands nothing.
         if (
           !("groups" in input) &&
           landed.every((records) => records.length === 0)
         )
-          throw new Error(
-            `The finished fix landed no commit for a ${"source" in input ? "move-list" : "plan"} target`,
-          )
+          throw new Error("The finished fix landed no commit for a plan target")
         for (const [index, records] of landed.entries()) {
           for (const { subject } of records) {
             parseSubject(subject, repositories[index].repository)

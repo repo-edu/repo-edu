@@ -115,10 +115,10 @@ Audit, vet and rebuttal took 7 min.
 <series>    ::= commit-<group>[+<group>]     ; a commit series' label
 <group>     ::= <sha6> | <sha6>..<sha6>
 <sha6>      ::= six lowercase hexadecimal characters ; a commit's first six
-<split>     ::= split-<file-name>-<hash5>   ; a move-list series' label
+<split>     ::= split-<file-name>-<hash5>   ; a source file's split label
 <file-name> ::= the source file's name, percent-encoded
 <hash5>     ::= five lowercase hexadecimal characters ; the first five of the source path's SHA-256
-<split-role> ::= design | choose | split-audit | split
+<split-role> ::= design | choose | split
 <scope>     ::= <n> | <n>-<n>
 <n>         ::= <digit>+                    ; a positive integer without leading zeros
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
@@ -159,15 +159,14 @@ forms. The parser holds the one test that tells the two forms apart, and every r
 commits by plan uses it. The same test reads a chat's form as no plan form, though it opens with a
 plan's stem. The plan repo's **Commit message convention** owns when a chat writes it.
 
-A move-list series' commits open with its label where a plan form has its stem. The label is
+A split's commits open with the source file's label. The label is
 `split-`, the source file's name, a hyphen and the first five characters of the SHA-256 of the
 source file's path: `packages/domain/src/roster.ts` gives `split-roster.ts-58b58`. The name is
 percent-encoded as JavaScript's `encodeURIComponent` writes it, so the label is one token with no
-path separator. The label leaves the folders out, because a label that spells the whole path fills
-the start of every subject of the series and pushes the role, the tag and the severity out of a
-one-line log. The hash tells same-named files apart, so two paths share a label only when the name
+path separator. Leaving out the folders keeps the role and tag visible in a one-line log.
+The hash tells same-named files apart, so two paths share a label only when the name
 and the five characters both agree. The move list's own path under `splits/` gives the full path.
-The same label names the series' round files and round data. The `<split-role>` marks the form, as
+The same label names the split's design evidence and log. The `<split-role>` marks the form, as
 `commit-audit` does, so the plan-form read reads it as no plan form.
 
 The three alphabets of `<tag>` share no letter, so each letter names its position on its own.
@@ -223,13 +222,10 @@ changes:
 <C2 clean record> ::= <series>/commit-audit <tag> clean: <S>
 ```
 
-Move-list commits. `design`, `choose` and `split-audit` land in the plan repo and `split` in Repo
-Edu:
+The plan repo holds the `design` and `choose` commits. Repo Edu holds the `split` commit.
 
 ```text
 <S1 design>       ::= <split>/design <tag>: <S>
-<S2 round record> ::= <split>/split-audit <tag> <growth> <sequence>: <S>
-                    | <split>/split-audit <tag> clean: <S>
 <S3 split>        ::= <split>/split <tag> <kind>: <S>
 <S4 choice>       ::= <split>/choose: <S>
 ```
@@ -282,7 +278,6 @@ Rules across the classes:
 | `commit-audit` | either | a commit audit's fix commit or clean record; its name pairs it with `plan-audit` and `impl-audit-<scope>`, so a record says which audit it was |
 | `design` | plan | the numbered answer the picker chose, committed by the runner |
 | `choose` | plan | the numbered answer the user chose to run |
-| `split-audit` | plan | one move-list round's record, the list's change or clean; its name pairs it with the other audit roles |
 | `split` | Repo Edu | the split commit that carries out a move list, written by the runner |
 
 ## Subject examples
@@ -316,8 +311,6 @@ C1        commit-e8128b/commit-audit abx growth-none c1 docs(claude):
 C2        commit-e8128b/commit-audit obx clean:
 S4        split-roster.ts-58b58/choose:
 S1        split-roster.ts-58b58/design abx:
-S2        split-roster.ts-58b58/split-audit obx growth-none b1c1:
-S2        split-roster.ts-58b58/split-audit obx clean:
 O2        ath chore(repo):
 O2        ath growth-none c1 docs(claude):
 O2        ath growth-low B1c1 docs(claude):

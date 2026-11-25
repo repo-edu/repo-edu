@@ -24,10 +24,8 @@ plan or commit target runs an [automatic series](#automatic-series). With `--aud
   resumes the fix, then the sequence after the round completes.
 - The series returns its ending as a value, so a reader never parses the printed lines: `settle` or
   `ready` for the runner's lifecycle answer, `complete` for a runner stop or an emptied manual
-  queue, `withdrawn` for a move-list fix that withdrew its list, `halted` for a changed list that
-  failed the split call's attempt, `limit` for the maximum and `stopped` for an ending that needs
-  the user. A complete commit series moves under [The series move](../CLAUDE.md#the-series-move),
-  and a move-list series moves with its split call.
+  queue, `limit` for the maximum and `stopped` for an ending that needs the user. A complete
+  commit series moves under [The series move](../CLAUDE.md#the-series-move).
 
 ### Auditor options
 
@@ -109,21 +107,6 @@ watch: the runner stops it or chooses another listed auditor. The series decisio
 commit series. The series runner reads the commit data file before reruns, after restoring an
 archived series, and the runner reads it after automatic rounds.
 [Commit targets](../CLAUDE.md#commit-targets) says how each later round's commit set grows.
-
-### Move-list series
-
-Only the [split](../CLAUDE.md#split) call runs a move-list series, on the one source it was given,
-and never with `--auditor` or `--first`. It reads the `splitAudit` auditor list and uses the same
-fixed rules and maximum as a commit series, with no lifecycle answer and no watch.
-
-- The split call starts the series only when a listed auditor lacks a current read of the list. A
-  list that waits for its split, or whose split was skipped or whose checks failed, therefore gets
-  no second series once every read is current.
-- After each finished round, before the rules apply, the series reads the committed list again. A
-  fix that withdrew it ends the series as `withdrawn`. A fix that changed it hands the new list to
-  the split call's attempt, and a refusal or a changed source ends the series as `halted`.
-- The series reads its label's round data before reruns and after the split call restores an
-  archived series.
 
 ### Scope lists
 

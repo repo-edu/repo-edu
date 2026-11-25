@@ -11,7 +11,6 @@ import {
   type Repository,
   type SubjectClass,
   SubjectError,
-  seriesForm,
   seriesLabel,
   withSeriesForm,
 } from "../subject.js"
@@ -379,7 +378,7 @@ const refusals: [Repository, string, RegExp][] = [
     "commit-804833/commit-audit atx growth-none clean: s",
     /beside a severity/,
   ],
-  // A move-list series' forms and their label.
+  // A split's forms share its label.
   ["plan", "example/design abx: s", /series label example/],
   ["plan", "split-a/b.ts/design abx: s", /role b.ts\/design/],
   ["plan", "split-b%2f.ts-868d9/design abx: s", /series label/],
@@ -389,18 +388,7 @@ const refusals: [Repository, string, RegExp][] = [
   ["repo-edu", "split-b.ts-868d9/design abx: s", /belongs to the plan/],
   ["plan", "split-b.ts-868d9/design: s", /capability tag/],
   ["plan", "split-b.ts-868d9/design abx docs(x): s", /nothing after its tag/],
-  [
-    "repo-edu",
-    "split-b.ts-868d9/split-audit abx clean: s",
-    /belongs to the plan/,
-  ],
-  ["plan", "split-b.ts-868d9/split-audit abx: s", /needs a severity/],
-  [
-    "plan",
-    "split-b.ts-868d9/split-audit abx growth-none b1 docs(x): s",
-    /no conventional kind/,
-  ],
-  ["plan", "split-b.ts-868d9/split-audit abx b1: s", /growth or pruning mark/],
+  ["plan", "split-b.ts-868d9/split-audit abx clean: s", /role split-audit/],
   [
     "plan",
     "split-b.ts-868d9/split abx refactor(x): s",
@@ -537,7 +525,7 @@ test("a commit round reads its records by their series label and writes that lab
     )
 })
 
-test("a move-list series' forms open with its label and name no plan", () => {
+test("a file split's forms open with its label and name no plan", () => {
   const label = "split-roster.ts-58b58"
   assert.deepEqual(parseSubject(`${label}/design abx: s`, "plan"), {
     class: "S1",
@@ -548,29 +536,6 @@ test("a move-list series' forms open with its label and name no plan", () => {
     kind: null,
     sentence: "s",
   })
-  assert.deepEqual(
-    parseSubject(`${label}/split-audit obx growth-none b1c1: s`, "plan"),
-    {
-      class: "S2",
-      form: { series: label, role: "split-audit" },
-      tag: { vendor: "o", tier: "b", effort: "x" },
-      burden: { direction: "growth", level: "none" },
-      severity: {
-        ordinary: false,
-        upper: [],
-        lower: [
-          { tier: "b", count: 1 },
-          { tier: "c", count: 1 },
-        ],
-      },
-      kind: null,
-      sentence: "s",
-    },
-  )
-  assert.equal(
-    parseSubject(`${label}/split-audit obx clean: s`, "plan").class,
-    "S2",
-  )
   assert.deepEqual(
     parseSubject(`${label}/split abx refactor(pkg-domain): s`, "repo-edu"),
     {
@@ -588,23 +553,12 @@ test("a move-list series' forms open with its label and name no plan", () => {
     parseSubject("split-c%25d.ts-977a1/design abx: s", "plan").class,
     "S1",
   )
-  for (const role of ["design", "split-audit", "split"]) {
+  for (const role of ["design", "choose", "split"]) {
     const subject = `${label}/${role} abx: s`
     assert.equal(planForm(subject), null, role)
     assert.equal(looseRole(subject), role, role)
-    assert.deepEqual(seriesForm(subject), { label, role }, role)
-    assert.equal(isAuditRole(role), role === "split-audit", role)
+    assert.equal(isAuditRole(role), false, role)
   }
-  assert.equal(seriesForm("example/impl-2 abx feat(x): x"), null)
-  assert.equal(seriesLabel(`${label}/split-audit obx clean: x`), label)
   assert.equal(seriesLabel(`${label}/design abx: x`), null)
   assert.equal(seriesLabel(`${label}/split abx refactor(x): x`), null)
-  assert.equal(
-    withSeriesForm("example/plan-audit abx growth-none b1: x", label),
-    `${label}/split-audit abx growth-none b1: x`,
-  )
-  assert.equal(
-    withSeriesForm("abx clean: x", label),
-    `${label}/split-audit abx clean: x`,
-  )
 })

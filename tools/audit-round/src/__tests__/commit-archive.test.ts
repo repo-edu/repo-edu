@@ -71,7 +71,7 @@ test("a series file is read whole past its label, so a neighbouring label never 
     assert.equal(seriesFile(label, name), false, name)
 })
 
-test("a move-list series' files are read past its label as a commit series' are", () => {
+test("a split label identifies only the design files and log for its source", () => {
   const label = splitLabel("packages/domain/src/roster.ts")
   assert.equal(label, "split-roster.ts-58b58")
   assert.equal(
@@ -85,14 +85,15 @@ test("a move-list series' files are read past its label as a commit series' are"
     "the hash tells same-named files apart",
   )
   for (const name of [
-    `${label}-01-0-claim.md`,
-    `${label}-02-3-vet.abx.md`,
-    `${label}-rounds.json`,
+    `${label}-design-01.otx.md`,
+    `${label}-pick-01.atx.md`,
+    `${label}-designs.json`,
     `${label}-split.log`,
   ])
     assert.equal(seriesFile(label, name), true, name)
   for (const name of [
-    "split-roster.ts-58b58.bak-12345-01-0-claim.md",
+    `${label}-01-0-claim.md`,
+    `${label}-rounds.json`,
     "split-rosterXts-58b58-rounds.json",
     "split-roster.tsx-9fc30-01-0-claim.md",
     "split-roster.ts-58b58.bak-12345-split.log",
@@ -105,19 +106,27 @@ for (const [kind, label, neighbour, root] of [
   [
     "split",
     "split-b.ts-868d9",
-    "split-b.ts-868d9.bak-12345-01-0-claim.md",
+    "split-b.ts-868d9.bak-12345-split.log",
     "splits",
   ],
 ] as const)
-  test(`an archive and its restore move exactly one ${kind} series and lose nothing when cut short`, async (t) => {
+  test(`archive and restore move only the labelled ${kind} files, even when cut short`, async (t) => {
     const f = await fixture(t)
     const { evidenceRoot, roundRoot } = f.runtime
-    const own = [
-      `${label}-01-0-claim.md`,
-      `${label}-01-2-audit.obx.md`,
-      `${label}-queue.md`,
-      `${label}-rounds.json`,
-    ]
+    const own =
+      kind === "split"
+        ? [
+            `${label}-design-01.otx.md`,
+            `${label}-designs.json`,
+            `${label}-pick-01.atx.md`,
+            `${label}-split.log`,
+          ]
+        : [
+            `${label}-01-0-claim.md`,
+            `${label}-01-2-audit.obx.md`,
+            `${label}-queue.md`,
+            `${label}-rounds.json`,
+          ]
     for (const name of [...own, neighbour])
       await writeFile(join(roundRoot, name), name)
 

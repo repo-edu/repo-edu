@@ -130,10 +130,7 @@ export type Run = {
   readonly openingNote?: string
   /** The plan stem or commit label the run serves; a ruling wait answers to it. */
   readonly target: string
-  /**
-   * A commit or move-list round's series label, which opens every record it
-   * lands; absent otherwise.
-   */
+  /** A commit series' label opens every record its rounds land. */
   readonly series?: string
   readonly phases: readonly RunEntry[]
   readonly releases: Record<Assistant, ModelReleases>
@@ -176,10 +173,6 @@ export type Run = {
     | {
         readonly originalGroups: RoundDataCommitGroups
         readonly groups: RoundDataCommitGroups
-      }
-    | {
-        /** The source file whose move list the round judges. */
-        readonly source: string
       }
   )
   /** The reading that dates the run files. */
@@ -233,7 +226,7 @@ function fileTag(
 
 /** Where a round's entry is stored; a plan outside the active folder keeps none. */
 function roundDataPath(setup: RoundSetup): string | null {
-  if ("groups" in setup || "source" in setup)
+  if ("groups" in setup)
     return join(
       setup.roundRoot,
       roundDataFilename(targetLabel(setup), "series"),
@@ -318,8 +311,7 @@ export async function roundRun(
 ): Promise<
   Run & {
     readonly nameStart: string
-    /** The watch's document; null for a move-list round, which runs no watch. */
-    readonly watch: string | null
+    readonly watch: string
     readonly documents: RoundDocuments
     readonly paths: { readonly claim: string | null; readonly markdown: string }
     /** What the round runs on: the call's setup, or the stopped round's. */
@@ -341,17 +333,12 @@ export async function roundRun(
     setup,
     targetWorkClass(setup),
   )
-  const entry = (phase: SinglePhase): RunEntry => {
-    const run = phases[phase]
-    if (run === null) throw new Error(`The round has no ${phase} phase`)
-    return { phase, ...run }
-  }
+  const entry = (phase: SinglePhase): RunEntry => ({ phase, ...phases[phase] })
   const tag = (phase: SinglePhase): string =>
     fileTag(entry(phase), releases, settings)
-  // The close runs alone, so a round needs no close tag, and a move-list round
-  // runs no watch.
+  // The close runs alone, so a round needs no close tag.
   for (const phase of singlePhases) {
-    if (phase !== "close" && phases[phase] !== null) tag(phase)
+    if (phase !== "close") tag(phase)
   }
   // Each vetter's vet report and record are named by its own tag.
   const vets = phases.vet.map((run) => {
@@ -388,42 +375,40 @@ export async function roundRun(
   const data =
     record === undefined
       ? undefined
-      : "source" in setup
-        ? { ...record, source: setup.source }
-        : "groups" in setup
+      : "groups" in setup
+        ? {
+            ...record,
+            originalGroups: setup.originalGroups.map(
+              ({ repository, commits, startingHead }) => ({
+                repository,
+                commits,
+                startingHead,
+              }),
+            ),
+            groups: setup.groups.map(
+              ({ repository, commits, startingHead, references }) => ({
+                repository,
+                commits,
+                startingHead,
+                references,
+              }),
+            ),
+          }
+        : setup.roundKind === "planning"
           ? {
               ...record,
-              originalGroups: setup.originalGroups.map(
-                ({ repository, commits, startingHead }) => ({
-                  repository,
-                  commits,
-                  startingHead,
-                }),
-              ),
-              groups: setup.groups.map(
-                ({ repository, commits, startingHead, references }) => ({
-                  repository,
-                  commits,
-                  startingHead,
-                  references,
-                }),
-              ),
+              phase: planPhase(setup.plan),
+              ...(setup.deferrals === undefined
+                ? {}
+                : { deferrals: setup.deferrals }),
             }
-          : setup.roundKind === "planning"
-            ? {
-                ...record,
-                phase: planPhase(setup.plan),
-                ...(setup.deferrals === undefined
-                  ? {}
-                  : { deferrals: setup.deferrals }),
-              }
-            : {
-                ...record,
-                scope: setup.scope,
-                ...(setup.deferrals === undefined
-                  ? {}
-                  : { deferrals: setup.deferrals }),
-              }
+          : {
+              ...record,
+              scope: setup.scope,
+              ...(setup.deferrals === undefined
+                ? {}
+                : { deferrals: setup.deferrals }),
+            }
   const runPhases: readonly RunEntry[] = [
     audit,
     ...vets,
@@ -438,7 +423,7 @@ export async function roundRun(
   )
   return {
     nameStart,
-    watch: phases.watch === null ? null : `${path("watch", "watch")}.md`,
+    watch: `${path("watch", "watch")}.md`,
     documents: {
       report: `${named("audit", auditTag)}.md`,
       vets: vets.map((vet) => `${named("vet", vet.tag)}.md`),
@@ -1179,26 +1164,24 @@ export class RoundOutput<R extends Run = Run> {
                 ? {}
                 : { deferrals: [...data.deferrals] }),
             }
-          : "source" in data
-            ? { source: data.source }
-            : {
-                originalGroups: data.originalGroups.map(
-                  ({ repository, commits, startingHead }) => ({
-                    repository,
-                    commits: [...commits],
-                    startingHead,
-                  }),
-                ),
-                groups: data.groups.map((group) => ({
-                  repository: group.repository,
-                  commits: [...group.commits],
-                  startingHead: group.startingHead,
-                  ...(group.references === undefined
-                    ? {}
-                    : { references: [...group.references] }),
-                })),
-                judgedRepos: [...account.judgedRepos],
-              }),
+          : {
+              originalGroups: data.originalGroups.map(
+                ({ repository, commits, startingHead }) => ({
+                  repository,
+                  commits: [...commits],
+                  startingHead,
+                }),
+              ),
+              groups: data.groups.map((group) => ({
+                repository: group.repository,
+                commits: [...group.commits],
+                startingHead: group.startingHead,
+                ...(group.references === undefined
+                  ? {}
+                  : { references: [...group.references] }),
+              })),
+              judgedRepos: [...account.judgedRepos],
+            }),
     })
   }
 }

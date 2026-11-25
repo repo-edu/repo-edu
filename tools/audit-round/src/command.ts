@@ -63,7 +63,6 @@ import {
   settlePlan,
 } from "./lifecycle.js"
 import { type ModelsReportOptions, modelsReport } from "./models.js"
-import { readMoveList } from "./move-list.js"
 import { type OpenDeferral, openDeferrals } from "./open-deferrals.js"
 import {
   closeRun,
@@ -138,7 +137,6 @@ import {
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
-import { heldListText } from "./split.js"
 import { namedAnswer } from "./split-answers.js"
 import { splitStage } from "./split-output.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
@@ -151,7 +149,6 @@ import {
   type CommitTarget,
   commitTargetRequest,
   isActivePlanPath,
-  type MoveListTarget,
   planPhase,
   planRepositoryPrefix,
   planStem,
@@ -505,20 +502,12 @@ function watchEvidencePage(evidence: string, range: LineRange): string {
  * How one auditor series ended. `settle` and `ready` carry the runner's
  * lifecycle answer and `complete` says every requested round ran: a stop
  * answer, an exhausted manual queue or the one round a target without a
- * series asked for. `withdrawn` says a fix withdrew the move list, and
- * `halted` that a changed move list did not pass the split call's attempt.
+ * series asked for.
  * `limit` is the round maximum reached with another auditor due, and `stopped`
  * an ending that needs the user: a failure, an unanswered ruling, a red watch,
  * a phase change or a chained deferral round that ended the series.
  */
-type SeriesEnding =
-  | "settle"
-  | "ready"
-  | "complete"
-  | "withdrawn"
-  | "halted"
-  | "limit"
-  | "stopped"
+type SeriesEnding = "settle" | "ready" | "complete" | "limit" | "stopped"
 
 type DeferralState = {
   readonly deferrals: readonly OpenDeferral[]
@@ -1613,8 +1602,6 @@ export async function runCommand(
       readRuler: async (file, findings, panel) =>
         readRulerReport(await readFile(file, "utf8"), findings, panel),
       seriesEvidence: readSeriesEvidence,
-      readMoveList: async (source) =>
-        readMoveList(await heldListText(context.planRoot, source)),
       chainDeferrals,
       readHead: async (cwd) =>
         (await execa("git", ["rev-parse", "HEAD"], { cwd })).stdout,
@@ -1898,8 +1885,6 @@ export async function runCommand(
         return shellJoin(planRunCommand(invocation))
       if (invocation.kind !== "round" && invocation.kind !== "round-commits")
         throw new Error(`The ${invocation.kind} command opens no round`)
-      if ("source" in target)
-        throw new Error("Only the split command opens a move-list round")
       const words =
         "groups" in target
           ? target.originalGroups.flatMap((group) =>
@@ -1932,21 +1917,17 @@ export async function runCommand(
     /**
      * The audit series a resolved target list asks for, one per target in
      * order. The ending is the last series' own, or `stopped` when a series
-     * needed the user and the rest of the list did not run. A split call
-     * passes `afterRound`, which a move-list series calls after each finished
-     * round that left the list in place; a false answer halts the series.
+     * needed the user and the rest of the list did not run.
      */
     const seriesStage = async (
-      targets: AuditTargets | readonly [MoveListTarget],
+      targets: AuditTargets,
       series: SeriesOptions,
-      afterRound?: () => Promise<boolean>,
     ): Promise<SeriesEnding> => {
       const seriesSession = roundContext(context, targets[0].roundKind)
       const [first, ...queued] = series.auditor ?? []
       const automatic =
         series.auditor === undefined &&
         ("groups" in targets[0] ||
-          "source" in targets[0] ||
           isActivePlanPath(context.activeRoot, targets[0].plan))
       const coin =
         options.coin ?? ((count: number) => Math.floor(Math.random() * count))
@@ -2044,10 +2025,9 @@ export async function runCommand(
               ...chainedRun.setup,
               documents: chainedRun.documents,
               transcript: chainedRun.paths.markdown,
-              watch:
-                series.watch && chainedRun.watch !== null
-                  ? { file: chainedRun.watch, cacheRoot }
-                  : null,
+              watch: series.watch
+                ? { file: chainedRun.watch, cacheRoot }
+                : null,
               ...(chainedRun.stored === undefined
                 ? {}
                 : { stored: chainedRun.stored }),
@@ -2129,9 +2109,7 @@ export async function runCommand(
         const seriesName = (value: AuditTarget): string =>
           "plan" in value
             ? `${roundSubject(value, planStem(value.plan))}: automatic auditor series`
-            : "source" in value
-              ? `Move-list audit of ${value.source}: automatic auditor series`
-              : "Commit audit: automatic auditor series"
+            : "Commit audit: automatic auditor series"
         const advanceCommitTarget = async (
           value: CommitTarget,
           landed: readonly LandedCommit[],
@@ -2309,10 +2287,7 @@ export async function runCommand(
               ...run.setup,
               documents: run.documents,
               transcript: run.paths.markdown,
-              watch:
-                series.watch && run.watch !== null
-                  ? { file: run.watch, cacheRoot }
-                  : null,
+              watch: series.watch ? { file: run.watch, cacheRoot } : null,
               ...(run.stored === undefined ? {} : { stored: run.stored }),
             },
             dependenciesFor(active, seriesSession, (parent) =>
@@ -2339,25 +2314,6 @@ export async function runCommand(
             )
             if (automatic) await printDeferrals()
             return "stopped"
-          }
-          // A fix that withdrew the move list ends its series before the
-          // rules apply, as a plan's phase change does.
-          if ("source" in target) {
-            const list = readMoveList(
-              await heldListText(context.planRoot, target.source),
-            )
-            if (list.kind === "no-split") {
-              await active.message(
-                `${seriesName(target)} ended after ${completed} round${completed === 1 ? "" : "s"}: the fix withdrew the list, which records ${list.result}. ${list.reason}`,
-              )
-              return "withdrawn"
-            }
-            if (afterRound !== undefined && !(await afterRound())) {
-              await active.message(
-                `${seriesName(target)} stopped after ${completed} round${completed === 1 ? "" : "s"}: the list the fix changed did not pass its attempt.`,
-              )
-              return "halted"
-            }
           }
           if (!automatic && queue === null) return "complete"
           if (automatic && "plan" in target) {
@@ -2474,8 +2430,7 @@ export async function runCommand(
           )
         // A finished commit series waits in its archive folder. A rerun
         // brings it back before anything reads it, so the series keeps its
-        // numbering and earlier fixes and every round writes where it did. A
-        // move-list series moves under the split call, after its split.
+        // numbering and earlier fixes.
         const label = "groups" in target ? targetLabel(target) : null
         if (label !== null)
           await say(

@@ -6,11 +6,8 @@ import type { ExecutionContext, PlanRoots } from "./context.js"
 import { splitEntries } from "./queue.js"
 import type { Repository } from "./subject.js"
 
-/**
- * The kind of round a target runs, which picks its working checkout and its
- * workflows. A move-list round is its own kind, the split work class.
- */
-export type RoundKind = "planning" | "implementation" | "split"
+/** The round kind selects the working checkout and workflow. */
+export type RoundKind = "planning" | "implementation"
 export type PlanPhase = "widening" | "detailing"
 export type RoundContext = ExecutionContext & {
   readonly roundKind: RoundKind
@@ -75,13 +72,6 @@ export function commitAuditGroups(
   return groups as [CommitAuditGroup, ...CommitAuditGroup[]]
 }
 
-/** A move-list round's target: the one move list of a source file. */
-export type MoveListTarget = {
-  readonly roundKind: "split"
-  /** The source file's path relative to the Repo Edu root, with `/` separators. */
-  readonly source: string
-}
-
 /** One scope owner for argument validation, phase routing and run presentation. */
 export type AuditTarget =
   | { readonly roundKind: "planning"; readonly plan: string }
@@ -91,7 +81,6 @@ export type AuditTarget =
       readonly scope: string
     }
   | CommitTarget
-  | MoveListTarget
 
 /**
  * The source a split call names, as a path relative to the Repo Edu root with
@@ -157,11 +146,6 @@ export async function committedListPath(
     )
 }
 
-/** The unnumbered path recorded by the earlier move-list audit rounds. */
-export function roundListPath(source: string): string {
-  return `${listStem(source)}.mv.md`
-}
-
 /**
  * The scope word that names a plan's planning round whatever has landed. The
  * plan doctrine's Ready marker owns when the user reaches for it.
@@ -215,7 +199,6 @@ export function planStem(plan: string): string {
 export function reportTarget(target: AuditTarget): string {
   if ("groups" in target)
     return target.groups.flatMap((group) => group.references).join(" ")
-  if ("source" in target) return roundListPath(target.source)
   const plan = basename(target.plan)
   return target.roundKind === "planning" ? plan : `${plan} ${target.scope}`
 }

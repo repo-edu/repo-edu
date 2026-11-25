@@ -28,7 +28,7 @@ A run description names the run, lists the phases it may run and locates its fil
 
 - Every audit round and every started implementation step records a log and a transcript.
 - A round on an active plan updates one machine-readable per-plan data file.
-- A commit or move-list audit updates its label's machine-readable series data file.
+- A commit audit updates its label's machine-readable series data file.
 - A close and a split call record only their log.
 
 Startup messages go only to the terminal. The terminal and log show the run title before the

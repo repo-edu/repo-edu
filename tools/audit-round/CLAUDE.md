@@ -262,8 +262,8 @@ Skipped phases leave gaps.
 **Tags.**
 
 - The claim, settle and reopen marker files, handoff, target-wide
-  [queue](references/series.md#manual-queue), step transcript and log and a move-list series'
-  [split log](#split) omit the tag. The plan doctrine owns the handoff's six-character commit name.
+  [queue](references/series.md#manual-queue), step transcript and log and [split log](#split) omit
+  the tag. The plan doctrine owns the handoff's six-character commit name.
 - Later phases preserve the audit report's target and round. Their tag names their own writer
   under Repo Edu's **Commit Capability Tag**, not the audit report's auditor.
 - The transcript and its log use the auditor tag.
@@ -282,11 +282,10 @@ answer from the picker takes the next number. An unchanged answer keeps its name
 `<label>-designs.json` records each writer and each designer's position and density. The plan list
 keeps the selected number as `splits/<source stem>.<n>.mv.md`.
 
-**One series' files.** `seriesFile` says whether a file belongs to one commit or move-list series: a
-claim, phase file, queue or handoff under its label, a split's numbered answers, pick reports,
-writer records and log, or its round data. It reads each form whole past the label in the same way,
-so a neighbouring label that extends this one never matches. `seriesArchiveFolder` names the series'
-folder under `commits/` or `splits/` of the evidence checkout.
+**Files under a label.** `seriesFile` matches a commit series' claim, phase files, queue, handoff
+and round data. For a split it matches the numbered answers, pick reports, writer record and log.
+It reads each name past the full label so a neighbouring label never matches. `seriesArchiveFolder`
+names the folder under `commits/` or `splits/` of the evidence checkout.
 
 ### Numbers and claims
 
@@ -334,7 +333,7 @@ are never edited by hand.
 - Plan files also hold the user's later rulings in a `disproved` list. Series files have none.
 - A round on an active plan updates its file in the round folder, and loop-close moves the files
   beside the archived plan. Closed-plan data remains archive evidence.
-- A commit or move-list series' file stays beside its round files and moves with them under
+- A commit series' file stays beside its round files and moves with them under
   [The series move](#the-series-move). The replay reads it in either place. Plan
   readers and the model read-out ignore it.
 
@@ -414,8 +413,7 @@ restore the working directory.
   [pick report](../../.agents/references/round-grammar.md#pick-report).
 - audit: audit report output, then either a plan with an optional implementation
   scope and open-deferral object, a plan with an open-deferral object for a
-  chained planning round, the move list's absolute path for a move-list round,
-  or one structured object per commit group carrying
+  chained planning round or one structured object per commit group carrying
   its `repository`, its carried `references`, its starting HEAD as
   `startingHead`, its advancing exact commit set as `commits`, its original
   commit set as `originalCommits` and its resolved `shortReferences`
@@ -548,9 +546,8 @@ The `Rerun:` line is the command the user typed, built from the parsed invocatio
 
 Nothing deletes a round's files. The coordinator deletes no round file: a round's audit, vet,
 rebuttal and ruler reports stay in the round folder after a finished fix, a failure, a ruling or a
-clean audit, until the close moves them. A commit or move-list series has no close, so the completed
-series moves
-under [The series move](#the-series-move) instead.
+clean audit, until the close moves them. A completed commit series moves under
+[The series move](#the-series-move).
 
 `evidence.ts` owns the writes that change the evidence checkout: the evidence commit, the close move
 and the series move.
@@ -595,9 +592,9 @@ finishes an earlier one moves the same way.
 
 ### The series move
 
-A commit series or a move-list series that completes moves out of the round folder, so the round
-folder lists live work only. `command.ts` asks `evidence.ts` for the move: after a commit series,
-on the ending the series runner returns, and after a split call, on the call's outcome.
+A completed commit series or split call moves out of the round folder, so the folder lists live
+work only. `command.ts` moves commit series through `evidence.ts`. `split-output.ts` moves split
+files through the same owner.
 
 - **When.** A commit series completes when every requested round has run: an automatic `stop`
   answer or a manual queue that runs out after a finished round. A failure, an unanswered ruling and
@@ -605,10 +602,9 @@ on the ending the series runner returns, and after a split call, on the call's o
   the maximum apart from completion, because both end the series without the user.
 - **When, for a split.** Every result archives the split's files. A failed session leaves them in
   the round folder.
-- **What.** `archiveSeries` moves every file that `seriesFile` matches for the series' label, round
-  data, claims, logs, reports, rulings, handoffs and queue included, into `commits/<label>/` or
-  `splits/<label>/` of the evidence checkout. Each file keeps its name and contents. The last
-  round's log is still open, and a rename keeps its open handle, so the move's own line lands in the
+- **What.** `archiveSeries` moves the [files under a label](#round-files) into
+  `commits/<label>/` for a commit series or `splits/<label>/` for a split. Each file keeps its name
+  and contents. Renaming an open log keeps its handle valid, so the move's own line lands in the
   moved log. The command's evidence commit takes the move.
 - **Rerun.** Before a series reads its history, picks an auditor, writes a queue or claims a round,
   `restoreSeries` moves any archived file of that label back and removes the emptied folder. The
@@ -1060,19 +1056,18 @@ omitted stem.
 
 ### replay
 
-`replay` reads every active and archived plan's retained round data and every commit-series and
-move-list series file, live in the round folder or archived in its own folder under `commits/` or
-`splits/`. Each series' file sits in one of the two places, so its answers count once, and the loose
-recovered files directly in `commits/` stay out. It starts no assistant and writes nothing.
+`replay` reads every active and archived plan's retained round data and every commit series' data
+file. A commit series lives in the round folder or its own folder under `commits/`, so its answers
+count once. Loose recovered files directly in `commits/` stay out. Replay starts no assistant and
+writes nothing.
 
 - It applies the automatic-series decision function of `judge.ts` to each stored answer.
   `replay.ts` reads each answer stored without an auditor list as the assistant-keyed rules that
   produced it.
 - It prints the computed answer, the stored answer, the next round's findings and whether the row
   is in the fixed corpus.
-- Its ordinary totals cover every stored answer and count commit series and move-list series each
-  as their own phase.
-- Its fixed Baseline totals exclude both kinds of series and use plan entries started before
+- Its ordinary totals cover every stored answer and count commit series as their own phase.
+- Its fixed Baseline totals use plan entries started before
   `2026-11-08T18:53:13Z`, with the historical auditor list fixed by the deterministic-judge plan.
 
 ### disprove

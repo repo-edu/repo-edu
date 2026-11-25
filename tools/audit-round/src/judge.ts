@@ -14,17 +14,11 @@ import {
   readSeriesRoundData,
   roundDataFilename,
   type SeriesAnswer,
-  type SplitRoundData,
 } from "./round-data.js"
 import { targetLabel } from "./round-paths.js"
 import type { Auditor } from "./settings.js"
-import { planForm, type Repository, seriesForm } from "./subject.js"
-import {
-  type AuditTarget,
-  planStem,
-  type RoundKind,
-  roundListPath,
-} from "./target.js"
+import { planForm, type Repository } from "./subject.js"
+import { type AuditTarget, planStem, type RoundKind } from "./target.js"
 
 export type SeriesCommit = {
   readonly repository: Repository
@@ -35,18 +29,13 @@ export type SeriesCommit = {
   readonly files: readonly string[]
   readonly renames: readonly { readonly from: string; readonly to: string }[]
   readonly acceptedTiers: readonly ("A" | "B" | "C" | "D")[]
-  /** The commit changes the series' document: the plan file or the move list. */
+  /** Whether the commit changes the series' plan file. */
   readonly changesDocument: boolean
-  /** The commit's form names the series' own plan stem or move-list label. */
+  /** Whether the commit's form names the series' plan stem. */
   readonly ownStem: boolean
 }
 
 export type SeriesEvidence = {
-  /**
-   * The document the series judges, which names an edit to it in a rule 3
-   * reason; null for a commit series, which judges commits and reads none.
-   */
-  readonly document: "plan" | "move list" | null
   readonly roundData: {
     readonly file: string
     readonly rounds: readonly RoundData[]
@@ -134,7 +123,7 @@ async function readRetainedRoundCommitTimes(
 /** Build one plan's evidence from already-read data and Git logs. */
 export function planSeriesEvidence(input: {
   readonly stem: string
-  readonly roundKind: Exclude<RoundKind, "split">
+  readonly roundKind: RoundKind
   readonly roundData: PlanRoundData
   readonly logs: Readonly<Record<Repository, readonly LogCommit[]>>
 }): SeriesEvidence {
@@ -180,7 +169,6 @@ export function planSeriesEvidence(input: {
         Date.parse(first.committed) - Date.parse(second.committed),
     )
   return {
-    document: "plan",
     roundData: {
       file: roundDataFilename(input.stem, input.roundKind),
       rounds: allRounds,
@@ -193,69 +181,10 @@ export function planSeriesEvidence(input: {
   }
 }
 
-/**
- * Build one move-list series' evidence from its rounds and the plan repo's log,
- * as a plan's evidence is built. The series' document is the one move list, so
- * the commits it reads are those that change the list and those whose form
- * carries the series' label: the design commits, the rounds' records and a
- * hand-run audit's record.
- */
-export function splitSeriesEvidence(input: {
-  readonly label: string
-  /** The move list's path relative to the plan checkout's root. */
-  readonly list: string
-  readonly rounds: readonly SplitRoundData[]
-  readonly log: readonly LogCommit[]
-}): SeriesEvidence {
-  const commits = input.log
-    .flatMap((commit): SeriesCommit[] => {
-      const form = seriesForm(commit.subject)
-      const ownStem = form?.label === input.label
-      const changesDocument = commit.files.includes(input.list)
-      if (!ownStem && !changesDocument) return []
-      const role = ownStem ? (form?.role ?? null) : null
-      return [
-        {
-          repository: "plan",
-          sha: commit.sha,
-          committed: new Date(commit.committedAt).toISOString(),
-          subject: commit.subject,
-          role,
-          files: commit.files,
-          renames: commit.renames,
-          acceptedTiers: acceptedTiers(commit.body, "plan", role),
-          changesDocument,
-          ownStem,
-        },
-      ]
-    })
-    .sort(
-      (first, second) =>
-        Date.parse(first.committed) - Date.parse(second.committed),
-    )
-  return {
-    document: "move list",
-    roundData: {
-      file: roundDataFilename(input.label, "series"),
-      rounds: input.rounds,
-    },
-    roundCommits: new Set(
-      input.rounds.flatMap((round) =>
-        round.commits.map((commit) => commit.sha),
-      ),
-    ),
-    roundCommitTimes: retainedRoundCommitTimes(input.rounds, {
-      plan: input.log,
-      "repo-edu": [],
-    }),
-    commits,
-  }
-}
-
 async function readPlanSeriesEvidence(
   input: ExecutionContext,
   stem: string,
-  roundKind: Exclude<RoundKind, "split">,
+  roundKind: RoundKind,
 ): Promise<SeriesEvidence> {
   const [roundData, plan, repoEdu] = await Promise.all([
     readPlanRoundData(input.roundRoot, stem),
@@ -277,7 +206,6 @@ async function readCommitSeriesEvidence(
   // A series opening on a fresh commit target has no file yet.
   const rounds = await readSeriesRoundData(input, label)
   return {
-    document: null,
     roundData: {
       file: roundDataFilename(label, "series"),
       rounds,
@@ -288,25 +216,6 @@ async function readCommitSeriesEvidence(
   }
 }
 
-async function readSplitSeriesEvidence(
-  input: ExecutionContext,
-  label: string,
-  source: string,
-): Promise<SeriesEvidence> {
-  const [rounds, log] = await Promise.all([
-    readSeriesRoundData(input, label),
-    readLog(input.planRoot),
-  ])
-  return splitSeriesEvidence({
-    label,
-    list: roundListPath(source),
-    rounds: rounds.filter(
-      (round): round is SplitRoundData => "source" in round,
-    ),
-    log,
-  })
-}
-
 /** Read the retained round data and bounded commit facts used by the series rules. */
 export async function readSeriesEvidence(
   input: SeriesEvidenceInput,
@@ -314,8 +223,6 @@ export async function readSeriesEvidence(
   const { target } = input
   if ("groups" in target)
     return readCommitSeriesEvidence(input, targetLabel(target))
-  if ("source" in target)
-    return readSplitSeriesEvidence(input, targetLabel(target), target.source)
   return readPlanSeriesEvidence(input, planStem(target.plan), target.roundKind)
 }
 
@@ -397,7 +304,6 @@ function isAuditRole(role: string | null): boolean {
   return (
     role === "audit" ||
     role === "plan-audit" ||
-    role === "split-audit" ||
     role?.startsWith("impl-audit-") === true
   )
 }
@@ -451,7 +357,6 @@ function commitEvents(evidence: SeriesEvidence): ScopeEvent[] {
     const recorded = evidence.roundCommits.has(commit.sha)
     // Only a widening round's real bug stops at A; every other audit's B is one.
     const bTier =
-      commit.role === "split-audit" ||
       commit.role?.startsWith("impl-audit-") === true ||
       planningPhase === "detailing"
     if (
@@ -467,19 +372,8 @@ function commitEvents(evidence: SeriesEvidence): ScopeEvent[] {
       })
       continue
     }
-    if (
-      !recorded &&
-      !isAuditRole(commit.role) &&
-      commit.changesDocument &&
-      evidence.document !== null
-    )
-      events.push({
-        time,
-        text:
-          commit.role === "design"
-            ? `the design ${sha} landed`
-            : `the ${evidence.document} edit ${sha} landed`,
-      })
+    if (!recorded && !isAuditRole(commit.role) && commit.changesDocument)
+      events.push({ time, text: `the plan edit ${sha} landed` })
   }
   return events
 }
@@ -626,20 +520,6 @@ export function openingAuditor(
   if (missing.length === 0 || missing.length === pool.length) return null
   const answer = leastRecentEntry(missing, entries)
   return { answer, reason: rule3Reason(answer, entries, latestEvent) }
-}
-
-/**
- * Rule 1 before any round of a call: the listed auditors without a current
- * read of the target. A split call that finds none carries its move list out
- * without another round, so a list that waits for its split, or whose split
- * was skipped or whose checks failed, is not judged again.
- */
-export function missingReads(
-  evidence: SeriesEvidence,
-  target: string,
-  pool: readonly Auditor[],
-): readonly Auditor[] {
-  return currentReads(evidence, target, pool).missing
 }
 
 /**

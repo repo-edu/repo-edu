@@ -20,7 +20,6 @@ import type { NamedAnswer, Writer } from "./split-answers.js"
 import { attemptMoveList } from "./split-attempt.js"
 import type { SessionAnswer } from "./split-design.js"
 import { splitResultLine } from "./split-result.js"
-import { roundContext } from "./target.js"
 
 type Call =
   | { mode: "design" | "both"; source: string }
@@ -49,7 +48,7 @@ export async function splitStage(
     ),
   )
   if (restored) options.terminal.write(restored)
-  const session = roundContext(context, "split")
+  const session = { ...context, cwd: context.repoEduRoot }
   const designers = settings.split.designers.map((designer) =>
     implementationPhase(designer, "audit-round split designers"),
   )

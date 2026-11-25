@@ -29,10 +29,9 @@ export type PlanRoleName = (typeof planRoles)[number]
 const seriesRole = "commit-audit"
 
 /**
- * The roles a move-list series' forms carry: the commit that writes a design,
- * a round's record and the split commit. The role tells each from a plan form.
+ * The roles of the commits that publish a move list or carry it out.
  */
-const splitRoles = ["design", "choose", "split-audit", "split"] as const
+const splitRoles = ["design", "choose", "split"] as const
 type SplitRole = (typeof splitRoles)[number]
 
 /** A role that opens with a series label rather than a plan's stem. */
@@ -61,7 +60,7 @@ export type PlanForm = {
 
 /**
  * `<series>/commit-audit` or `<split>/<split-role>`: a form that a series'
- * label opens, a commit audit's record or one of a move-list series' commits.
+ * label opens, a commit audit's record or a file split's commit.
  */
 export type SeriesForm = {
   readonly series: string
@@ -141,7 +140,6 @@ export type SubjectClass =
   | "C1"
   | "C2"
   | "S1"
-  | "S2"
   | "S3"
   | "S4"
   | "O1"
@@ -395,12 +393,6 @@ function classOf(slots: Slots, repository: Repository): SubjectClass {
       if (repository !== "plan") fail(`${where} belongs to the plan repository`)
       if (!empty) fail(`${where} carries nothing after its tag`)
       return "S1"
-    case "split-audit":
-      if (tag === null) fail(`${where} needs a capability tag`)
-      if (repository !== "plan") fail(`${where} belongs to the plan repository`)
-      if (severity === null) fail(`${where} needs a severity sequence or clean`)
-      if (kind !== null) fail(`${where} carries no conventional kind`)
-      return "S2"
     case "split":
       if (tag === null) fail(`${where} needs a capability tag`)
       if (repository !== "repo-edu")
@@ -519,20 +511,6 @@ export function planForm(line: string): LooseForm | null {
 }
 
 /**
- * The form a series' label opens, read loosely as `planForm` reads a plan's:
- * the label and the role, or null for every other subject. A move-list series
- * reads its own commits by it.
- */
-export function seriesForm(
-  line: string,
-): { readonly label: string; readonly role: string } | null {
-  const form = looseSplit(line)
-  return form !== null && isSeriesRole(form.role)
-    ? { label: form.stem, role: form.role }
-    : null
-}
-
-/**
  * The role token of any form, a plan's or a commit series', read loosely as
  * `planForm` reads it. The hook and the record-bullet readers need the role
  * whatever the form names.
@@ -542,46 +520,32 @@ export function looseRole(line: string): string | null {
 }
 
 /**
- * The series label a commit audit's or a move-list round's record opens with,
- * read loosely as `planForm` reads a plan's stem; null for every other
- * subject. A commit or move-list round collects its records by it, as a plan
- * round collects by its stem.
+ * The label of a commit audit record, or null for any other subject.
  */
 export function seriesLabel(line: string): string | null {
   const form = looseSplit(line)
-  return form?.role === seriesRole || form?.role === "split-audit"
-    ? form.stem
-    : null
-}
-
-/**
- * The role of a round record that a series' label opens. The runner builds
- * every label, and a move-list series' label opens with `split-`.
- */
-function seriesRecordRole(series: string): SeriesRole {
-  return series.startsWith("split-") ? "split-audit" : seriesRole
+  return form?.role === seriesRole ? form.stem : null
 }
 
 /**
  * Open a subject with a series' record form, in place of any form it opened
- * with. The commit hook writes a commit or move-list round's label this way,
+ * with. The commit hook writes a commit round's label this way,
  * so a fix session never types it.
  */
 export function withSeriesForm(line: string, series: string): string {
   const tokens = line.split(" ")
   const rest = looseSplit(line) === null ? tokens : tokens.slice(1)
-  return [`${series}/${seriesRecordRole(series)}`, ...rest].join(" ")
+  return [`${series}/${seriesRole}`, ...rest].join(" ")
 }
 
 /**
  * Whether a loosely read role is an audit record's: a plan round, an
- * implementation-audit round, a commit audit or a move-list round.
+ * implementation-audit round or commit audit.
  */
 export function isAuditRole(role: string): boolean {
   return (
     role === "plan-audit" ||
     role.startsWith("impl-audit-") ||
-    role === seriesRole ||
-    role === "split-audit"
+    role === seriesRole
   )
 }

@@ -119,16 +119,6 @@ export const settingsSchema = z
         .min(1),
       picker: assignedSelection,
     }),
-    splitAudit: z.strictObject({
-      /** The ordered auditor list for move lists. */
-      auditors: z.array(assignedSelection).min(1),
-      /** The panel that vets every move-list audit report, run in parallel. */
-      vetters: z.array(assignedSelection).min(1),
-      /** The one judge of every contest and split on a C or D move-list finding. */
-      ruler: assignedSelection,
-      /** The one fixer of move lists. */
-      fixer: assignedSelection,
-    }),
     maximumAutomaticRounds: z.number().int().positive(),
     strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
   })
@@ -157,12 +147,6 @@ export const settingsSchema = z
           density: entry.density,
         })),
         picker: resolve(settings.split.picker),
-      },
-      splitAudit: {
-        auditors: settings.splitAudit.auditors.map(resolve),
-        vetters: settings.splitAudit.vetters.map(resolve),
-        ruler: resolve(settings.splitAudit.ruler),
-        fixer: resolve(settings.splitAudit.fixer),
       },
     }
   })
