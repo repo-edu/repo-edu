@@ -24,8 +24,7 @@ The target ends in `-plan-audit` for a planning round and `-impl-audit-<a>..<b>`
 implementation range. A one-step range repeats its endpoint. Implementation worker files use
 `-impl-<step>`, so a sorted file list shows a plan's worker files, implementation audits and plan
 audits as three separate groups. Commit targets begin with `commit-`, so every commit audit sorts
-together. Move-list targets begin with `split-`, followed by the source file's name and the first
-five characters of a hash of its path. The same label opens every commit the audit lands, as
+together. The same label opens every commit the audit lands, as
 `commit-804833/commit-audit`, so `git log --oneline` shows its records beside the audited commits. A
 clean commit audit lands one empty record with the label, so the log shows that the audit ran.
 
@@ -97,19 +96,21 @@ the runner moves them all into `../plan-evidence/commits/<commit-label>/`. A fai
 ruling or the round maximum with another auditor due leaves them in place. Auditing the same commits
 again moves the series back first, so it keeps its earlier fixes and continues its round numbers.
 
-A move-list series of [`split`](/repo-edu/tooling/split/) moves into
-`../plan-evidence/splits/<split-label>/`, together with its split log, when a split call ends with
-the series finished: every listed auditor has a current read, or a fix withdrew the list. These
-endings leave the files in place:
+## File split outputs
 
-1. A failure or a pending ruling.
-2. A call that found another call's list, whose rounds are that call's.
-3. Any ending while a listed auditor still lacks a current read, such as the round maximum or a
-   refused move after a fix.
+After a [split command](/repo-edu/tooling/split/) returns a result, open
+`../plan-evidence/splits/<label>/`. The label begins with `split-` and includes the source file's
+name and the first five characters of a hash of its path.
 
-A call that leaves the file without a committed list, such as a first design that judged the file
-fine, has no series, and its split log moves there alone. The next call on the same file moves the
-files back first.
+| File | What to open it for |
+| --- | --- |
+| `<label>-split.log` | The log of split calls on this source file. |
+| `<label>-design-<n>.<tag>.md` | The numbered answer. To choose a designer's answer yourself, pass its path to `split run`. |
+| `<label>-pick-<first>.<tag>.md` | The picker's reasons for its choice and any repairs. The number is the first designer answer number in that call. |
+| `<label>-designs.json` | The writer of each numbered answer and each designer's position and density. |
+
+The next call on the same source brings the files back to `../plan-evidence/active/` before it
+starts. If a session fails, its files stay there.
 
 ## Commits
 

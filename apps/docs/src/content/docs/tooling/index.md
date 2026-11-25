@@ -73,7 +73,9 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | --- | --- | --- |
 | I want to inspect growing source files | [`/sweep`](/repo-edu/tooling/sweep/) in Repo Edu | One file and a proposed verdict; you choose whether to record, plan or refactor it |
 | I want to work through flagged refactors | Claude [`/refactor`](/repo-edu/tooling/refactor/) in Repo Edu | The backlog head and a recommended route; work starts only after your answer |
-| I want one large file split into smaller files | [`pnpm audit-round split <path>`](/repo-edu/tooling/split/) | A designed move list and its audit rounds, then on the next call a checked split commit, or the reason no split happens |
+| I want one large file split into smaller files | [`pnpm audit-round split <file>`](/repo-edu/tooling/split/) | One call compares designs and carries out the chosen moves. You get a checked split commit or the reason the file stayed whole. |
+| I want to compare designs before splitting a file | [`pnpm audit-round split design <file>`](/repo-edu/tooling/split/) | Numbered answers and, when a picker runs, its reasons. A pick with moves also gives you the committed list's path. |
+| I want to use a saved design | [`pnpm audit-round split run <move list>`](/repo-edu/tooling/split/) | Runs the committed list or a designer's saved answer. A no-split answer gives its saved reason. |
 
 ### Chat helpers
 

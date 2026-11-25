@@ -326,9 +326,9 @@ Omit routine test and check results from commit messages.
 The [shared severity sequence](.agents/references/round-protocol.md#severity-sequence)
 owns the counts, reach marks and whole-commit burden marks, and how every concern
 is graded and recorded. Follow it for every file-changing commit except a plan
-step and a move-list series' split commit, whose list the series' rounds already
-graded. The [subject grammar](.agents/references/subject-grammar.md) owns their
-placement.
+step and a split commit. A split commit carries out the chosen list and has
+no findings to grade. The [subject grammar](.agents/references/subject-grammar.md)
+owns the placement of these marks.
 
 The conventional commit kind is the last tag before the sentence, from the
 closed list the subject grammar admits:
@@ -339,8 +339,8 @@ are owned by the shared protocol's
 [Shared implementation forms](.agents/references/round-protocol.md#shared-implementation-forms)
 and their shape by the subject grammar. Use those owners for plan identity and step numbers. A
 commit audit's records open with its series label instead of a stem, under the commit scope's
-[Record](.agents/skills/audit/references/commit-scope.md#record). A move-list series' design,
-round records and split commit open with its label too, in the subject grammar's move-list forms.
+[Record](.agents/skills/audit/references/commit-scope.md#record). A file split's
+`design`, `choose` and `split` commits open with the source file's split label.
 Any other commit unattached to a plan keeps this repo's ordinary severity-prefixed conventional
 subject.
 

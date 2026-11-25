@@ -15,7 +15,7 @@ The header's files are part of this workflow. Paths are relative to this file.
 The runner supplies them whole. Read each file once. Apply the `simple`
 requirement to the whole session and skip its confirm-and-wait step.
 
-The vet's input is an implementation-audit report or a move-list audit report by any assistant.
+The vet's input is an implementation-audit report by any assistant.
 [Audit report discovery](#audit-report-discovery) says how the file is found. Vet its graded
 findings. Do not run an audit round of your own.
 
@@ -71,10 +71,6 @@ Drop findings on that excluded metadata. Classify the remaining findings.
   authoring a competing pricing. A choice about cost goes to the user's
   ruling only when it is real under the shared
   [Real choices](../../../references/round-protocol.md#real-choices).
-- A move-list finding, in a move-list round. It judges the division the move
-  list proposes, under the questions of the
-  [move-list audit workflow](../../audit/references/move-list-workflow.md), and
-  needs no further authority. Its correction changes only the list.
 
 ### 2. Grounded
 
@@ -85,8 +81,6 @@ audit report's quotes or paraphrases.
   when it is code.
 - Read the plan in `../plan` for the decision the finding rests on, and the
   governing `CLAUDE.md` in every repo the finding invokes.
-- For a move-list finding, read the move list and the source file its
-  `Source:` line names, whole, and check the finding against the file itself.
 - Read targeted commit bodies when a finding depends on a missing departure
   reason. Absence alone does not establish a defect.
 - Run a check or a test only in its read-only form, and only when a claim
@@ -124,12 +118,6 @@ behaviour. When the cost is only rework or re-derivation, verify that cost. Thes
 the finding's prose; no separate trace is required. A trace that ends with the same behaviour
 shipping is not a finding, so the verdict is drop.
 
-A move-list finding takes its tier from the
-[move-list tiers](../../../references/round-protocol.md#move-list-tiers) instead. Verify what the
-list does to the division without the correction. No split changes behaviour, so the drop of a trace
-that ends with the same behaviour shipping does not apply to it. A move-list finding whose
-correction leaves the list as it is has no consequence, so the verdict is drop.
-
 Check the ratings with one question: does the evidence put the finding in a raised cell of the
 shared [What a round raises](../../../references/round-protocol.md#what-a-round-raises)? To answer
 it, verify whether an end user can meet the wrong behaviour, which sets the reach. When the rarity
@@ -165,8 +153,7 @@ disposition against the shared protocol's
 ## Coverage table
 
 The coverage table follows the audit report's opening metadata. It has one row per
-in-scope step or named commit, not per decision or claim. A move-list audit report's table has one
-row for the file and one per target. Do not re-audit it.
+in-scope step or named commit, not per decision or claim. Do not re-audit it.
 Check a row only where a finding depends on it, which is when a finding should
 have been a row, or a row should have been a finding. Missing decision or claim
 rows do not establish missing inspection.

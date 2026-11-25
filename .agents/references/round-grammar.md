@@ -1621,11 +1621,9 @@ ranges go to it in the order given. A range is one line or two line numbers
 whose second is not smaller than its first, and it includes both ends. The
 responsibility line states in one sentence what the target holds.
 
-The no-split form holds a result instead of moves. `fine` says the file should
-stay whole and `needs-plan` says its division needs a plan, and the reason
-follows on the same line. A fix that withdraws a list replaces its moves with
-this form and keeps the opening as it was. A design session that answers that
-the file is fine or needs a plan returns this form too.
+The no-split form gives the result `fine` when the file should stay whole or
+`needs-plan` when its division needs a plan. The reason follows the result on
+the same line.
 
 The document holds nothing else. Leading and trailing whitespace carry no
 content, and one or more empty lines count as one `BLANK`.

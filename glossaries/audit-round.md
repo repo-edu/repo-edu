@@ -1,16 +1,16 @@
 # Audit round
 
-This file defines the words of the planning, implementation-audit and move-list rounds, of a file
-split and of the runner that drives them. Words the home Planning vocabulary defines, such as round,
-watch, glance, episode, handoff, settle and stem, keep their entries there. A report on its own
-means any kind of report; each kind is always named in full.
+This file defines the words of planning and implementation audits, file splits and the runner
+that drives them. Words the home Planning vocabulary defines, such as round, watch, glance,
+episode, handoff, settle and stem, keep their entries there. A report on its own means any kind
+of report. Each kind is named in full.
 
 ## Phases and roles
 
 - **Phase**: two senses. A round phase is one part of a round, or one runner command, that runs in
   its own assistant session, such as the audit, the vet, the rebuttal, the ruler, the fix, the
-  watch, a step's implementation, a split's design or the close. A plan's phase is widening or
-  detailing, which the plan's filename shows.
+  watch, a step's implementation, the design or pick for a file split or the close. A plan's
+  phase is widening or detailing, which the plan's filename shows.
 - **Auditor**: the selection that runs or ran an audit, whether it is on the
   auditor list or not, and that audit's session. An entry of the auditor list
   is an auditor even before it has run. The auditor does not defend the audit
@@ -40,7 +40,7 @@ means any kind of report; each kind is always named in full.
 - **Fixer**: the selection that runs a round's fix. Planning rounds and commit
   audits of plan commits only use the planning fixer. Implementation audits use
   the plan's coder, and commit audits with a Repo Edu commit use the first
-  coder. Move-list rounds use the split level's fixer.
+  coder.
 - **Implementer**: the session that implements one plan step.
 
 ## Findings, verdicts and rulings
@@ -56,8 +56,7 @@ means any kind of report; each kind is always named in full.
   plan split divides one topic's work into peer
   plans, a shape decision recorded with its reason. A file split divides one
   source file into several by moving complete top-level statements, as the
-  file's move list says. The split result, the split level and the split work
-  class take this third sense.
+  file's move list says.
 - **Referral**: a vetter's verdict that sends a finding to the user's ruling
   instead of settling it. Like any verdict it is a claim about the evidence,
   and a later phase may overturn it.
@@ -110,9 +109,9 @@ means any kind of report; each kind is always named in full.
   widening fix. It advises settle or keep open, with a one-line reason, and the
   runner keeps the latest one as the round's settling recommendation.
 - **Evidence repo**: the private checkout `plan-evidence` beside the plan and
-  Repo Edu checkouts. It holds the round folder, after each close the closed
-  plan's round files, under `commits/` each completed commit series and under
-  `splits/` each finished move-list series. Only the runner commits it.
+  Repo Edu checkouts. It holds the round folder and each closed plan's round
+  files. It keeps completed commit series under `commits/` and the files from
+  completed split calls under `splits/`. Only the runner commits it.
 - **Round folder**: the `active/` folder of the evidence repo. It holds every
   round file of live work. The plan checkout's own `active/` folder holds plans
   and their briefs only.
@@ -146,16 +145,13 @@ means any kind of report; each kind is always named in full.
   selection an audit ran on, which only the audit records, with its alias
   resolved when the runner started, and which the series rules match against
   each listed auditor.
-- **Work class**: planning, implementation or split, the kind of work a round's
-  target belongs to. Plan rounds and commit audits of plan commits only are
+- **Work class**: the kind of work a round's target belongs to, either planning
+  or implementation. Plan rounds and commit audits of plan commits only are
   planning. Implementation audits and commit audits with any Repo Edu commit
-  are implementation. Move-list rounds are split work. The work class picks the
-  audit level.
-- **Audit level**: the runner settings for one work class: its auditor list,
-  its vetter list and its ruler. The planning and implementation levels also
-  name a watch writer, and the planning level its fixer. The split level names
-  the designer and the fixer of a file split and no watch writer, because a
-  move-list series has no watch.
+  are implementation. The work class picks the audit level.
+- **Audit level**: the runner settings for one work class. Each level names
+  its auditor list, vetter list, ruler and watch writer. The planning level
+  also names its fixer.
 - **Auditor list**: the ordered auditors of one work class's audit level. An
   automatic series opens from it and picks every later auditor from it.
 - **Listed auditor**: one entry of a work class's auditor list. Each listed
@@ -180,20 +176,13 @@ means any kind of report; each kind is always named in full.
   followed by the short IDs of the commits it first audited, names its round
   files and round data and opens every record its rounds land, where a plan's
   records open with the plan's stem.
-- **Move-list series**: a series whose target is one move list. It has no
-  close and no watch: the runner moves its round files out of the round folder
-  when every requested round has run or a fix withdraws the list, and brings
-  them back when the same source file is called again. Its series label,
-  `split-` followed by the source file's percent-encoded name and the first
-  five characters of a hash of its path, names its round files and round data
-  and opens its design commit, its round records and its split commit.
 - **Current read**: a listed auditor's audit of the target that started after
   the latest event that changed the target's scope. Those events are a settle
-  or reopen, a plan step, an edit to the plan file or the move list outside a
-  round and an audit with a real bug.
-- **Real bug**: an accepted finding grave enough to make earlier reads stale:
-  A in widening, and A or B in detailing, implementation, commit series and
-  move-list series.
+  or reopen, a plan step, an edit to the plan file outside a round and an audit
+  with a real bug.
+- **Real bug**: an accepted finding grave enough to make earlier reads stale.
+  It takes an A in widening and an A or B in detailing, implementation or a
+  commit series.
 - **Read floor**: the point where every listed auditor of the target's work
   class has a current read. An automatic series ends there with its series
   answer.
@@ -246,6 +235,9 @@ means any kind of report; each kind is always named in full.
 
 ## File splits
 
+- **Split label**: the name that ties one source file's split evidence and
+  commits together. It starts with `split-` and contains the percent-encoded
+  file name and the first five characters of a hash of its path.
 - **Design session**: one designer's independent reading of a whole source
   file. Its numbered answer gives moves, judges the file fine or says its
   division needs a plan.
@@ -266,14 +258,9 @@ means any kind of report; each kind is always named in full.
   top-level statements that go there. Each proposed answer has a number. The chosen moves keep
   that number in the plan repo, as in `splits/packages/domain/src/roster.01.mv.md`. A no-split
   answer keeps its reason in the evidence repo.
-- **Move-list round**: an audit round that judges one move list. Its phases run
-  as in a planning round, and its fix changes the list in place or withdraws
-  it. A move list is carried out only after its rounds have judged it.
-- **Split result**: one of the six ways a split call ends, each with a message
-  and the content hash of the file the design session read. The split was
-  made, a design call committed a list, or no split happens
-  because the file is fine, the file needs a plan, the call was skipped or the
-  checks failed.
+- **Split result**: the outcome a completed split call prints with the source hash and a
+  message. The call made the split, committed a design, found the file fine, found it needs a plan,
+  skipped the split or reported failed checks.
 
 ## What binds a round
 
