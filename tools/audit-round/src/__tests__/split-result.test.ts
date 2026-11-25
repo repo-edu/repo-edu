@@ -1,8 +1,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { readMoveList, readPick } from "../move-list.js"
 import { readSplitResult, splitResultLine } from "../split-result.js"
-import { roundGrammarExample, roundGrammarExamples } from "./round-grammar.js"
+import { roundGrammarExamples } from "./round-grammar.js"
 
 test("the round grammar's split-result examples are reader fixtures that the writer reproduces", () => {
   for (const example of roundGrammarExamples("split-result/")) {
@@ -50,34 +49,4 @@ test("a split result keeps a message across lines and refuses another shape", ()
       (error: unknown) => error instanceof Error && error.message === refusal,
       refusal,
     )
-})
-
-test("the pick report reader accepts or refuses each grammar example as documented", () => {
-  for (const entry of roundGrammarExamples("pick/")) {
-    if (entry.outcome === "parsed")
-      assert.doesNotThrow(() => readPick(entry.source), entry.id)
-    else
-      assert.throws(
-        () => readPick(entry.source),
-        { message: entry.refusal ?? "" },
-        entry.id,
-      )
-  }
-})
-
-test("the final Pick: line decides the answer and can precede an indented replacement list", () => {
-  const prose = "Pick: Answer 2 keeps the shared setup together."
-  const report = `${prose}\nPick: 02`
-  assert.deepEqual(readPick(report), { report, number: 2, document: null })
-
-  const source = roundGrammarExample("move-list/no-split").source
-  const indented = source
-    .split("\n")
-    .map((line) => `  ${line}`)
-    .join("\n")
-  const pick = readPick(`${prose}\nPick: none.\n\n${indented}`)
-  assert.equal(pick.number, null)
-  assert.equal(pick.report, `${prose}\nPick: none.`)
-  assert.ok(pick.document)
-  assert.deepEqual(readMoveList(pick.document), readMoveList(source))
 })

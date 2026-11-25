@@ -3,6 +3,7 @@ reads:
   - ../../../../glossaries/audit-round.md
   - ../../../../../plan/home/claude/commands/simple.md
   - ../../../references/round-grammar.md
+  - ../../../references/round-protocol.md
   - ../../../../tools/statement-move/CLAUDE.md
   - ../../../../tools/architecture-check/src/area-model.json
 ---
@@ -26,15 +27,14 @@ The phase arguments are exactly:
    session started
 3. this designer's density, `normal` or `coarse`
 
-The round grammar's [Move list](../../../references/round-grammar.md#move-list)
-owns the form of every answer. The statement move tool's
+The runner writes each saved answer in the round grammar's
+[Move list](../../../references/round-grammar.md#move-list) form. The statement move tool's
 [documentation](../../../../tools/statement-move/CLAUDE.md) owns which ranges a
 move admits and how the tool carries out a whole list.
 
 ## Read the file
 
-Read the source file whole, numbering blank lines too. Use the last line number
-for the move list's `Size:` field, or zero for an empty file. Search the workspace
+Read the source file whole, numbering blank lines too. Search the workspace
 for the files that import it and read them and the files it imports as far as
 you need them to judge its seams.
 
@@ -96,8 +96,7 @@ Write the moves under these rules:
 
 ### Targets
 
-Every target joins the source's primary area. Write that area's ID on the
-`Area:` line.
+Every target joins the source's primary area. Return that area's ID in the answer.
 
 The area model decides each file's area from its path alone. Each partition
 area has member patterns, and some also have `exclude` patterns. Each pattern
@@ -112,17 +111,14 @@ needs a plan, because a split that needs a new area needs a plan.
 
 ## Return the answer
 
-Return the answer as one document in the Move list form, then the phase result
-line:
+Return the answer in the supplied schema with the primary area ID and one of
+these results.
 
-1. A move list holds the `## Moves` section.
-2. The answers "the file is fine" and "the file needs a plan" hold the
-   `## No split` section, with the word `fine` or `needs-plan` and the reason
-   on one line.
+1. A move list gives each target, its responsibility and its inclusive line
+   ranges in execution order.
+2. An answer of `fine` or `needs-plan` gives its reason on one line.
 
-Copy the source path and the hash from the phase arguments. Put nothing before
-the `# Move list` heading and nothing between the document and the phase result
-line.
+The runner writes the source path, hash and line count from the source snapshot.
 
 Change no file and run no command that changes a tracked file. That includes
 the statement move tool's single-range form, which writes, and every formatter.

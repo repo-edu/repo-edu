@@ -44,8 +44,6 @@ import {
   targetWorkClass,
   transcribed,
 } from "./phase.js"
-import { withoutPhaseResult } from "./phase-result.js"
-import { usesStructuredResult } from "./phase-result-schema.js"
 import { recoveryCommand } from "./requests.js"
 import {
   type CloseResult,
@@ -642,6 +640,11 @@ export class RoundOutput<R extends Run = Run> {
     this.say(`[complete] ${text}`)
     this.transcribe(`## Clean completion\n\n${text}\n`)
   }
+
+  watchDocument(document: string): void {
+    this.transcribe(`## Watch\n\n${document}\n`)
+    this.options.terminal.write(document, "markdown")
+  }
   /** A message that opens a new section of the run, set off the way a phase start is. */
   section = async (text: string): Promise<void> => {
     this.say(`\n${separator}\n${text}`)
@@ -794,13 +797,10 @@ export class RoundOutput<R extends Run = Run> {
       )
   }
 
-  /** Write one phase text to the transcript and, without its control line, the terminal. */
+  /** Write one phase text to the terminal and its transcript when present. */
   private text(slot: ActiveSlot, text: string): void {
     if (transcribed(slot.input.phase)) this.transcribe(`${text}\n`)
-    const visible = usesStructuredResult(slot.input.phase)
-      ? text
-      : withoutPhaseResult(text)
-    if (visible.length > 0) this.options.terminal.write(visible, "markdown")
+    if (text.length > 0) this.options.terminal.write(text, "markdown")
   }
 
   /** Write a concurrent session's held texts together under its heading. */

@@ -1072,19 +1072,12 @@ affected mirror text in the same step.
 ## Runner result
 
 When the prompt identifies an unattended phase, follow this rule for every
-ending, including an early stop. It is shared by audit, vet, rebuttal, ruler, fix,
-implement, watch and close. Ordinary interactive invocations add
-no result line.
-
-The audit, vet, rebuttal, ruler, fix, implementation worker and close return
-their result through the schema the runner supplies. For each report phase the
-runner writes the Markdown file and displays it from the result. The fix,
-implementation worker and close display the Markdown in `closingNote`. A finished widening fix also
-returns `settling`, with a recommendation and its one-line reason. Other fix results use `null`
-for `settling`.
-
-The remaining phases follow the [phase-result grammar](round-grammar.md#phase-result) for their
-final control line.
+ending, including an early stop. Every unattended phase returns its result
+through the supplied schema. The runner writes and displays the Markdown
+from the report, watch, design and pick results. For the fix, implementation
+worker and close, the runner displays the Markdown in `closingNote`.
+A finished widening fix also returns `settling`, with a recommendation and
+its one-line reason. Other fix results use `null` for `settling`.
 
 - `finished` means the phase completed all required work.
 - `needs-ruling` means the fix or implementation worker wrote the final ruling

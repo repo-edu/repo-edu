@@ -34,13 +34,13 @@ reads the writer through `auditRoles`, by the round's work class: its assistant,
 are the `watch` field of the target work class's audit level, so planning and implementation
 rounds may run different watch writers. The watch runs once the transcript holds the round.
 
-**The result.** For the watch, the assistant boundary parses the grade line and returns the
-remaining Markdown with the output recorder's final compaction count, without writing a file.
-`runWatch` then does the writes:
+**The result.** The assistant boundary validates the watch's document and grade and returns them
+with the output recorder's final compaction count. `runWatch` then does the writes:
 
 1. It rejects a compacted result before writing. The failure names the evidence size and the need
    for one uncompacted session.
-2. It saves an admitted document, the round's `-watch.md` file.
+2. It saves an admitted document in the round's `-watch.md` file. The runner also shows the
+   document in the terminal and transcript.
 3. It atomically replaces only its episode's cadence entry. A failed document write skips the
    record write. A failed record write leaves the valid document and the earlier record in place.
 

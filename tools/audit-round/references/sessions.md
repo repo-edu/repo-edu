@@ -117,25 +117,16 @@ turn, a background task or subagent wakes the session for a further turn, and wh
 pending the CLI defers the results and flushes them at exit behind an empty result of no turns.
 The phase's response comes from the last completed turn.
 
-**Structured results.** Each report phase, the fix, implementation worker and close use Zod to
+**Structured results.** Every phase uses Zod to
 send a JSON Schema and validate the result. Claude takes it through `--json-schema`. Codex takes
 it through `--output-schema`, which points at a file that lives until the invocation ends. On
 resume both programs receive the schema again. Claude supplies `structured_output` in its last
 turn's result. Codex supplies JSON in its last message. A missing or invalid object fails the phase.
 
-**A missing result line.** A text phase sometimes finishes without its result line.
-
-- When the process ends on a response without the line, the invocation resumes the same session
-  once and asks it to end again. The request repeats no phase work, and the new response becomes
-  the phase's final text.
-- The request opens as every phase prompt does, so the session reads it as an unattended phase. It
-  asks for the complete response again, because the runner reads only the last turn's text.
-- A second response without the line fails the phase with its session.
-- A line that is present but malformed fails at once.
-
 **Saving.** After the process ends with at least one turn, the invocation saves audit, vet,
-rebuttal and ruler reports from the checked result. A failed write fails the
-phase before progression. The watch's result is handled under [Watch](watch.md#watch).
+rebuttal and ruler reports from the checked result. A failed write fails the phase before
+progression. The runner saves the results of the other document phases under
+[Watch](watch.md#watch) and [split](../CLAUDE.md#split).
 
 **Measurements.** Context and token measurements pass directly to the output observer. Both
 assistants replace the phase total with the session's newest running total. The Claude and Codex

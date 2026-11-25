@@ -142,9 +142,8 @@ Preserve these qualities when changing terminal rendering.
 - The log records each tool invocation once, with shell wrappers removed. Invocation lines stay
   complete in the log. Only terminal tool lines shorten.
 - Assistant texts stay complete in Markdown.
-- For text phases the terminal omits the final `PHASE RESULT` control line. The transcript retains
-  it. For structured phases the runner displays the closing note in the terminal and transcript
-  and keeps the result object in the log.
+- The runner shows the Markdown it writes from a phase result in the terminal and in the
+  transcript when the run has one. It keeps the result object in the log.
 - Assistant output goes through the normal phase output, so launch prompts stay in the log and
   never reach the terminal. Supplied instruction files appear in the log by path only; their full
   contents go to the assistant.

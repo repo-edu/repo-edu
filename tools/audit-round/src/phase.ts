@@ -26,6 +26,11 @@ import type {
   PhaseSelection,
   RoundSettings,
 } from "./settings.js"
+import type {
+  DesignAnswer,
+  PickAnswer,
+  PickCandidate,
+} from "./split-result-schema.js"
 import type { Repository } from "./subject.js"
 import type {
   AuditTarget,
@@ -628,11 +633,7 @@ type PhaseArguments = {
     readonly arguments: readonly [
       source: string,
       hash: string,
-      answers: readonly {
-        number: number
-        path: string
-        refusal: string | null
-      }[],
+      answers: readonly PickCandidate[],
     ]
     readonly sessionId: null
   }
@@ -805,11 +806,6 @@ export type RuleResult = ReportResult & { readonly reading: RulerReading }
 
 export type ReportPhase = "audit" | "vet" | "rebut" | "rule"
 
-/**
- * A finished design or pick session returns its document for the runner to save.
- */
-export type DesignResult = ReportResult & { readonly document: string }
-
 type PhaseControlResults = {
   pick: ReportResult
   design: ReportResult
@@ -829,8 +825,8 @@ export type PhaseControlResult<P extends Phase = Phase> =
   | PhaseControlResults[P]
 
 type PhaseResults = {
-  pick: DesignResult
-  design: DesignResult
+  pick: ReportResult & { readonly pick: PickAnswer }
+  design: ReportResult & { readonly design: DesignAnswer }
   audit: ReportResult & { readonly report: AuditReport }
   vet: ReportResult & { readonly reviews: readonly FindingReview[] }
   rebut: ReportResult & { readonly answers: readonly FindingRebuttal[] }

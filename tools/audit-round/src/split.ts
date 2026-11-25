@@ -28,6 +28,7 @@ export type SplitDependencies = {
   attempt: (list: Moves) => Promise<AttemptReply>
   checks: (pkg: string) => Promise<CheckFailure | null>
   message: (text: string) => Promise<void>
+  showReport: (text: string) => void
 }
 
 /** A commit whose environment carries no round's stamps, so its own record stands. */
@@ -37,13 +38,33 @@ const ownRecord: CommitStamps = { auditor: null, phases: null, series: null }
  * Git's blob hash of the source as `git hash-object` prints it, after the
  * line-ending normalisation of the repository's attributes.
  */
-export async function blobHash(
+async function blobHash(
   repoEduRoot: string,
   source: string,
+  contents?: Buffer,
 ): Promise<string> {
   return (
-    await execa("git", ["hash-object", "--", source], { cwd: repoEduRoot })
+    await execa(
+      "git",
+      contents === undefined
+        ? ["hash-object", "--", source]
+        : ["hash-object", "--path", source, "--stdin"],
+      { cwd: repoEduRoot, input: contents },
+    )
   ).stdout.trim()
+}
+
+async function sourceSnapshot(repoEduRoot: string, source: string) {
+  const contents = await readFile(join(repoEduRoot, source))
+  const text = contents.toString("utf8")
+  return {
+    source,
+    hash: await blobHash(repoEduRoot, source, contents),
+    size:
+      text.length === 0
+        ? 0
+        : text.split("\n").length - Number(text.endsWith("\n")),
+  }
 }
 
 /** The workspace package a source belongs to, as `pnpm test` names it. */
@@ -195,10 +216,8 @@ export async function runSplit(
     request.mode === "run" ? request.named.list.source : request.source
   const label = splitLabel(source)
   const say = dependencies.message
-  const hash =
-    request.mode === "run"
-      ? request.named.list.hash
-      : await blobHash(repoEduRoot, source)
+  const snapshot = await sourceSnapshot(repoEduRoot, source)
+  const hash = request.mode === "run" ? request.named.list.hash : snapshot.hash
   const ended = (result: SplitResultWord, message: string) => ({
     status: "result" as const,
     result: { result, hash, message },
@@ -207,12 +226,11 @@ export async function runSplit(
     ended("skipped", `${source} changed since the move list was designed.`)
   let choice: Choice
   if (request.mode === "run") {
-    if ((await blobHash(repoEduRoot, source)) !== hash) return stale()
+    if (snapshot.hash !== hash) return stale()
     choice = { selected: await savedAnswer(roundRoot, label, request.named) }
   } else {
     const outcome = await designSplit(
-      source,
-      hash,
+      snapshot,
       roundRoot,
       request.sessions,
       (answers) =>
@@ -225,6 +243,7 @@ export async function runSplit(
           }
           return replies
         }),
+      dependencies.showReport,
     )
     if ("status" in outcome) return outcome
     if ("result" in outcome) return ended(outcome.result, outcome.message)

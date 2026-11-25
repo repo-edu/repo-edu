@@ -132,8 +132,9 @@ const fiveMinutePhases = ["audit", "vet", "rebut", "rule", "watch"]
 
 test("a Claude child of the five reviewing phases keeps its cache for five minutes", async (t) => {
   const f = await fixture(t)
-  // A response without its result line makes the runner continue the session once.
-  await f.configure({ stream: await phaseStream("claude", "No result line") })
+  await f.configure({
+    stream: await phaseStream("claude", "No structured result"),
+  })
   const runtime = {
     ...f.runtime,
     env: { CLAUDE_CODE_PROMPT_CACHE_TTL: "1h" },
@@ -148,42 +149,33 @@ test("a Claude child of the five reviewing phases keeps its cache for five minut
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line))
-    if (phase.phase !== "watch") {
-      assert.equal(calls.length, 1, phase.phase)
-      assert.equal(
-        calls[0].cacheLifetime,
-        fiveMinutePhases.includes(phase.phase) ? "5m" : "1h",
-      )
-      assert.deepEqual(result, {
-        status: "failed",
-        sessionId: "test-session",
-        reason: "CLI ended without a structured phase result",
-      })
-      continue
-    }
-    assert.equal(calls.length, 2, phase.phase)
-    assert.deepEqual(calls[1].args.slice(0, 3), [
-      "-p",
-      "--resume",
-      "test-session",
-    ])
-    assert.deepEqual(
-      calls.map((call) => call.cacheLifetime),
-      ["5m", "5m"],
-      phase.phase,
+    assert.equal(calls.length, 1, phase.phase)
+    assert.equal(
+      calls[0].cacheLifetime,
+      fiveMinutePhases.includes(phase.phase) ? "5m" : "1h",
     )
+    assert.deepEqual(result, {
+      status: "failed",
+      sessionId: "test-session",
+      reason: "CLI ended without a structured phase result",
+    })
   }
   assert.deepEqual(runtime.env, { CLAUDE_CODE_PROMPT_CACHE_TTL: "1h" })
 })
 
 test("a Codex child and a concurrent Claude worker inherit the caller's cache lifetime", async (t) => {
   const f = await fixture(t)
+  const vet = {
+    status: "finished",
+    reason: null,
+    report: { headDrift: "None.", verdicts: {} },
+  }
   await f.configure({
     phases: {
       vet: {
         assistants: {
-          claude: { stream: await phaseStream("claude") },
-          codex: { stream: await phaseStream("codex") },
+          claude: { stream: await phaseStream("claude", vet) },
+          codex: { stream: await phaseStream("codex", vet) },
         },
       },
       fix: { stream: await phaseStream("claude", finishedFix) },
@@ -267,11 +259,14 @@ test("Claude's empty closing result of no turns is not a turn", () => {
 
 test("a watch returns its document, grade and output-owned compaction count", async (t) => {
   const f = await fixture(t)
-  const final = `# Example: trajectory watch
-
-Grounded evidence.
-Watch grade: amber
-PHASE RESULT: {"status":"finished","reason":null}`
+  const final = {
+    status: "finished",
+    reason: null,
+    result: {
+      document: "# Example: trajectory watch\n\nGrounded evidence.",
+      grade: "amber",
+    },
+  }
   await f.configure({ stream: await phaseStream("claude", final) })
   const result = await runAssistantPhase(
     {

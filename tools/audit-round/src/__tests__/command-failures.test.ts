@@ -204,8 +204,11 @@ test("an empty returned watch cannot complete its phase", async (t) => {
     stream: string
     assistants: { codex: { stream: string } }
   }
-  const final =
-    'Watch grade: red\nPHASE RESULT: {"status":"finished","reason":null}'
+  const final = {
+    status: "finished",
+    reason: null,
+    result: { document: " \n", grade: "red" },
+  }
   watch.stream = await phaseStream("codex", final, "watch-session")
   watch.assistants.codex.stream = watch.stream
   await f.configure({ phases: f.phases })

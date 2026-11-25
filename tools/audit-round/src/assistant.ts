@@ -8,7 +8,6 @@ import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
 import {
   errorMessage,
   type Feedback,
-  type PhaseCompletion,
   type PhaseOutput,
   type PhaseRecorder,
 } from "./feedback.js"
@@ -16,24 +15,11 @@ import type {
   AssistantTurnInput,
   ContestScope,
   Phase,
-  PhaseControlResult,
   PhaseInput,
   PhaseResult,
   RoundDependencies,
 } from "./phase.js"
-import {
-  hasPhaseResult,
-  phaseResult,
-  watchOutput,
-  withoutPhaseResult,
-} from "./phase-result.js"
-import {
-  closingNote,
-  outputSchema,
-  roundReportContract,
-  structuredPhaseResult,
-  usesClosingNote,
-} from "./phase-result-schema.js"
+import { closingNote, phaseResultContract } from "./phase-result-schema.js"
 import {
   type AssistantPrompt,
   phasePrompt,
@@ -104,75 +90,11 @@ export function runAssistantInvocation<P extends Phase>(
   runtime: AssistantRuntime,
   record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult<P>>
-export function runAssistantInvocation(
+export async function runAssistantInvocation(
   input: PhaseInput,
   prompt: AssistantPrompt,
   output: PhaseOutput,
   runtime: AssistantRuntime,
-  record?: (value: unknown) => Promise<void>,
-): Promise<PhaseResult> {
-  return runAssistantTurn(
-    input,
-    prompt,
-    output,
-    runtime,
-    (sessionId, finalText, structuredOutput) => {
-      if (usesClosingNote(input.phase)) {
-        const { result, text } = structuredPhaseResult(
-          input.phase,
-          sessionId,
-          structuredOutput,
-        )
-        return { phaseResult: result, text, complete: () => result }
-      }
-      if (finalText === undefined)
-        throw new Error("CLI ended without final text")
-      const result = phaseResult(sessionId, finalText)
-      // The runner reads and saves split answers from the session's final text.
-      if (
-        (input.phase === "design" || input.phase === "pick") &&
-        result.status === "finished"
-      ) {
-        const document = withoutPhaseResult(finalText)
-        return {
-          phaseResult: result,
-          complete: () => ({ ...result, document }),
-        }
-      }
-      if (input.phase === "watch" && result.status === "finished") {
-        const output = watchOutput(finalText)
-        return {
-          phaseResult: result,
-          complete: ({ compactions }: PhaseCompletion) => ({
-            ...result,
-            ...output,
-            compactions,
-          }),
-        }
-      }
-      return {
-        phaseResult: result,
-        complete: () => result as PhaseResult,
-      }
-    },
-    record,
-  )
-}
-
-async function runAssistantTurn(
-  input: AssistantTurnInput,
-  prompt: AssistantPrompt,
-  output: PhaseOutput,
-  runtime: AssistantRuntime,
-  admit: (
-    sessionId: string,
-    finalText: string | undefined,
-    structuredOutput: unknown,
-  ) => {
-    readonly phaseResult: PhaseControlResult
-    readonly text?: string
-    readonly complete: (completion: PhaseCompletion) => PhaseResult
-  },
   record?: (value: unknown) => Promise<void>,
 ): Promise<PhaseResult> {
   let sessionId = input.sessionId
@@ -192,17 +114,13 @@ async function runAssistantTurn(
       : undefined
   const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
   const env = childEnvironment(input, runtime.env)
-  const notePhase = usesClosingNote(input.phase) ? input.phase : null
-  const report = roundReportContract(input)
-  const schema =
-    report?.schema ?? (notePhase === null ? undefined : outputSchema(notePhase))
-  const codexStructured = input.assistant === "codex" && schema !== undefined
+  const codex = input.assistant === "codex"
   let schemaDirectory: string | undefined
   /**
    * One CLI process on the session. A session is one or more turns and ends
    * with its process; the response is the last finished turn's text.
    */
-  const respond = async (text: string, schemaArgument?: string) => {
+  const respond = async (text: string, schemaArgument: string) => {
     let finalText: string | undefined
     let structuredOutput: unknown
     let turns = 0
@@ -228,16 +146,16 @@ async function runAssistantTurn(
             } else if (event.type === "final") {
               // Codex's newest message may be the result. Display it as
               // commentary only when another message takes its place.
-              if (codexStructured && finalText !== undefined) {
-                const note =
-                  notePhase === null
-                    ? undefined
-                    : closingNote(notePhase, decodeCodexMessage(finalText))
+              if (codex && finalText !== undefined) {
+                const note = closingNote(
+                  input.phase,
+                  decodeCodexMessage(finalText),
+                )
                 await observe({ type: "text", text: note ?? finalText })
               }
               finalText = event.text
               structuredOutput = event.structuredOutput
-            } else if (!codexStructured || event.type !== "text") {
+            } else if (!codex || event.type !== "text") {
               await observe(event)
             }
           }
@@ -251,9 +169,8 @@ async function runAssistantTurn(
     await usage?.read(sessionId, observe, true)
     return {
       sessionId,
-      finalText,
       structuredOutput:
-        codexStructured && finalText !== undefined
+        codex && finalText !== undefined
           ? decodeCodexMessage(finalText)
           : structuredOutput,
     }
@@ -263,81 +180,55 @@ async function runAssistantTurn(
       runtime.signal?.throwIfAborted()
       recorder = await output.start(input, prompt.log)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
-      let schemaArgument = schema
-      if (codexStructured) {
+      const contract = phaseResultContract(input)
+      let schemaArgument = contract.schema
+      if (codex) {
         schemaDirectory = await mkdtemp(join(tmpdir(), "audit-round-schema-"))
         schemaArgument = join(schemaDirectory, "result.json")
-        await writeFile(schemaArgument, schema as string, "utf8")
+        await writeFile(schemaArgument, contract.schema, "utf8")
       }
-      // The model can leave the line off a finished response. The session is
-      // asked once to end again, which repeats no phase work; a second
-      // response without the line fails the phase as any other does.
-      let response = await respond(prompt.text, schemaArgument)
-      if (
-        schema === undefined &&
-        prompt.resultRequest !== undefined &&
-        response.finalText !== undefined &&
-        !hasPhaseResult(response.finalText)
-      ) {
-        await observe({
-          type: "diagnostic",
-          text: "The response ended without its PHASE RESULT line. Asking the session once to end with it.",
-        })
-        response = await respond(prompt.resultRequest)
-      }
-      const readStructured = async (
-        ending: typeof response,
-      ): Promise<unknown> => {
+      const read = async (message: string) => {
+        const ending = await respond(message, schemaArgument)
         if (ending.structuredOutput === undefined)
           throw new Error("CLI ended without a structured phase result")
         await observe({
           type: "structured-result",
           value: ending.structuredOutput,
         })
-        return ending.structuredOutput
+        return contract.read(ending.sessionId, ending.structuredOutput)
       }
-      if (report !== undefined) {
-        const read = async (ending: typeof response) =>
-          report.read(ending.sessionId, await readStructured(ending))
-        const missed = (answer: Awaited<ReturnType<typeof read>>) =>
-          "reading" in answer.result
-            ? unopenedSources(
-                answer.result.reading.sources,
-                toolLines,
-                prompt.supplied,
-              )
-            : []
-        let answer = await read(response)
-        const unopened = missed(answer)
-        if (unopened.length > 0) {
-          await observe({
-            type: "diagnostic",
-            text: "The ruler report names sources the session did not open. Sending the session back once to open them.",
-          })
-          answer = await read(
-            await respond(rulerSourceRequest(input, unopened), schemaArgument),
-          )
-          const remaining = missed(answer)
-          if (remaining.length > 0)
-            throw new Error(
-              `The ruler report names sources its session did not open: ${remaining.join(", ")}`,
+      const missed = (answer: Awaited<ReturnType<typeof read>>) =>
+        "reading" in answer.result
+          ? unopenedSources(
+              answer.result.reading.sources,
+              toolLines,
+              prompt.supplied,
             )
-        }
-        if ("text" in answer) {
-          await writeFile(report.file, `${answer.text}\n`, "utf8")
-          await observe({ type: "text", text: answer.text })
-        }
-        await recorder.finish(answer.result)
-        return answer.result
+          : []
+      let answer = await read(prompt.text)
+      const unopened = missed(answer)
+      if (unopened.length > 0) {
+        await observe({
+          type: "diagnostic",
+          text: "The ruler report names sources the session did not open. Sending the session back once to open them.",
+        })
+        answer = await read(rulerSourceRequest(input, unopened))
+        const remaining = missed(answer)
+        if (remaining.length > 0)
+          throw new Error(
+            `The ruler report names sources its session did not open: ${remaining.join(", ")}`,
+          )
       }
-      const admitted = await admit(
-        response.sessionId,
-        response.finalText,
-        schema === undefined ? undefined : await readStructured(response),
-      )
-      if (admitted.text) await observe({ type: "text", text: admitted.text })
-      const completion = await recorder.finish(admitted.phaseResult)
-      return admitted.complete(completion)
+      if (answer.text !== undefined) {
+        if (contract.file !== undefined)
+          await writeFile(contract.file, `${answer.text}\n`, "utf8")
+        if (answer.text) await observe({ type: "text", text: answer.text })
+      }
+      const { result } = answer
+      const completion = await recorder.finish(result)
+      return "grade" in result
+        ? { ...result, compactions: completion.compactions }
+        : result
     } finally {
       try {
         await usage?.close()

@@ -22,12 +22,14 @@ import { planForm, type Repository } from "./subject.js"
  * that keeps drawing corrections earns its watch one round sooner.
  */
 
+export const watchGradeSchema = z.enum(["green", "amber", "red"])
+
 const watchRecordSchema = z.strictObject({
   heads: z.strictObject({
     "repo-edu": z.string(),
     plan: z.string(),
   }),
-  grade: z.enum(["green", "amber", "red"]),
+  grade: watchGradeSchema,
   written: z.string(),
 })
 

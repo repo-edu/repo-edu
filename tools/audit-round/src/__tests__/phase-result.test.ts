@@ -6,63 +6,10 @@ import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import type { PhaseInput } from "../phase.js"
-import { phaseResult, watchOutput } from "../phase-result.js"
 import { structuredPhaseResult } from "../phase-result-schema.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import { pinned } from "./configured-runner.js"
 import { finishedFix, finishedPhase, fixture, testContext } from "./helpers.js"
-import { roundGrammarExamples } from "./round-grammar.js"
-
-test("the round grammar's phase-result examples are parser fixtures", () => {
-  for (const example of roundGrammarExamples("phase-result/")) {
-    if (example.outcome === "parsed") {
-      assert.doesNotThrow(
-        () => phaseResult("session", example.source),
-        example.id,
-      )
-    } else {
-      assert.throws(
-        () => phaseResult("session", example.source),
-        (error: unknown) =>
-          error instanceof Error && error.message === example.refusal,
-        example.id,
-      )
-    }
-  }
-})
-
-test("the round grammar's watch-grade examples are parser fixtures", () => {
-  for (const example of roundGrammarExamples("watch-grade/")) {
-    const response = `# Example: trajectory watch\n\nEvidence.\n${example.source}\nPHASE RESULT: {"status":"finished","reason":null}`
-    if (example.outcome === "parsed") {
-      assert.deepEqual(watchOutput(response), {
-        document: "# Example: trajectory watch\n\nEvidence.",
-        grade: example.id.slice("watch-grade/".length),
-      })
-    } else {
-      assert.throws(
-        () => watchOutput(response),
-        (error: unknown) =>
-          error instanceof Error && error.message === example.refusal,
-        example.id,
-      )
-    }
-  }
-  assert.throws(
-    () =>
-      watchOutput(
-        '# Example\nPHASE RESULT: {"status":"finished","reason":null}',
-      ),
-    /Missing watch grade line/,
-  )
-  assert.throws(
-    () =>
-      watchOutput(
-        'Watch grade: green\nPHASE RESULT: {"status":"finished","reason":null}',
-      ),
-    /Watch document is empty/,
-  )
-})
 
 test("only a finished fix carries settling advice", () => {
   const settling = {
@@ -242,46 +189,6 @@ test("watch receives Repo Edu's workflow and joined evidence", async (t) => {
     ),
   )
   assert.ok(writer.endsWith("Joined watch evidence:\nJoined episode facts"))
-})
-
-test("text phases accept only their result shapes", () => {
-  const finished = { status: "finished", reason: null }
-  const text = (value: unknown) =>
-    `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
-  for (const ending of ["", "\n", "\r\n", " \t\n\n"])
-    assert.deepEqual(phaseResult("session", text(finished) + ending), {
-      status: "finished",
-      sessionId: "session",
-    })
-  assert.deepEqual(
-    phaseResult("session", text({ status: "failed", reason: "Blocked" })),
-    { status: "failed", sessionId: "session", reason: "Blocked" },
-  )
-  const ruling = () =>
-    phaseResult("session", text({ status: "needs-ruling", reason: null }))
-  assert.throws(ruling)
-  for (const value of [
-    { ...finished, status: "retry" },
-    { ...finished, tier: null },
-    { ...finished, clean: false },
-    { ...finished, accepted: true },
-    { ...finished, extra: true },
-    { status: "finished" },
-
-    { ...finished, file: null },
-    { ...finished, file: "relative.md" },
-    { ...finished, reason: "unexpected" },
-    { status: "failed", reason: " " },
-    { status: "failed", file: "/file.md", reason: "blocked" },
-  ])
-    assert.throws(() => phaseResult("session", text(value)))
-  for (const invalid of [
-    "No result",
-    "PHASE RESULT: {broken",
-    `${text(finished)}\nExtra text`,
-    `${text(finished)}\n\`\`\``,
-  ])
-    assert.throws(() => phaseResult("session", invalid))
 })
 
 test("unrelated events are ignored while malformed consumed fields fail", () => {

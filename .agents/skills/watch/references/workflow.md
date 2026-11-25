@@ -384,9 +384,9 @@ No route reads or writes an episode file.
 
 ## Output
 
-Return the finished watch Markdown in the final response. After it, write one
-plain grade line in the shared
-[watch grade grammar](../../../references/round-grammar.md#watch-grade).
+An automated watch returns the finished Markdown document and the grade in the
+supplied schema. A hand-run watch returns its document in chat under
+**Hand-run entry**.
 
 Write no file or cadence record. Check the wording
 before returning; there is no separate editing phase.
@@ -489,7 +489,6 @@ finished watch.
 
 ## Runner result
 
-Follow the shared [Runner result](../../../references/round-protocol.md#runner-result).
-Automated completion returns the finished Markdown, its parsed grade and a
-finished phase result. The output recorder supplies the phase's final
-compaction count.
+For an automated watch, follow the shared
+[Runner result](../../../references/round-protocol.md#runner-result). The
+output recorder supplies the phase's final compaction count.

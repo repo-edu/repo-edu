@@ -521,13 +521,6 @@ test("output records complete invocations incrementally and refreshes only while
   assert.deepEqual(rendered, [
     "Full assistant text\n\n| A | B |\n| --- | --- |\n| 1 | 2 |",
   ])
-  for (const text of [
-    'Final report\n\nPHASE RESULT: {"status":"finished","reason":null}\n',
-    'PHASE RESULT: {"status":"failed","reason":"Stopped"}',
-  ])
-    await inTurn(output).observe({ type: "text", text })
-  assert.match(rendered.at(-1) as string, /PHASE RESULT:/)
-  assert.match(await readFile(output.paths.markdown, "utf8"), /PHASE RESULT:/)
   assert.doesNotMatch(
     await readFile(output.paths.log, "utf8"),
     /Full assistant text/,

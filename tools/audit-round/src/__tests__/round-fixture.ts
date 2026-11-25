@@ -278,7 +278,14 @@ Audit ranges: ${steps === 1 ? "1" : `1-${steps}`}.
     const closingNote = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |`
     const final =
       phase === "watch"
-        ? `# Example: trajectory watch\n\nComplete watch text.\nWatch grade: ${watch ? "red" : "green"}\nPHASE RESULT: {"status":"finished","reason":null}`
+        ? {
+            status: "finished",
+            reason: null,
+            result: {
+              document: "# Example: trajectory watch\n\nComplete watch text.",
+              grade: watch ? "red" : "green",
+            },
+          }
         : phase === "fix"
           ? { ...finishedPhase, status, closingNote, settling: null }
           : phase === "close"

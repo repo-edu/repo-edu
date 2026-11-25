@@ -1577,8 +1577,10 @@ export async function runCommand(
       chainDeferrals: RoundDependencies["chainDeferrals"] = async () => "none",
     ): RoundDependencies => ({
       watchEvidence: readWatchEvidence,
-      writeWatchDocument: async (file, document) =>
-        writeFile(file, `${document}\n`, "utf8"),
+      writeWatchDocument: async (file, document) => {
+        await writeFile(file, `${document}\n`, "utf8")
+        active.watchDocument(document)
+      },
       writeWatchRecord,
       checkFile: async (file) => {
         if (!(await readFile(file, "utf8")).trim())

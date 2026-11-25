@@ -36,9 +36,8 @@ under [Stopped rounds](../CLAUDE.md#stopped-rounds).
 
 The coordinator has no process, filesystem or terminal side effects of its own. Its dependencies
 supply those operations explicitly. A returned phase failure stops the sequence. A rejected phase
-invocation also stops it without retrying; the invocation owner must release its resources before
-rejecting. The invocation owner's one request for a missing result line is not a retry: it repeats
-no phase work, and the coordinator sees only the invocation's result.
+invocation also stops it without retrying. The invocation owner must release its resources before
+rejecting.
 
 ### Clean audits
 

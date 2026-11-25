@@ -189,8 +189,6 @@ export function recordedTag(assistant: Assistant): string {
     new Map(),
   )
 }
-export const finishedText =
-  'Résumé complete\nPHASE RESULT: {"status":"finished","reason":null}'
 export const finishedPhase = {
   status: "finished",
   reason: null,
@@ -216,7 +214,7 @@ export async function writePhaseInstructions(
 
 export async function phaseStream(
   assistant: Assistant,
-  final: string | object = finishedText,
+  final: string | object,
   sessionId = "test-session",
   recording: string = assistant,
 ): Promise<string> {
@@ -249,7 +247,11 @@ export async function phaseStream(
         if (event === lastResult)
           event.item.text =
             typeof final === "string" ? final : JSON.stringify(final)
-        else if (typeof final === "string" || "report" in final)
+        else if (
+          typeof final === "string" ||
+          "report" in final ||
+          "result" in final
+        )
           event.item.text = "The session is working."
       }
       return JSON.stringify(event)

@@ -1,19 +1,25 @@
 import { z } from "zod"
+import { watchGradeSchema } from "./glance.js"
 import type {
   FinishedReport,
   Phase,
   PhaseControlResult,
   PhaseFailure,
   PhaseInput,
+  PhaseResult,
   RulerScope,
+  WatchResult,
 } from "./phase.js"
 import { auditReport, auditSchema, settlingAdvice } from "./report.js"
 import { rulerReport, rulerSchema } from "./ruler-report.js"
+import { designSchema, pickSchema } from "./split-result-schema.js"
 import { rebuttalReport, rebuttalSchema, vetReport, vetSchema } from "./vet.js"
 
+const completedStatus = z.enum(["finished", "failed"])
 const status = z.enum(["finished", "failed", "needs-ruling"])
+const reason = z.string().nullable().describe("The reason the phase failed")
 const ending = {
-  reason: z.string().nullable().describe("The reason the phase failed"),
+  reason,
   closingNote: z.string().describe("The phase's closing note in Markdown"),
 }
 
@@ -24,33 +30,13 @@ const schemas = {
     settling: settlingAdvice.nullable().describe("The widening recommendation"),
   }),
   implement: z.strictObject({ status, ...ending }),
-  close: z.strictObject({ status: z.enum(["finished", "failed"]), ...ending }),
+  close: z.strictObject({ status: completedStatus, ...ending }),
 }
 
 type StructuredPhase = keyof typeof schemas
 
-export function usesClosingNote(phase: Phase): phase is StructuredPhase {
-  return Object.hasOwn(schemas, phase)
-}
-
-export function usesStructuredResult(phase: Phase): boolean {
-  return (
-    usesClosingNote(phase) ||
-    phase === "audit" ||
-    phase === "vet" ||
-    phase === "rebut" ||
-    phase === "rule"
-  )
-}
-
-export function outputSchema(phase: StructuredPhase): string {
-  return JSON.stringify(z.toJSONSchema(schemas[phase], { target: "draft-7" }))
-}
-
-export function closingNote(
-  phase: StructuredPhase,
-  value: unknown,
-): string | undefined {
+export function closingNote(phase: Phase, value: unknown): string | undefined {
+  if (phase !== "fix" && phase !== "implement" && phase !== "close") return
   const answer = schemas[phase].safeParse(value)
   return answer.success ? answer.data.closingNote : undefined
 }
@@ -90,19 +76,47 @@ export function structuredPhaseResult(
   }
 }
 
-type ReportContract = {
-  readonly file: string
+type AdmittedResult = PhaseResult | Omit<WatchResult, "compactions">
+
+type ResultContract = {
+  readonly file?: string
   readonly schema: string
   readonly read: (
     sessionId: string,
     value: unknown,
-  ) =>
-    | { readonly result: PhaseFailure }
-    | { readonly result: FinishedReport; readonly text: string }
+  ) => {
+    readonly result: AdmittedResult
+    readonly text?: string
+  }
 }
 
 type ReportDetails<T extends FinishedReport = FinishedReport> =
   T extends FinishedReport ? Omit<T, "status" | "sessionId"> : never
+
+function jsonSchema(definition: z.ZodType): string {
+  return JSON.stringify(z.toJSONSchema(definition, { target: "draft-7" }))
+}
+
+const documentEnding = { status: completedStatus, reason }
+
+function documentResult<Payload>(
+  sessionId: string,
+  ending: { status: z.infer<typeof completedStatus>; reason: string | null },
+  payload: Payload | null,
+  name: string,
+): { result: PhaseFailure } | { payload: Payload } {
+  const { status, reason } = ending
+  if (status === "failed") {
+    if (!reason?.trim()) throw new Error("A failed phase needs a reason")
+    if (payload !== null)
+      throw new Error(`Only a finished phase returns ${name}`)
+    return { result: { status, sessionId, reason } }
+  }
+  if (reason !== null)
+    throw new Error("Only a failed phase returns a failure reason")
+  if (payload === null) throw new Error(`A finished phase needs its ${name}`)
+  return { payload }
+}
 
 function reportContract<Payload>(
   file: string,
@@ -111,39 +125,69 @@ function reportContract<Payload>(
     readonly text: string
     readonly details: ReportDetails
   },
-): ReportContract {
+): ResultContract {
   const definition = z.strictObject({
-    status: z.enum(["finished", "failed"]),
-    reason: z.string().nullable().describe("The reason the phase failed"),
+    ...documentEnding,
     report: payload.nullable().describe("The completed report's fields"),
   })
   return {
     file,
-    schema: JSON.stringify(z.toJSONSchema(definition, { target: "draft-7" })),
+    schema: jsonSchema(definition),
     read(sessionId, value) {
-      const { status, reason, report } = definition.parse(value)
-      if (status === "failed") {
-        if (!reason?.trim()) throw new Error("A failed phase needs a reason")
-        if (report !== null)
-          throw new Error("Only a finished phase returns report fields")
-        return { result: { status, sessionId, reason } }
-      }
-      if (reason !== null)
-        throw new Error("Only a failed phase returns a failure reason")
-      if (report === null)
-        throw new Error("A finished phase needs its report fields")
-      const { text, details } = render(report)
+      const answer = definition.parse(value)
+      const admitted = documentResult(
+        sessionId,
+        answer,
+        answer.report,
+        "report fields",
+      )
+      if ("result" in admitted) return admitted
+      const { text, details } = render(admitted.payload)
       return {
         text,
-        result: { status, sessionId, ...details },
+        result: { status: "finished", sessionId, ...details },
       }
     },
   }
 }
 
-export function roundReportContract(
-  input: PhaseInput,
-): ReportContract | undefined {
+type DocumentDetails =
+  | Pick<WatchResult, "document" | "grade">
+  | Pick<Extract<PhaseResult<"design">, { status: "finished" }>, "design">
+  | Pick<Extract<PhaseResult<"pick">, { status: "finished" }>, "pick">
+
+function documentContract<Payload>(
+  payload: z.ZodType<Payload>,
+  details: (payload: Payload) => DocumentDetails,
+): ResultContract {
+  const definition = z.strictObject({
+    ...documentEnding,
+    result: payload.nullable().describe("The completed phase's fields"),
+  })
+  return {
+    schema: jsonSchema(definition),
+    read(sessionId, value) {
+      const answer = definition.parse(value)
+      const admitted = documentResult(
+        sessionId,
+        answer,
+        answer.result,
+        "result fields",
+      )
+      if ("result" in admitted) return admitted
+      return {
+        result: { status: "finished", sessionId, ...details(admitted.payload) },
+      }
+    },
+  }
+}
+
+const watchSchema = z.strictObject({
+  document: z.string().describe("The finished watch document in Markdown"),
+  grade: watchGradeSchema.describe("The watch grade"),
+})
+
+export function phaseResultContract(input: PhaseInput): ResultContract {
   switch (input.phase) {
     case "audit":
       return reportContract(
@@ -191,5 +235,24 @@ export function roundReportContract(
         },
       )
     }
+    case "fix":
+    case "implement":
+    case "close":
+      return {
+        schema: jsonSchema(schemas[input.phase]),
+        read: (sessionId, value) =>
+          structuredPhaseResult(input.phase, sessionId, value),
+      }
+    case "watch":
+      return documentContract(watchSchema, ({ document, grade }) => {
+        if (!document.trim()) throw new Error("Watch document is empty")
+        return { document: document.trimEnd(), grade }
+      })
+    case "design":
+      return documentContract(designSchema, (design) => ({ design }))
+    case "pick":
+      return documentContract(pickSchema(input.arguments[2]), (pick) => ({
+        pick,
+      }))
   }
 }

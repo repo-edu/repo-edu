@@ -87,9 +87,9 @@ export async function splitStage(
     },
     options,
   )
-  const invoke = async (
-    input: PhaseInput<"design" | "pick">,
-  ): Promise<SessionAnswer> => {
+  const invoke = async <P extends "design" | "pick">(
+    input: PhaseInput<P>,
+  ): Promise<SessionAnswer<P>> => {
     let writer: Writer | undefined
     const recorder = observedOutput(output.phase, (feedback) => {
       if (feedback.type !== "model") return
@@ -102,7 +102,7 @@ export async function splitStage(
         tag: selectionTag(input.assistant, model, effort, settings),
       }
     })
-    const result = await runAssistantPhase<"design" | "pick">(input, recorder, {
+    const result = await runAssistantPhase<P>(input, recorder, {
       ...runtime,
       cwd: session.cwd,
     })
@@ -153,6 +153,7 @@ export async function splitStage(
           attemptMoveList(context.repoEduRoot, list, runtime.signal),
         checks: (pkg) => runChecks(context.repoEduRoot, pkg, runtime.signal),
         message: output.message,
+        showReport: (text) => options.terminal.write(text, "markdown"),
       },
     )
     if (outcome.status === "failed") {

@@ -50,8 +50,7 @@ Before this rule the file held the automatic-series rules in four places.
 | `round.ts` | The fixed phase sequence of a round, the questions the user answers before the fix, the reply a fix's open item needs, the watch that follows a round, the call of the series decision and the close's run | [Round sequence](references/rounds.md#round-sequence), [Winners and rulings](references/rounds.md#winners-and-rulings), [Watch](references/watch.md#watch), [Stopped rounds](#stopped-rounds), [close](#close) |
 | `clean.ts` | Direct completion when the audit report has no findings | [Clean audits](references/rounds.md#clean-audits) |
 | `report.ts`, `vet.ts`, `ruler-report.ts` | The schemas and writers of the audit, vet, rebuttal and ruler reports | [Report results](references/rounds.md#report-results) |
-| `phase-result.ts` | The readers of the `PHASE RESULT` line, the watch grade line and the shared phase status | [Phase routing](#phase-routing), [One invocation](references/sessions.md#one-invocation), [Watch](references/watch.md#watch) |
-| `phase-result-schema.ts` | Structured phase schemas and result admission | [One invocation](references/sessions.md#one-invocation), [After the fix](references/rounds.md#after-the-fix) |
+| `phase-result-schema.ts` | Structured phase result admission and the schemas for the watch and closing notes | [One invocation](references/sessions.md#one-invocation), [Watch](references/watch.md#watch), [After the fix](references/rounds.md#after-the-fix) |
 | `finding-tokens.ts` | The rating and location token definitions that the audit result, the record bullet reader and round data share | [Audit report](references/rounds.md#audit-report), [Record bullets](references/commit-hooks.md#record-bullets), [Round data](#round-data) |
 | `phase.ts`, `settings.ts` | Who runs each phase and on what, the capability tag's vocabulary, workflow selection and the loaded settings | [Selections](references/sessions.md#selections), [Startup](references/sessions.md#startup), [Model settings](#model-settings), [Report results](references/rounds.md#report-results), [The ruler](references/rounds.md#the-ruler), [Manual queue](references/series.md#manual-queue), [Watch](references/watch.md#watch) |
 | `judge.ts`, `replay.ts` | The automatic-series evidence, the three fixed rules and their replay | [Automatic series](references/series.md#automatic-series), [replay](#replay) |
@@ -76,7 +75,8 @@ Before this rule the file held the automatic-series rules in four places.
 | `output-format.ts` | The text of the settings header, the time and token readings, the capability tag and the commit stamps | [Selections](references/sessions.md#selections), [Output](references/output.md), [The hook's rule](references/commit-hooks.md#the-hooks-rule) |
 | `models.ts`, `model-evidence.ts`, `model-comparison.ts`, `pager.ts`, `pinned-headings.ts` | The model read-out and its full-screen view | [Model read-out](references/model-read-out.md) |
 | `contract-main.ts`, `contract.ts` | The contract command's entry and the CLI contract recorder | [Contract recorder](#contract-recorder) |
-| `move-list.ts`, `split-result.ts` | The reader of a move list, and the reader and writer of the split result line | [Move list](../../.agents/references/round-grammar.md#move-list), [Split result](../../.agents/references/round-grammar.md#split-result) |
+| `move-list.ts`, `split-result.ts` | Readers and writers for the move list and the split command's result line | [Move list](../../.agents/references/round-grammar.md#move-list), [Split result](../../.agents/references/round-grammar.md#split-result) |
+| `split-result-schema.ts` | The design and pick schemas and the pick report writer | [split](#split) |
 | `split-answers.ts`, `split-design.ts` | Saved answers and their writers, parallel design and the pick | [Round files](#round-files), [split](#split) |
 | `split.ts`, `split-attempt.ts`, `split-output.ts` | One split call: the read of the file's move list, the split lock, the attempt in a child process, the write, the checks and the commit or the restore, and the design selection and log | [split](#split), [Phase routing](#phase-routing) |
 
@@ -410,8 +410,7 @@ restore the working directory.
 
 - design: the source path relative to Repo Edu, its blob hash and this entry's density.
 - pick: the source path, the same hash and the answers in designer order. Each entry gives the
-  number, absolute answer path and any refusal. The session returns the
-  [pick report](../../.agents/references/round-grammar.md#pick-report).
+  number, absolute answer path and any refusal.
 - audit: audit report output, then either a plan with an optional implementation
   scope and open-deferral object, a plan with an open-deferral object for a
   chained planning round or one structured object per commit group carrying
@@ -442,11 +441,8 @@ restore the working directory.
 - close: plan, capability tag, model record, open-deferral object and optional
   abort reason
 
-The runner saves audit, vet, rebuttal and ruler final text without the parsed phase result line.
-Report phases finish only when their supplied output exists and is non-empty. The runner then
-reads the audit report under the round grammar and fails the round when the audit report's
-`Target:` line does not repeat the target it supplied to the audit, before any later phase starts,
-so a vetter never has to ask which target an audit report judged.
+The runner writes the audit, vet, rebuttal and ruler reports from their checked results.
+Report phases finish only when their supplied output exists and is non-empty.
 
 The watch has no path argument because the runner owns both of its writes, under
 [Watch](references/watch.md#watch).
@@ -1029,7 +1025,9 @@ round-data commit from the close selection alone.
 3. `split <source>` makes a new design and immediately carries out the selected moves.
 
 The source path is relative to Repo Edu and belongs to a workspace package. All designers run side
-by side. Every moves answer gets a trial in memory. The picker sees the tool's refusal on any
+by side. The runner writes saved answers from the design results, with the source path, hash and
+line count from one snapshot. It writes the pick report and any replacement answer from the
+pick result. Every moves answer gets a trial in memory. The picker sees the tool's refusal on any
 ineligible list. Unanimous no-split results need no pick. If every answer is a refused list, the
 call ends as `needs-plan`.
 

@@ -1,8 +1,7 @@
 import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { MoveList } from "./move-list.js"
-import { readPick } from "./move-list.js"
-import type { PhaseFailure, PhaseInput } from "./phase.js"
+import type { PhaseFailure, PhaseInput, PhaseResult } from "./phase.js"
 import { designFilename, pickFilename, splitLabel } from "./round-paths.js"
 import type { Density } from "./settings.js"
 import {
@@ -13,20 +12,21 @@ import {
   type Writer,
 } from "./split-answers.js"
 import type { AttemptReply } from "./split-attempt.js"
+import { pickReport } from "./split-result-schema.js"
 
 export type Moves = Extract<MoveList, { kind: "moves" }>
-export type SessionAnswer =
+export type SessionAnswer<P extends "design" | "pick"> =
   | PhaseFailure
-  | { status: "finished"; sessionId: string; document: string; writer: Writer }
+  | (PhaseResult<P> & { readonly writer: Writer })
 export type DesignSessions = {
   designers: readonly {
     density: Density
-    run: (hash: string) => Promise<SessionAnswer>
+    run: (hash: string) => Promise<SessionAnswer<"design">>
   }[]
   pick: (
     hash: string,
     candidates: PhaseInput<"pick">["arguments"][2],
-  ) => Promise<SessionAnswer>
+  ) => Promise<SessionAnswer<"pick">>
 }
 export type Choice = {
   selected: Answer
@@ -39,17 +39,23 @@ export type Choice = {
 export type TrialFailure = Exclude<AttemptReply, { outcome: "clean" }>
 type Verdict = { result: "needs-plan" | "skipped"; message: string }
 type DesignOutcome = Choice | Verdict | PhaseFailure
+type SourceSnapshot = {
+  readonly source: string
+  readonly hash: string
+  readonly size: number
+}
 
 /** Number in settings order, retain every finished answer and judge only after every designer ends. */
 export async function designSplit(
-  source: string,
-  hash: string,
+  snapshot: SourceSnapshot,
   folder: string,
   sessions: DesignSessions,
   trials: (
     answers: readonly Answer[],
   ) => Promise<readonly (TrialFailure | null)[]>,
+  showReport: (text: string) => void,
 ): Promise<DesignOutcome> {
+  const { source, hash, size } = snapshot
   const label = splitLabel(source)
   const first = await nextDesignNumber(folder, label)
   const results = await Promise.allSettled(
@@ -58,19 +64,12 @@ export async function designSplit(
       const outcome = await designer.run(hash)
       if (outcome.status === "failed") return outcome
       try {
-        const saved = answer(
-          outcome.document.trimEnd() + "\n",
-          {
-            ...outcome.writer,
-            number,
-            designer: index + 1,
-            density: designer.density,
-          },
-          source,
-        )
-        if (saved.list.hash !== hash)
-          throw new Error(`Answer ${number} names the wrong source hash`)
-        return saved
+        return answer({ ...outcome.design, source, hash }, size, {
+          ...outcome.writer,
+          number,
+          designer: index + 1,
+          density: designer.density,
+        })
       } catch (error) {
         return invalidAnswer(outcome.sessionId, error)
       }
@@ -89,6 +88,7 @@ export async function designSplit(
     else answers.push(result.value)
   }
   await saveAnswers(folder, label, answers)
+  for (const { text } of answers) showReport(text)
   if (failure) return failure
   const initial = answers[0]
   const list = initial.list
@@ -122,16 +122,18 @@ export async function designSplit(
   if (pick.status === "failed") return pick
   let selection: ReturnType<typeof selectAnswer>
   try {
-    selection = selectAnswer(source, hash, answers, candidates, pick)
+    selection = selectAnswer(snapshot, answers, candidates, pick)
   } catch (error) {
     return invalidAnswer(pick.sessionId, error)
   }
   await writeFile(
     join(folder, pickFilename(label, first, pick.writer.tag)),
-    selection.report + "\n",
+    `${selection.report}\n`,
   )
   if (selection.newAnswer)
     await saveAnswers(folder, label, [selection.selected])
+  showReport(selection.report)
+  if (selection.newAnswer) showReport(selection.selected.text)
   return {
     selected: selection.selected,
     pick: {
@@ -151,13 +153,12 @@ function invalidAnswer(sessionId: string, error: unknown): PhaseFailure {
 }
 
 function selectAnswer(
-  source: string,
-  hash: string,
+  { source, hash, size }: SourceSnapshot,
   answers: readonly Answer[],
   candidates: PhaseInput<"pick">["arguments"][2],
-  pick: Extract<SessionAnswer, { status: "finished" }>,
+  { pick, writer }: Extract<SessionAnswer<"pick">, { status: "finished" }>,
 ) {
-  const { report, number, document } = readPick(pick.document)
+  const { number, replacement } = pick
   const original = answers.find((a) => a.record.number === number)
   if (
     number !== null &&
@@ -165,28 +166,29 @@ function selectAnswer(
       candidates.some((c) => c.number === number && c.refusal !== null))
   )
     throw new Error(`The picker selected unavailable answer ${number}`)
-  let selected = original
-  if (document !== null) {
-    selected = answer(
-      document,
-      {
-        ...pick.writer,
-        number: answers[answers.length - 1].record.number + 1,
-        designer: null,
-        density: null,
-      },
-      source,
+  if (
+    replacement !== null &&
+    (number === null
+      ? replacement.kind !== "no-split"
+      : original?.list.kind !== "moves" || replacement.kind !== "moves")
+  )
+    throw new Error(
+      "The replacement must repair the named move list or give the picker's own no-split answer",
     )
-    if (
-      selected.list.hash !== hash ||
-      (number === null
-        ? selected.list.kind !== "no-split"
-        : original?.list.kind !== "moves" || selected.list.kind !== "moves")
-    )
-      throw new Error(
-        "The appended document must repair the named list or give the picker's own no-split answer",
-      )
-  }
+  const selected =
+    replacement === null
+      ? original
+      : answer({ ...replacement, source, hash }, size, {
+          ...writer,
+          number: answers[answers.length - 1].record.number + 1,
+          designer: null,
+          density: null,
+        })
   if (!selected) throw new Error("The picker gave no answer")
-  return { report, number, selected, newAnswer: document !== null }
+  return {
+    report: pickReport(candidates, pick),
+    number,
+    selected,
+    newAnswer: replacement !== null,
+  }
 }

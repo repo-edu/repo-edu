@@ -43,17 +43,15 @@ adds no target and takes nothing from a competing design.
 
 ## Return the pick
 
-Use the [pick report form](../../../references/round-grammar.md#pick-report). Give one or two
-sentences about each answer's strengths and faults. Explain the main reason for the choice and
-identify each repair with the fact that requires it. Case:
+Use the supplied schema. Give one or two sentences about each answer's strengths
+and faults in its judgement field. Give the main reason for the choice and state
+each repair with the fact that requires it. Case:
 [`pick-report`](../../../../../plan/CASES.md#pick-report).
 
-1. For an unchanged answer, end the report with its number.
-2. For a repair, end the report with the original answer's number and append the complete repaired
-   move list.
-3. For your own no-split result, end the report with `Pick: none` and append your complete no-split
-   answer.
+1. For an unchanged answer, return its number and a null replacement.
+2. For a repair, return the original answer's number and the complete repaired move list.
+3. For your own no-split result, return a null number and the complete no-split answer.
 
-Return the text directly. Make no file changes, commits or ruling requests. End with the phase
-result line. Use `finished` for a complete answer or `failed` with the reason when you cannot
-finish.
+The runner writes the pick report and any replacement answer. Make no file changes,
+commits or ruling requests. End under the shared
+[Runner result](../../../references/round-protocol.md#runner-result).

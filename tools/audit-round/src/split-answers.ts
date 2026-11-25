@@ -3,7 +3,7 @@ import { basename, dirname, join, relative, resolve } from "node:path"
 import { execa } from "execa"
 import { z } from "zod"
 import type { ExecutionContext } from "./context.js"
-import { type MoveList, readMoveList } from "./move-list.js"
+import { type MoveList, moveListText, readMoveList } from "./move-list.js"
 import { efforts } from "./phase.js"
 import {
   designFilename,
@@ -27,13 +27,8 @@ export type DesignRecord = z.infer<typeof designRecord>
 export type Writer = Pick<DesignRecord, "tag" | "model" | "effort">
 export type Answer = ReturnType<typeof answer>
 
-export function answer(text: string, record: DesignRecord, source: string) {
-  const list = readMoveList(text)
-  if (list.source !== source)
-    throw new Error(
-      `Answer ${record.number} names ${list.source}, expected ${source}`,
-    )
-  return { text, list, record }
+export function answer(list: MoveList, size: number, record: DesignRecord) {
+  return { text: moveListText(list, size), list, record }
 }
 
 export async function nextDesignNumber(folder: string, label: string) {

@@ -37,8 +37,12 @@ export type MoveList = Opening &
       }
   )
 
-const listResults: readonly ListResult[] = ["fine", "needs-plan"]
-const areaPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+export const listResults = [
+  "fine",
+  "needs-plan",
+] as const satisfies readonly ListResult[]
+export const areaPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+export const pathPattern = /^[^\x60\r\n]+$/
 const moveHeading = /^### (\S+)\. `([^`]+)`\.?$/
 const rangePattern = /^([1-9]\d*)(?:-([1-9]\d*))?$/
 
@@ -93,13 +97,26 @@ function readRanges(text: string, move: number): LineRange[] {
     if (match === null)
       throw new Error(`Move list move ${move} has the malformed range ${range}`)
     const start = Number(match[1])
-    const end = match[2] === undefined ? start : Number(match[2])
-    if (end < start)
-      throw new Error(
-        `Move list move ${move} has the range ${range}, whose end comes before its start`,
-      )
-    return { start, end }
+    return { start, end: match[2] === undefined ? start : Number(match[2]) }
   })
+}
+
+function checkMoves(moves: readonly ListedMove[]): void {
+  const targets = new Map<string, number>()
+  for (const [index, { target, ranges }] of moves.entries()) {
+    const number = index + 1
+    const earlier = targets.get(target)
+    if (earlier !== undefined)
+      throw new Error(
+        `Move list names the target ${target} in moves ${earlier} and ${number}`,
+      )
+    targets.set(target, number)
+    for (const { start, end } of ranges)
+      if (end < start)
+        throw new Error(
+          `Move list move ${number} has the range ${start}-${end}, whose end comes before its start`,
+        )
+  }
 }
 
 function readMoves(groups: readonly string[][]): ListedMove[] {
@@ -122,18 +139,13 @@ function readMoves(groups: readonly string[][]): ListedMove[] {
       throw new Error(
         `Move list move ${number} needs a Responsibility: line and a Ranges: line`,
       )
-    const target = named[2]
-    const earlier = moves.findIndex((move) => move.target === target)
-    if (earlier !== -1)
-      throw new Error(
-        `Move list names the target ${target} in moves ${earlier + 1} and ${number}`,
-      )
     moves.push({
-      target,
+      target: named[2],
       responsibility: responsibility[1],
       ranges: readRanges(ranges[1], number),
     })
   }
+  checkMoves(moves)
   return moves
 }
 
@@ -167,29 +179,26 @@ export function readMoveList(text: string): MoveList {
   )
 }
 
-/** Only a new answer follows the pick report. An unchanged pick names the saved answer. */
-export function readPick(text: string) {
-  const lines = text.trim().split("\n")
-  const last = lines.findLastIndex((line) => line.startsWith("Pick:"))
-  const choice = /^Pick: (none|[0-9]+)\.?$/.exec(lines[last]?.trimEnd() ?? "")
-  const appended = lines
-    .slice(last + 1)
-    .join("\n")
-    .trim()
-  if (!choice || (appended && !/^# Move list[ \t]*(?:\r?\n|$)/.test(appended)))
-    throw new Error(
-      "The pick report must end with one Pick: line naming an answer number or none",
-    )
-  const number = choice[1] === "none" ? null : Number(choice[1])
-  const document = appended ? appended + "\n" : null
-  if (number === null && document === null)
-    throw new Error("A pick of none must supply its no-split answer")
-  return {
-    report: lines
-      .slice(0, last + 1)
-      .join("\n")
-      .trimEnd(),
-    number,
-    document,
-  }
+/** Write the Move list form shared by saved answers and committed lists. */
+export function moveListText(list: MoveList, size: number): string {
+  if (!pathPattern.test(list.source))
+    throw new Error("Move list Source: line must name one path in backticks")
+  const opening = [
+    "# Move list",
+    "",
+    `Source: \`${list.source}\``,
+    `Hash: ${list.hash}`,
+    `Area: ${list.area}`,
+    `Size: ${size} lines`,
+  ].join("\n")
+  if (list.kind === "no-split")
+    return `${opening}\n\n## No split\n\nResult: ${list.result}. ${list.reason}\n`
+  checkMoves(list.moves)
+  const moves = list.moves.map(({ target, responsibility, ranges }, index) => {
+    const lines = ranges
+      .map(({ start, end }) => (start === end ? `${start}` : `${start}-${end}`))
+      .join(", ")
+    return `### ${index + 1}. \`${target}\`\n\nResponsibility: ${responsibility}\nRanges: ${lines}`
+  })
+  return `${[opening, "## Moves", ...moves].join("\n\n")}\n`
 }

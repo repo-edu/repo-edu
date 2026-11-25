@@ -174,8 +174,10 @@ test("a due glance admits and publishes the returned watch without round session
   assert.doesNotMatch(log, /watch-edit/)
   assert.equal(log.match(/\[watch\] starting/g)?.length, 1)
   assert.ok(log.includes(`[watch] finished`))
-  // The watch follows the round it grades, so none of its text enters the transcript.
-  assert.equal(markdown.includes("## watch ("), false)
+  assert.match(
+    markdown,
+    /## Watch\n\n# Example: trajectory watch\n\nComplete watch text\./,
+  )
   assert.ok(f.visible.join("\n").includes("Complete watch text."))
   assert.equal(
     await readFile(watch, "utf8"),
@@ -233,6 +235,8 @@ test("a compacted watch publishes neither its document nor cadence record", asyn
     await readFile(join(f.options.cacheRoot, "watch.json"), "utf8"),
     before,
   )
+  assert.doesNotMatch((await f.records()).markdown, /## Watch/)
+  assert.doesNotMatch(f.visible.join("\n"), /Complete watch text\./)
 })
 
 for (const target of ["implementation", "planning", "commits"] as const) {

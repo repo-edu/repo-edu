@@ -12,7 +12,6 @@ import type {
   PinnedField,
 } from "./phase.js"
 import { phaseWorkflow } from "./phase.js"
-import { usesStructuredResult } from "./phase-result-schema.js"
 import type { RoundKind } from "./target.js"
 
 export const claudeSettingsRequest = {
@@ -142,11 +141,6 @@ export type AssistantPrompt = {
    * reading check counts each as opened; a resumed session receives none.
    */
   readonly supplied: readonly string[]
-  /**
-   * Sent once to a session whose response ended without the result line. An
-   * invocation given none fails on that response.
-   */
-  readonly resultRequest?: string
 }
 
 /** How a phase prompt names each kind of round. */
@@ -173,16 +167,6 @@ function runnerResultRule(repoEduRoot: string): string {
   return `For every ending, follow the shared Runner result rule in ${repoEduRoot}/.agents/references/round-protocol.md#runner-result.`
 }
 
-/**
- * Asks for the whole response again, because the phase's final text is the
- * last turn's text. The session already holds its workflow and arguments.
- */
-function resultRequest(input: PhaseInput): string {
-  return `${phaseOpening(input, "resumed")}
-Your last response ended without the final PHASE RESULT line, so the runner could not read this phase's outcome. If the phase's work is unfinished, finish it. Then return your complete final response again and end it with that line. The runner reads only the new response.
-${runnerResultRule(input.repoEduRoot)}`
-}
-
 export function phasePrompt(input: PhaseInput): AssistantPrompt {
   const files =
     input.sessionId === null ? phaseInstructions(phaseWorkflow(input)) : null
@@ -204,9 +188,6 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
             .join("\n"),
       true,
     ),
-    ...(usesStructuredResult(input.phase)
-      ? {}
-      : { resultRequest: resultRequest(input) }),
     supplied: files === null ? [] : [...files.keys()],
   }
 }
@@ -231,9 +212,7 @@ function formatPhasePrompt(
   omitEvidence = false,
 ): string {
   const { repoEduRoot, cwd } = input
-  const ending = usesStructuredResult(input.phase)
-    ? `${runnerResultRule(repoEduRoot)}\nReturn your final response in the supplied schema. Use the schema for this invocation even when continuing an earlier session.`
-    : runnerResultRule(repoEduRoot)
+  const ending = `${runnerResultRule(repoEduRoot)}\nReturn your final response in the supplied schema. Use the schema for this invocation even when continuing an earlier session.`
   const prompt = `${phaseOpening(input, input.sessionId === null ? "fresh" : "resumed")}
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
@@ -251,7 +230,7 @@ ${ending}${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence
 
 /**
  * The session is named apart from the input, because the invocation owner
- * resumes a session it started to ask for a missing result line.
+ * can resume a session it started for the ruler's source check.
  */
 export function phaseRequest(
   input: AssistantTurnInput,
