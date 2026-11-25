@@ -55,18 +55,24 @@ Each row names what set its model and effort:
 | `audit-round <class> vetters` | A vetter |
 | `audit-round <class> ruler` | The ruler |
 | `audit-round <class> watch` | The watch |
+| `audit-round split designers` | A designer in the split settings |
+| `audit-round split picker` | The picker in the split settings |
 | `audit-round settings` | The close's own pin |
 | `audit-round defaults` | The field reads the assistant's default selection |
 
 ## Recorder slots
 
-The output holds its round mark. `start` returns a recorder bound to one invocation's slot. The
-slot is keyed by its phase or, for a vetter, by `vet <tag>` from its vet report's filename, so the
-vetters of a panel never share a slot or a record.
+The output holds its round mark. `start` returns a recorder for one invocation. The phase name
+identifies its slot. In two phases the slot name also identifies the session.
 
-- Each line the output writes for a vetter opens with that key.
-- A vetter's text is held until its vet ends and is then written whole under its own transcript
-  heading, because vetters that run at once would otherwise mix paragraph by paragraph.
+- `vet <tag>` uses the vetter's tag from its vet report's filename.
+- `design <n>` uses the designer's position in this call, starting at 1. Saved answer numbers
+  continue across calls.
+
+A vetter's or designer's status stamps and tool lines carry that session's slot name. The runner
+holds each session's text until it ends so it can print the text together. Each vetter's text
+also appears under its own transcript heading.
+
 - The live status line joins every running slot's stamp.
 - Releasing an invocation that never finished fixes its time and closing stamp in memory only, so a
   failed record write cannot hide the phase's outcome. The round's finish writes its held text and

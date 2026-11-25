@@ -149,7 +149,8 @@ export async function splitStage(
             },
           },
       {
-        attempt: (list) => attemptMoveList(context.repoEduRoot, list),
+        attempt: (list) =>
+          attemptMoveList(context.repoEduRoot, list, runtime.signal),
         checks: (pkg) => runChecks(context.repoEduRoot, pkg, runtime.signal),
         message: output.message,
       },

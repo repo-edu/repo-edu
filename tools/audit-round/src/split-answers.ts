@@ -1,4 +1,4 @@
-import { readdir, readFile, writeFile } from "node:fs/promises"
+import { readdir, readFile, rename, writeFile } from "node:fs/promises"
 import { basename, dirname, join, relative, resolve } from "node:path"
 import { execa } from "execa"
 import { z } from "zod"
@@ -70,10 +70,10 @@ export async function saveAnswers(
     )
     records.push(record)
   }
-  await writeFile(
-    join(folder, designsFilename(label)),
-    JSON.stringify(records, null, 2) + "\n",
-  )
+  const path = join(folder, designsFilename(label))
+  const temporary = `${path}.${process.pid}.tmp`
+  await writeFile(temporary, `${JSON.stringify(records, null, 2)}\n`)
+  await rename(temporary, path)
 }
 
 export type NamedAnswer = {

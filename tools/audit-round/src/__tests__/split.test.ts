@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import {
   mkdir,
   mkdtemp,
+  open,
   readFile,
   realpath,
   rm,
@@ -12,13 +13,14 @@ import { join } from "node:path"
 import { type TestContext, test } from "node:test"
 import { execa } from "execa"
 import { check } from "proper-lockfile"
+import { installationRoot } from "../context.js"
 import {
   runSplit,
   type SplitDependencies,
   type SplitRequest,
 } from "../split.js"
 import { namedAnswer } from "../split-answers.js"
-import type { AttemptReply } from "../split-attempt.js"
+import { type AttemptReply, attemptMoveList } from "../split-attempt.js"
 import type { SessionAnswer } from "../split-design.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import { phaseStream, recorded, testContext } from "./helpers.js"
@@ -311,12 +313,56 @@ test("publication protects the old and new plan paths and execution protects all
   await writeFile(f.planFile("01"), list)
   await writeFile(f.planFile("03"), "new local list")
   assert.equal((await f.design([list], "Pick: 3")).result, "skipped")
+  await writeFile(
+    join(f.context.planRoot, ".git/info/exclude"),
+    "source.04.mv.md\n",
+  )
+  await writeFile(f.planFile("04"), "ignored local list")
+  const head = await git(f.context.planRoot, "rev-parse", "HEAD")
+  assert.equal((await f.design([list], "Pick: 4")).result, "skipped")
+  assert.equal(await readFile(f.planFile("04"), "utf8"), "ignored local list")
+  assert.equal(await git(f.context.planRoot, "rev-parse", "HEAD"), head)
   await writeFile(join(f.context.repoEduRoot, target), "local target")
   assert.equal((await f.runFile(f.planFile("01"))).result, "skipped")
   assert.equal(
     await readFile(join(f.context.repoEduRoot, target), "utf8"),
     "local target",
   )
+})
+
+test("a stop during the final move attempt leaves the chosen answer unpublished", async (t) => {
+  const f = await fixture(t)
+  await f.design([listText(f.hash), noSplitText(f.hash, "fine")], "Pick: 2")
+  const head = await git(f.context.planRoot, "rev-parse", "HEAD")
+  const stop = new AbortController()
+  f.deps.attempt = (list) => {
+    const result = attemptMoveList(installationRoot, list, stop.signal)
+    stop.abort(new Error("Interrupted"))
+    return result
+  }
+  await assert.rejects(
+    f.runFile(f.answer("01")),
+    (error) => error === stop.signal.reason,
+  )
+  assert.equal(await git(f.context.planRoot, "rev-parse", "HEAD"), head)
+  assert.equal(await git(f.context.planRoot, "status", "--porcelain"), "")
+})
+
+test("a reader of the previous writer record keeps its complete version during the next save", async (t) => {
+  const f = await fixture(t)
+  const document = noSplitText(f.hash, "fine")
+  await f.design([document], "unused")
+  const path = join(f.context.roundRoot, `${label}-designs.json`)
+  const before = await readFile(path, "utf8")
+  const reader = await open(path)
+  try {
+    await f.design([document], "unused")
+    assert.equal(await reader.readFile("utf8"), before)
+  } finally {
+    await reader.close()
+  }
+  assert.equal((await f.runFile(f.answer("01"))).result, "fine")
+  assert.equal((await f.runFile(f.answer("02"))).result, "fine")
 })
 
 test("failed checks restore the files and a stale no-split answer skips without an attempt", async (t) => {

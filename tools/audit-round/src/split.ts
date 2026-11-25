@@ -106,7 +106,14 @@ async function uncommitted(
 ): Promise<readonly string[]> {
   const { stdout } = await execa(
     "git",
-    ["status", "--porcelain=v1", "--untracked-files=all", "--", ...paths],
+    [
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all",
+      "--ignored",
+      "--",
+      ...paths,
+    ],
     { cwd: root },
   )
   return stdout

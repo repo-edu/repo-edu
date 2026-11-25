@@ -279,7 +279,8 @@ not among them, because the close archives it beside the plan.
 highest saved answer filename. Each `<label>-design-<n>.<tag>.md` has at least two digits. A new
 answer from the picker takes the next number. An unchanged answer keeps its name and text.
 `<label>-pick-<first>.<tag>.md` holds the report for the call starting at that number.
-`<label>-designs.json` records each writer and each designer's position and density. The plan list
+`<label>-designs.json` records each writer and each designer's position and density. The runner
+replaces this record by rename so an interrupted write preserves earlier entries. The plan list
 keeps the selected number as `splits/<source stem>.<n>.mv.md`.
 
 **Files under a label.** `seriesFile` matches a commit series' claim, phase files, queue, handoff
@@ -1036,11 +1037,13 @@ call ends as `needs-plan`.
 The final attempt runs under the split lock. A clean result supplies every path and text to write. A
 picked or user-chosen list is copied from its saved answer and replaces the older numbered plan list
 in one commit. Local edits to either plan path skip publication. An immediate split holds the same
-lock while checking Repo Edu for local edits and writing the returned texts. A run of the committed
-list reads Git's version and leaves working-copy edits to that list in place.
+lock while checking Repo Edu for local edits and writing the returned texts. Both checks include
+ignored files at the paths the runner would change. A run of the committed list reads Git's version
+and leaves working-copy edits to that list in place.
 
 The lock lives in the Repo Edu Git folder. The statement move tool runs in a child process so the
-lock can refresh. Checks and package tests run outside the lock. A failed check restores the files
+lock can refresh. Stopping the runner cancels the move attempt in that process. Checks and
+package tests run outside the lock. A failed check restores the files
 under the lock. A successful split commit credits the saved answer's writer. A design commit credits
 the picker and names the original answer and its designers.
 

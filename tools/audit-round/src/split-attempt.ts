@@ -59,6 +59,7 @@ const replySchema = z.discriminatedUnion("outcome", [
 export async function attemptMoveList(
   repoEduRoot: string,
   list: Extract<MoveList, { kind: "moves" }>,
+  signal: AbortSignal | undefined,
 ): Promise<AttemptReply> {
   const request = {
     source: list.source,
@@ -80,8 +81,10 @@ export async function attemptMoveList(
       cwd: repoEduRoot,
       input: JSON.stringify(request),
       reject: false,
+      cancelSignal: signal,
     },
   )
+  signal?.throwIfAborted()
   if (child.exitCode !== 0)
     throw new Error(
       `The statement move tool's list command exited ${child.exitCode}: ${child.stderr.trim() || "no message"}`,
