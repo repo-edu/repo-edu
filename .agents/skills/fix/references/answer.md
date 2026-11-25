@@ -23,20 +23,21 @@ files, the plan or the code.
 
 ## Finding and vetter summaries
 
-Start each finding summary with `Auditor: <model> <effort>`. Start each
-vetter's summary with `Vetter <tag>: <model> <effort>`. Take the model and
+Start each finding summary with `Auditor <tag>:`. Start each
+vetter's summary with `Vetter <tag>:`. Take the model and
 effort from that phase's record or round log. Match each vet report to its
-phase by tag. Write `extra high` as `xhigh`. If only the launch setting is
-available, label it as such. Say when a value is missing.
+phase by tag. If only the launch setting is available, label it as such.
+Say when a value is missing.
 
 Immediately below each role line, copy the finding's whole token line from
 the audit report verbatim. If the line is missing, say so. Repeat it for each
-vetter so the reader can compare its verdict with the auditor's ratings.
+vetter only when it is different from the auditor's token line, so the reader
+can compare its verdict with the auditor's ratings.
 Explain any rating the vetter disputes in the verdict summary. Use these
 prefixes only for items that concern a finding.
 
 ```text
-Vetter otx: gpt-6.2-astra xhigh
+Vetter otx:
 [field:missing] [section:decisions] [growth-pattern:none] [reach:developer] [rarity:ordinary] [complexity:none]
 ```
 
