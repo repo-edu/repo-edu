@@ -241,8 +241,7 @@ Rules across the classes:
 
 - Every subject except the P3 `settle` and `ready` forms and the tag-free `disprove` and `choose`
   forms carries exactly one `<tag>`, attributed under Repo Edu's **Commit
-  Capability Tag** rule. The two runner-written markers and the user's ruling
-  report no assistant work.
+  Capability Tag** rule.
 - The P3 `ready` body consists of one `<ready-coder-record>`. The P3 `settle`
   body has no record.
 - The P4 `disprove` body contains the user's non-empty free-text reason and no
