@@ -32,9 +32,10 @@ trivial shell probes through the runner's real invocation, validation and output
 workflow.
 
 1. **The first probe** needs one successful and one deliberately failed shell call. The Claude probe
-   also ends a turn on a background command, and the recorder needs that second turn, so the
-   recording holds one result per turn.
-2. **The second probe** resumes the first session and needs token usage from both invocations.
+   also keeps a turn that waits for a background command and a final turn with its structured
+   result. Codex returns the result in its final message.
+2. **The second probe** resumes the first session and checks that both invocations return a
+   structured result and report token usage.
 
 Every required event must appear before any selected fixture is replaced, so a failed probe leaves
 the earlier recordings in place.

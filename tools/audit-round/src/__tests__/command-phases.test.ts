@@ -6,7 +6,7 @@ import { execa } from "execa"
 import { parseRoundDataFile } from "../round-data.js"
 import { openRunFiles } from "../run-files.js"
 import { runCommand, testSettings } from "./configured-runner.js"
-import { recordedTag, recordedText } from "./helpers.js"
+import { recordedFixStamp, recordedTag, recordedText } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
 test("one supplied configuration controls auditor phase arguments and output tags", async (t) => {
@@ -161,10 +161,7 @@ for (const auditor of ["claude", "codex"] as const) {
         // in its plan form. The phase reports take precedence over the
         // startup settings.
         const stamps = {
-          phases:
-            auditor === "codex"
-              ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
-              : `audit, vet, rebut: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
+          phases: recordedFixStamp(auditor),
           auditor: recordedTag(auditor),
           series: "",
         }
@@ -199,7 +196,9 @@ for (const auditor of ["claude", "codex"] as const) {
           assert.ok(markdown.includes(text.trimEnd()))
         }
         const visible = f.visible.join("\n")
-        assert.doesNotMatch(visible, /PHASE RESULT:/)
+        assert.doesNotMatch(visible, /PHASE RESULT:|"closingNote":/)
+        assert.doesNotMatch(markdown, /"closingNote":/)
+        assert.match(log, /\[fix\] result: \{"status":/)
         // The run's rule is heavier than the phase rule and boxes the run in,
         // whether the round finished or handed over for a ruling.
         assert.match(log, /\n═{72}\n[^\n]+\nStarted \d{4}-/)
@@ -233,7 +232,7 @@ for (const auditor of ["claude", "codex"] as const) {
           }[phase]
           assert.ok(markdown.includes(text))
           assert.ok(visible.includes(text))
-          assert.equal(log.includes(text), false)
+          assert.equal(log.includes(text), phase === "fix")
         }
         assert.ok(
           log.includes(
@@ -374,10 +373,7 @@ for (const auditor of ["claude", "codex"] as const) {
     assert.deepEqual(
       { phases: invocations[2].phases, auditor: invocations[2].auditor },
       {
-        phases:
-          auditor === "codex"
-            ? `audit: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit and vet took 0 min.`
-            : `audit, vet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit and vet took 0 min.`,
+        phases: recordedFixStamp(auditor, false),
         auditor: recordedTag(auditor),
       },
     )

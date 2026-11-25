@@ -74,8 +74,8 @@ landed records and validates every subject under its repository's grammar.
 
 Reader failures retain the owning phase and its session for recovery.
 
-After the fix, `round.ts` resolves the plan's current filename. A widening fix must end with the
-grammar's settling line. That line replaces the audit report's closing line as the entry's
+After the fix, `round.ts` resolves the plan's current filename. A widening fix must return
+settling advice. That advice replaces the audit report's closing line as the entry's
 retained settling recommendation, because the fix ends the round and has answered every ruling it
 asked. A fix outside widening must return none.
 

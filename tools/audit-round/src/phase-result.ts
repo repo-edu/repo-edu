@@ -54,21 +54,15 @@ export function readSettlingLine(line: string): string | null {
   return `${match[1]}. ${match[2]}`
 }
 
-/** Read the settling line a finished fix puts before its phase result. */
-export function settlingOutput(text: string): string | null {
-  return readSettlingLine(withoutPhaseResult(text).split("\n").at(-1) ?? "")
-}
-
 const resultSchema = z.strictObject({
   status: z.enum(["finished", "needs-ruling", "failed"]),
   reason: z.string().nullable(),
 })
 
-export function phaseResult<P extends Phase>(
-  phase: P,
+export function phaseResult(
   sessionId: string,
   text: string,
-): PhaseControlResult<P> {
+): PhaseControlResult<Exclude<Phase, "fix" | "implement" | "close">> {
   if (!hasPhaseResult(text)) throw new Error("Missing final PHASE RESULT line")
   const line = text.trimEnd().split("\n").at(-1) ?? ""
   const result = resultSchema.parse(JSON.parse(line.slice(prefix.length)))
@@ -77,23 +71,10 @@ export function phaseResult<P extends Phase>(
     return { status: "failed", sessionId, reason: result.reason }
   }
   if (result.reason !== null) throw new Error("Unexpected PHASE RESULT reason")
-  if (phase === "fix") {
-    const settling = settlingOutput(text)
-    if (result.status === "finished")
-      return {
-        status: "finished",
-        sessionId,
-        settling,
-      } as PhaseControlResult<P>
-    if (settling !== null) throw new Error("Unexpected settling line")
-    return { status: "needs-ruling", sessionId } as PhaseControlResult<P>
-  }
-  if (phase === "implement" && result.status === "needs-ruling")
-    return { status: "needs-ruling", sessionId } as PhaseControlResult<P>
   if (result.status !== "finished")
     throw new Error("Report PHASE RESULT must finish")
   return {
     status: "finished",
     sessionId,
-  } as PhaseControlResult<P>
+  }
 }

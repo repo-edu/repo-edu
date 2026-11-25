@@ -3,30 +3,10 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { decodeCodexUsage } from "../codex-session.js"
-import {
-  contractPrompt,
-  contractResumePrompt,
-  recordContracts,
-} from "../contract.js"
-import { phaseResult } from "../phase-result.js"
-import { fixture, phaseStream, recorded } from "./helpers.js"
+import { recordContracts } from "../contract.js"
+import { fixture, recorded } from "./helpers.js"
 
 const terminal = { write: () => {}, status: () => {}, clear: () => {} }
-
-test("the contract prompt requests a valid finished phase result", () => {
-  for (const prompt of [
-    contractPrompt("claude"),
-    contractPrompt("codex"),
-    contractResumePrompt,
-  ]) {
-    const result = prompt.slice(prompt.indexOf("PHASE RESULT: "))
-    assert.deepEqual(phaseResult("fix", "probe-session", result), {
-      status: "finished",
-      sessionId: "probe-session",
-      settling: null,
-    })
-  }
-})
 
 test("contract recorder validates both real boundaries before replacing only its fixtures", async (t) => {
   const f = await fixture(t)
@@ -46,13 +26,15 @@ test("contract recorder validates both real boundaries before replacing only its
       return JSON.stringify(event)
     })
     .join("\n")
+  const stream = await recorded("codex.jsonl")
+  const threadId = JSON.parse(stream.split("\n")[0]).thread_id
   await f.configure({
     assistants: {
-      claude: { stream: await phaseStream("claude") },
+      claude: { stream: await recorded("claude.jsonl") },
       codex: {
-        stream: await phaseStream("codex"),
+        stream,
         usage: {
-          path: join(f.root, "rollout-test-session.jsonl"),
+          path: join(f.root, `rollout-${threadId}.jsonl`),
           text: `${usage}\n`,
         },
       },
@@ -127,7 +109,7 @@ test("failed second contract preserves both previous fixture sets", async (t) =>
   const f = await fixture(t)
   await f.configure({
     assistants: {
-      claude: { stream: await phaseStream("claude") },
+      claude: { stream: await recorded("claude.jsonl") },
       codex: { exitCode: 7 },
     },
   })
@@ -151,7 +133,7 @@ test("failed second contract preserves both previous fixture sets", async (t) =>
 
 test("contract requires the intentional tool failure even when the phase reports success", async (t) => {
   const f = await fixture(t)
-  const stream = (await phaseStream("claude"))
+  const stream = (await recorded("claude.jsonl"))
     .split("\n")
     .filter((line) => !line.includes('"type":"user"'))
     .join("\n")

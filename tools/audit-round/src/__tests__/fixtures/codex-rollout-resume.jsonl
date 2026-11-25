@@ -1,3 +1,3 @@
-{"type":"turn_context","payload":{"model":"gpt-5.6-sol","effort":"xhigh"}}
-{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":27449},"model_context_window":258400,"total_token_usage":{"input_tokens":109024,"cached_input_tokens":93184,"output_tokens":325}}}}
-{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":27583},"model_context_window":258400,"total_token_usage":{"input_tokens":136607,"cached_input_tokens":120448,"output_tokens":342}}}}
+{"type":"turn_context","payload":{"model":"gpt-5.6-sol","effort":"high"}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":31986},"model_context_window":258400,"total_token_usage":{"input_tokens":127251,"cached_input_tokens":94464,"output_tokens":307}}}}
+{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":32145},"model_context_window":258400,"total_token_usage":{"input_tokens":159396,"cached_input_tokens":126336,"output_tokens":339}}}}

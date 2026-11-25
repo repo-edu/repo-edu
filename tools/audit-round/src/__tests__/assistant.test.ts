@@ -13,7 +13,7 @@ import {
 } from "../requests.js"
 import { type Assistant, type PhaseInput, pinned } from "./configured-runner.js"
 import {
-  finishedText,
+  finishedFix,
   fixture,
   phaseStream,
   recorded,
@@ -35,7 +35,7 @@ const input = (
 
 test("a fix child receives its unresolved contest commit block", async (t) => {
   const f = await fixture(t)
-  await f.configure({ stream: await phaseStream("codex") })
+  await f.configure({ stream: await phaseStream("codex", finishedFix) })
   await runAssistantPhase(
     {
       ...input("codex", f.root),
@@ -127,22 +127,31 @@ test("a Claude child of the five reviewing phases keeps its cache for five minut
     const before = (
       await readFile(join(f.root, "calls.jsonl"), "utf8").catch(() => "")
     ).length
-    await runAssistantPhase(phase, f.output, runtime)
+    const result = await runAssistantPhase(phase, f.output, runtime)
     const calls = (await readFile(join(f.root, "calls.jsonl"), "utf8"))
       .slice(before)
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line))
+    if (!fiveMinutePhases.includes(phase.phase)) {
+      assert.equal(calls.length, 1, phase.phase)
+      assert.equal(calls[0].cacheLifetime, "1h")
+      assert.deepEqual(result, {
+        status: "failed",
+        sessionId: "test-session",
+        reason: "CLI ended without a structured phase result",
+      })
+      continue
+    }
     assert.equal(calls.length, 2, phase.phase)
     assert.deepEqual(calls[1].args.slice(0, 3), [
       "-p",
       "--resume",
       "test-session",
     ])
-    const expected = fiveMinutePhases.includes(phase.phase) ? "5m" : "1h"
     assert.deepEqual(
       calls.map((call) => call.cacheLifetime),
-      [expected, expected],
+      ["5m", "5m"],
       phase.phase,
     )
   }
@@ -152,8 +161,15 @@ test("a Claude child of the five reviewing phases keeps its cache for five minut
 test("a Codex child and a concurrent Claude worker inherit the caller's cache lifetime", async (t) => {
   const f = await fixture(t)
   await f.configure({
-    stream: await phaseStream("claude"),
-    assistants: { codex: { stream: await phaseStream("codex") } },
+    phases: {
+      vet: {
+        assistants: {
+          claude: { stream: await phaseStream("claude") },
+          codex: { stream: await phaseStream("codex") },
+        },
+      },
+      fix: { stream: await phaseStream("claude", finishedFix) },
+    },
   })
   const runtime = {
     ...f.runtime,
@@ -184,7 +200,7 @@ test("a Codex child that prints a reconnect notice and then completes its turn f
   const f = await fixture(t)
   const notice =
     "Reconnecting... 2/5 (Selected model is at capacity. Please try a different model.)"
-  const lines = (await phaseStream("codex")).trimEnd().split("\n")
+  const lines = (await phaseStream("codex", finishedFix)).trimEnd().split("\n")
   lines.splice(1, 0, JSON.stringify({ type: "error", message: notice }))
   await f.configure({
     stream: `${lines.join("\n")}\n`,
@@ -497,7 +513,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const f = await fixture(t)
     const usagePath = join(f.root, "rollout-test-session.jsonl")
     await f.configure({
-      stream: await phaseStream(assistant),
+      stream: await phaseStream(assistant, finishedFix),
       chunkSize: 73,
       stderr: "CLI diagnostic\n",
       usage: { path: usagePath, text: await recorded("codex-rollout.jsonl") },
@@ -516,7 +532,8 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.deepEqual(f.finishes, [result])
     assert.ok(
       f.feedback.some(
-        (event) => event.type === "text" && event.text === finishedText,
+        (event) =>
+          event.type === "text" && event.text === finishedFix.closingNote,
       ),
     )
     assert.ok(
@@ -564,6 +581,8 @@ for (const assistant of ["claude", "codex"] as const) {
         "-c",
         "model_reasoning_effort=high",
         "--json",
+        "--output-schema",
+        call.args.at(-1),
       ])
     } else {
       assert.equal(
@@ -578,7 +597,7 @@ for (const assistant of ["claude", "codex"] as const) {
     const f = await fixture(t)
     const usagePath = join(f.root, "rollout-test-session.jsonl")
     await f.configure({
-      stream: await phaseStream(assistant),
+      stream: await phaseStream(assistant, finishedFix),
       ...(assistant === "codex"
         ? {
             usage: {
@@ -603,7 +622,7 @@ for (const assistant of ["claude", "codex"] as const) {
     await f.configure({
       stream: await phaseStream(
         assistant,
-        finishedText,
+        finishedFix,
         "test-session",
         `${assistant}-resume`,
       ),
@@ -658,7 +677,7 @@ for (const assistant of ["claude", "codex"] as const) {
   ] as const) {
     test(`${assistant} stops on ${problem} failure and releases its process and output`, async (t) => {
       const f = await fixture(t)
-      let stream = await phaseStream(assistant)
+      let stream = await phaseStream(assistant, finishedFix)
       if (problem === "malformed") stream += "invalid JSON\n"
       if (problem === "incomplete")
         stream = stream
@@ -739,7 +758,7 @@ for (const assistant of ["claude", "codex"] as const) {
         "model_reasoning_effort=high",
         "resume",
         "--json",
-        "prior-session",
+        "--output-schema",
       ])
     else {
       assert.deepEqual(call.args.slice(0, 3), [
@@ -752,6 +771,8 @@ for (const assistant of ["claude", "codex"] as const) {
         "auto",
       )
     }
+    if (assistant === "codex")
+      assert.deepEqual(call.args.slice(-2), ["prior-session", "-"])
   })
 
   test(`${assistant} quotes the manual recovery invocation`, async (t) => {
@@ -787,7 +808,7 @@ for (const assistant of ["claude", "codex"] as const) {
   })
 }
 
-test("fresh and resumed Codex fix requests carry large prompts only on stdin", () => {
+test("fresh and resumed Codex fix requests carry the schema by path and large prompts on stdin", () => {
   const prompt = "Evidence: é\n".repeat(30_000)
   const pin = ["-m", "gpt-5.6-sol", "-c", "model_reasoning_effort=high"]
   for (const sessionId of [null, "fix-session"]) {
@@ -800,18 +821,28 @@ test("fresh and resumed Codex fix requests carry large prompts only on stdin", (
       },
       sessionId,
       prompt,
+      "/tmp/result schema.json",
     )
     assert.equal(request.input, prompt)
     assert.deepEqual(
       request.args,
       sessionId === null
-        ? ["exec", "--approve-for-me", ...pin, "--json"]
+        ? [
+            "exec",
+            "--approve-for-me",
+            ...pin,
+            "--json",
+            "--output-schema",
+            "/tmp/result schema.json",
+          ]
         : [
             "exec",
             "--approve-for-me",
             ...pin,
             "resume",
             "--json",
+            "--output-schema",
+            "/tmp/result schema.json",
             sessionId,
             "-",
           ],
@@ -820,7 +851,7 @@ test("fresh and resumed Codex fix requests carry large prompts only on stdin", (
 })
 
 test("Claude completes a phase when its settings response fails", async (t) => {
-  const stream = (await phaseStream("claude"))
+  const stream = (await phaseStream("claude", finishedFix))
     .trimEnd()
     .split("\n")
     .map((line) => {
@@ -861,10 +892,7 @@ test("Codex fix excludes all pre-invocation usage and retains the new selection"
       '{"type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":999999},"model_context_window":1000000}}}\n',
   )
   await f.configure({
-    stream: await phaseStream(
-      "codex",
-      'PHASE RESULT: {"status":"finished","reason":null}',
-    ),
+    stream: await phaseStream("codex", finishedFix),
     usage: { path, text: await recorded("codex-rollout.jsonl") },
   })
   const result = await runAssistantPhase(
@@ -966,7 +994,9 @@ test("a ruler is sent back once to open what it named, and a second miss fails t
 })
 
 test("a rejected required final write fails after the child has ended", async (t) => {
-  const f = await fixture(t, { stream: await phaseStream("claude") })
+  const f = await fixture(t, {
+    stream: await phaseStream("claude", finishedFix),
+  })
   const result = await runAssistantPhase(
     input("claude", f.root),
     {

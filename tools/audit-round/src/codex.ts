@@ -39,6 +39,15 @@ export function decodeCodex(record: unknown): AssistantEvent[] {
   }
 }
 
+/** Codex can also apply the output schema to a message sent during the turn. */
+export function decodeCodexMessage(text: string): unknown {
+  try {
+    return JSON.parse(text)
+  } catch {
+    return undefined
+  }
+}
+
 function decodeItem(eventType: string, value: unknown): AssistantEvent[] {
   const item = eventSchema.parse(value)
   const stage = eventType === "item.completed" ? "completed" : "started"

@@ -30,7 +30,7 @@ import { RunClock } from "./run-clock.js"
 import { defaultSettings } from "./settings.js"
 import type { Terminal } from "./terminal.js"
 
-const contractEnding = `Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
+const contractEnding = `Do not read or edit repository files. Return the supplied schema with status finished, reason null, settling null and closingNote "CLI contract probe complete."`
 const contractProbes = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything.`
 /**
  * The Claude probe also ends a turn on a background command, so the recording
@@ -39,9 +39,9 @@ const contractProbes = `This is a CLI contract recording, not a repository task.
  */
 export function contractPrompt(assistant: Assistant): string {
   if (assistant === "codex") return `${contractProbes} ${contractEnding}`
-  return `${contractProbes} Then run sleep 2 with your shell tool's background option and end your turn at once with the single sentence: Waiting for the probe sleep. When its task notification arrives, continue. ${contractEnding}`
+  return `${contractProbes} Then run sleep 2 with your shell tool's background option and end your turn at once with the single sentence: Waiting for the probe sleep. If asked for structured output before the task notification arrives, keep waiting in text. Return the object only after the notification. ${contractEnding}`
 }
-export const contractResumePrompt = `This is the resumed half of a CLI contract recording, not a repository task. Use your shell tool once to run printf audit-round-resume-probe. Do not read or edit repository files. End with exactly this final line outside a code fence: PHASE RESULT: {"status":"finished","reason":null}`
+export const contractResumePrompt = `This is the resumed half of a CLI contract recording, not a repository task. Use your shell tool once to run printf audit-round-resume-probe. ${contractEnding}`
 
 /** Keep consumed events while excluding unrelated initialisation and configuration. */
 function selectRecord(
@@ -213,6 +213,7 @@ export async function recordContracts(
           success: false,
           // Codex runs one turn; the Claude probe must record its second.
           turns: assistant === "codex",
+          turnWithoutResult: assistant === "codex",
         }
         let turnResults = 0
         const observe = async (event: Feedback) => {
@@ -262,7 +263,11 @@ export async function recordContracts(
             const event = selectRecord(assistant, record)
             if (event === undefined) return
             const kept = z
-              .object({ type: z.string(), num_turns: z.number().optional() })
+              .object({
+                type: z.string(),
+                num_turns: z.number().optional(),
+                structured_output: z.unknown().optional(),
+              })
               .parse(event)
             if (
               assistant === "claude" &&
@@ -271,6 +276,8 @@ export async function recordContracts(
             ) {
               turnResults += 1
               if (turnResults >= 2) seen.turns = true
+              if (kept.structured_output === undefined)
+                seen.turnWithoutResult = true
             }
             await appendFile(
               join(scratch, `${assistant}.jsonl`),

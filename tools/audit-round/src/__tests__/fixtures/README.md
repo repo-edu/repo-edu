@@ -12,11 +12,12 @@ Run `pnpm audit-round:contract` from the Repo Edu root to refresh these files
 independently. Append `claude` or `codex` to record one assistant. This exercises
 the actual invocation, validation and output code with trivial shell probes,
 including an intentional tool failure. The Claude probe also ends a turn on a
-background command, so its recording holds one result per turn and the
-recorder requires that second turn. It then resumes that session and
+background command, so its recording keeps a turn without a structured result
+and a final turn with one. It then resumes that session and
 requires fresh token evidence from both invocations. Claude recordings retain
-each turn's session total; the newest one stands. Codex recordings retain each
-invocation's new session-file records, including that total. A failed contract
+each turn's session total and its `structured_output` when present. Codex
+recordings retain the final JSON message and the new session-file records,
+including the session's token total. A failed contract
 replaces no selected fixtures. The adjacent version files and
 `recorded-at.txt` identify the latest successful recording. Generate streams
 with this command, never by hand.

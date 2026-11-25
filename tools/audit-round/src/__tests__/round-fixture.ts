@@ -7,6 +7,7 @@ import { execa } from "execa"
 import type { Assistant } from "../phase.js"
 import {
   evidenceRepository,
+  finishedPhase,
   fixture,
   phaseStream,
   recorded,
@@ -233,10 +234,15 @@ Audit ranges: 1.
         : auditor
     const sessionId = `${phase}-session`
     const status = phase === "fix" && ruling ? "needs-ruling" : "finished"
+    const closingNote = `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |`
     const final =
       phase === "watch"
         ? `# Example: trajectory watch\n\nComplete watch text.\nWatch grade: ${watch ? "red" : "green"}\nPHASE RESULT: {"status":"finished","reason":null}`
-        : `Complete ${phase} text.\n\n| Result | Value |\n| --- | --- |\n| Round | ${phase} |\nPHASE RESULT: ${JSON.stringify({ status, reason: null })}`
+        : phase === "fix"
+          ? { ...finishedPhase, status, closingNote, settling: null }
+          : phase === "close"
+            ? { ...finishedPhase, closingNote }
+            : `${closingNote}\nPHASE RESULT: {"status":"finished","reason":null}`
     phases[phase] = {
       document:
         phase === "audit"

@@ -2463,7 +2463,7 @@ test("a round that hands over runs no watch, because its work has not landed", a
   assert.deepEqual(round.glances, [])
 })
 
-test("a widening fix's settling line replaces the audit report's line in the retained account", async () => {
+test("a widening fix's settling advice replaces the audit report's line in the retained account", async () => {
   const round = controlledRound()
   round.evidence.settling =
     "keep open. Finding 1 needs the user's ruling before the shape can close."
@@ -2645,7 +2645,7 @@ test("a clean widening audit retains the audit report's settling line as the set
   )
 })
 
-test("a widening fix without a settling line fails at the fix and keeps the reports", async () => {
+test("a widening fix without settling advice fails at the fix and keeps the reports", async () => {
   const round = controlledRound()
 
   const result = await runRound(
@@ -2661,7 +2661,7 @@ test("a widening fix without a settling line fails at the fix and keeps the repo
   if (result.status !== "failed") return
   assert.equal(result.phase, "fix")
   assert.equal(result.sessionId, "fix-session")
-  assert.match(result.reason, /widening fix must end with a settling line/)
+  assert.match(result.reason, /widening fix must return settling advice/)
   assert.deepEqual(round.settledWrites, [])
 })
 
@@ -2682,7 +2682,7 @@ for (const [kind, input] of [
     assert.equal(result.status, "failed")
     if (result.status !== "failed") return
     assert.equal(result.phase, "fix")
-    assert.match(result.reason, /Only a widening fix returns a settling line/)
+    assert.match(result.reason, /Only a widening fix returns settling advice/)
   })
 }
 

@@ -3,7 +3,7 @@ import { mkdir, readdir, symlink, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { test } from "node:test"
 import { runCommand } from "./configured-runner.js"
-import { phaseStream, recordedTag, recordedText } from "./helpers.js"
+import { phaseStream, recordedFixStamp, recordedTag } from "./helpers.js"
 import { roundFixture } from "./round-fixture.js"
 
 test("a single explicit auditor claims one round", async (t) => {
@@ -107,10 +107,7 @@ for (const auditor of ["codex", "claude"] as const) {
       assert.deepEqual(
         { phases: fixCall.phases, auditor: fixCall.auditor },
         {
-          phases:
-            auditor === "codex"
-              ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
-              : `audit, vet, rebut: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
+          phases: recordedFixStamp(auditor),
           auditor: recordedTag(auditor),
         },
       )

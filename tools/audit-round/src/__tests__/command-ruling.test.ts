@@ -7,8 +7,8 @@ import type { RulingDialog } from "../ruling-wait.js"
 import { runCommand } from "./configured-runner.js"
 import {
   shortCacheRoot as cacheRoot,
+  codexWorkerUsage,
   phaseStream,
-  recorded,
   socketRequirement,
 } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
@@ -109,7 +109,12 @@ async function finishFixOnAnswer(f: Fixture): Promise<void> {
           codex: {
             stream: await phaseStream(
               "codex",
-              'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+              {
+                status: "finished",
+                reason: null,
+                closingNote: "Applied the ruling.",
+                settling: null,
+              },
               "fix-session",
             ),
           },
@@ -299,12 +304,16 @@ test("an implementation ruling waits with no finding and no panel", async (t) =>
     document: { text: "Which parser should the step use?" },
     stream: await phaseStream(
       "codex",
-      'A ruling is needed.\nPHASE RESULT: {"status":"needs-ruling","reason":null}',
+      {
+        status: "needs-ruling",
+        reason: null,
+        closingNote: "A ruling is needed.",
+      },
       "implementation-session",
     ),
     usage: {
       path: `${f.root}/rollout-implementation-session.jsonl`,
-      text: await recorded("codex-rollout.jsonl"),
+      text: await codexWorkerUsage(),
     },
   }
   await f.configure({ phases: f.phases })

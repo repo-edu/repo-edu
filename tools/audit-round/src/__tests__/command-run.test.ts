@@ -10,7 +10,12 @@ import {
   writeRoundData,
 } from "../round-data.js"
 import { runCommand, testSettings } from "./configured-runner.js"
-import { finishedText, phaseStream, recorded } from "./helpers.js"
+import {
+  codexWorkerUsage,
+  finishedPhase,
+  phaseStream,
+  recordedTag,
+} from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
 type Fixture = Awaited<ReturnType<typeof roundFixture>>
@@ -54,7 +59,7 @@ async function configureRun(
   })
 }
 
-/** The recorded Codex stream reports xhigh, so the assigned coder runs on it. */
+/** The test worker reports the ready assignment. */
 const runSettings = {
   ...testSettings,
   defaultAuditor: "first" as const,
@@ -102,10 +107,10 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
         subject: "example/impl-1 obx feat(audit-round): implement fixture",
       },
     ],
-    stream: await phaseStream("codex", finishedText, "implementation-session"),
+    stream: await phaseStream("codex", finishedPhase, "implementation-session"),
     usage: {
       path: `${f.root}/rollout-implementation-session.jsonl`,
-      text: await recorded("codex-rollout.jsonl"),
+      text: await codexWorkerUsage(),
     },
   }
   await configureRun(f, {
@@ -134,7 +139,7 @@ test("run marks a detailing plan ready, implements it, audits its ranges and clo
     await execa("git", ["log", "--format=%s"], { cwd: f.repoRoot })
   ).stdout.split("\n")
   assert.deepEqual(repoEduSubjects.slice(0, 3), [
-    "example/impl-audit-1 obx clean: record audit with no findings",
+    `example/impl-audit-1 ${recordedTag("codex")} clean: record audit with no findings`,
     "example/implemented obx: complete the Repo Edu share",
     "example/impl-1 obx feat(audit-round): implement fixture",
   ])
@@ -188,12 +193,16 @@ test("a whole-life recovery resumes the failed worker and continues through mark
   )
   const usage = {
     path: `${f.root}/rollout-implementation-session.jsonl`,
-    text: await recorded("codex-rollout.jsonl"),
+    text: await codexWorkerUsage(),
   }
   f.phases.implement = {
     stream: await phaseStream(
       "codex",
-      'Lost the stream.\nPHASE RESULT: {"status":"failed","reason":"The stream disconnected."}',
+      {
+        status: "failed",
+        reason: "The stream disconnected.",
+        closingNote: "Lost the stream.",
+      },
       "implementation-session",
     ),
     usage,
@@ -223,7 +232,7 @@ test("a whole-life recovery resumes the failed worker and continues through mark
         subject: "example/impl-1 obx feat(audit-round): implement fixture",
       },
     ],
-    stream: await phaseStream("codex", finishedText, "implementation-session"),
+    stream: await phaseStream("codex", finishedPhase, "implementation-session"),
     usage,
   }
   await configureRun(f, { codex: implementation, claude: implementation })

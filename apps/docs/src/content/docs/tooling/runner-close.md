@@ -34,7 +34,8 @@ Before any assistant starts, the runner resolves the plan and its open deferrals
 corrections that still belong in the other repo. A close without `--aborted` needs the plan's
 `ready` marker, because the plain archive form records shipped work. One session then runs the
 loop-close workflow on the `close` selection in `tools/audit-round/settings.json` and receives the
-deferrals in its arguments.
+deferrals in its arguments. The session returns its status and closing note in fields the runner
+checks. The runner displays the note in the terminal.
 
 Before it moves anything, a completed plan's close session checks four things. An aborted plan
 skips the first three.

@@ -5,7 +5,7 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { openRunFiles } from "../run-files.js"
 import { runCommand, testSettings } from "./configured-runner.js"
-import { recordedTag, recordedText } from "./helpers.js"
+import { recordedFixStamp, recordedTag } from "./helpers.js"
 import { roundFixture, shortCommit } from "./round-fixture.js"
 
 test("an unavailable writer still prints the known session to the emergency channel", async (t) => {
@@ -152,10 +152,7 @@ for (const auditor of ["codex", "claude"] as const) {
     assert.deepEqual(
       { phases: invocations[3].phases, auditor: invocations[3].auditor },
       {
-        phases:
-          auditor === "codex"
-            ? `audit, rebut: ${recordedText("codex")}\nvet: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`
-            : `audit, vet, rebut: ${recordedText("claude")}\nfix: gpt-5.6-sol high\nAudit, vet and rebuttal took 0 min.`,
+        phases: recordedFixStamp(auditor),
         auditor: recordedTag(auditor),
       },
     )

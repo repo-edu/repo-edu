@@ -775,7 +775,7 @@ export type WatchResult = ReportResult & {
 }
 
 /**
- * A finished fix carries the settling line it returned, or null when it
+ * A finished fix carries the settling advice it returned, or null when it
  * returned none. Only a widening round requires one; the round enforces that.
  */
 type FixResult =
@@ -817,7 +817,7 @@ type PhaseControlResults = {
   close: ReportResult
 }
 
-/** The final control line before a phase admits any returned document. */
+/** The phase outcome before the runner admits any returned document. */
 export type PhaseControlResult<P extends Phase = Phase> =
   | PhaseFailure
   | PhaseControlResults[P]

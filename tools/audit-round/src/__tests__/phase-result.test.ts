@@ -6,24 +6,23 @@ import { split } from "shellwords"
 import { decodeClaude } from "../claude.js"
 import { decodeCodex } from "../codex.js"
 import type { PhaseInput } from "../phase.js"
-import { phaseResult, settlingOutput, watchOutput } from "../phase-result.js"
+import { phaseResult, readSettlingLine, watchOutput } from "../phase-result.js"
+import { structuredPhaseResult } from "../phase-result-schema.js"
 import { phasePrompt, recoveryCommand } from "../requests.js"
 import { pinned } from "./configured-runner.js"
-import { fixture, testContext } from "./helpers.js"
+import { finishedFix, finishedPhase, fixture, testContext } from "./helpers.js"
 import { roundGrammarExamples } from "./round-grammar.js"
 
 test("the round grammar's phase-result examples are parser fixtures", () => {
   for (const example of roundGrammarExamples("phase-result/")) {
-    const phase =
-      example.id === "phase-result/work-needs-ruling" ? "fix" : "audit"
     if (example.outcome === "parsed") {
       assert.doesNotThrow(
-        () => phaseResult(phase, "session", example.source),
+        () => phaseResult("session", example.source),
         example.id,
       )
     } else {
       assert.throws(
-        () => phaseResult(phase, "session", example.source),
+        () => phaseResult("session", example.source),
         (error: unknown) =>
           error instanceof Error && error.message === example.refusal,
         example.id,
@@ -66,41 +65,53 @@ test("the round grammar's watch-grade examples are parser fixtures", () => {
 })
 
 test("the round grammar's settling examples are parser fixtures", () => {
-  const result = '\nPHASE RESULT: {"status":"finished","reason":null}'
   for (const example of roundGrammarExamples("settling/")) {
-    const response = `Applied the corrections.\n${example.source}${result}`
     if (example.outcome === "parsed") {
       assert.equal(
-        settlingOutput(response),
+        readSettlingLine(example.source),
         example.source.slice("Settling: ".length),
       )
-      assert.deepEqual(phaseResult("fix", "session", response), {
-        status: "finished",
-        sessionId: "session",
-        settling: example.source.slice("Settling: ".length),
-      })
     } else {
       assert.throws(
-        () => settlingOutput(response),
+        () => readSettlingLine(example.source),
         (error: unknown) =>
           error instanceof Error && error.message === example.refusal,
         example.id,
       )
     }
   }
-  assert.equal(settlingOutput(`Applied the corrections.${result}`), null)
-  assert.equal(
-    settlingOutput(`Settling: settle. Buried.\nMore text.${result}`),
-    null,
+})
+
+test("only a finished fix carries settling advice", () => {
+  const settling = {
+    recommendation: "keep open",
+    reason: "Evidence is missing.",
+  }
+  assert.deepEqual(
+    structuredPhaseResult("fix", "session", { ...finishedFix, settling }),
+    {
+      result: {
+        status: "finished",
+        sessionId: "session",
+        settling: "keep open. Evidence is missing.",
+      },
+      text: "Résumé complete\n\nSettling: keep open. Evidence is missing.",
+    },
   )
   assert.throws(
     () =>
-      phaseResult(
-        "fix",
-        "session",
-        'Settling: settle. Premature.\nPHASE RESULT: {"status":"needs-ruling","reason":null}',
-      ),
-    /Unexpected settling line/,
+      structuredPhaseResult("fix", "session", {
+        ...finishedFix,
+        status: "needs-ruling",
+        settling,
+      }),
+    /Only a finished fix returns settling advice/,
+  )
+  assert.throws(() =>
+    structuredPhaseResult("fix", "session", {
+      ...finishedFix,
+      settling: { ...settling, reason: "First line\nSecond line" },
+    }),
   )
 })
 
@@ -196,17 +207,35 @@ test("fresh prompts supply the owning workflow while resumed fixes supply no fil
   }
 })
 
-test("implementation workers may request a ruling but other report phases may not", () => {
-  const result =
-    'Need a decision.\nPHASE RESULT: {"status":"needs-ruling","reason":null}'
-  assert.deepEqual(phaseResult("implement", "worker-session", result), {
-    status: "needs-ruling",
-    sessionId: "worker-session",
-  })
-  assert.throws(
-    () => phaseResult("audit", "audit-session", result),
-    /Report PHASE RESULT must finish/,
+test("implementation workers may request a ruling but close may not", () => {
+  const result = { ...finishedPhase, status: "needs-ruling" }
+  assert.deepEqual(
+    structuredPhaseResult("implement", "worker-session", result).result,
+    {
+      status: "needs-ruling",
+      sessionId: "worker-session",
+    },
   )
+  assert.throws(() => structuredPhaseResult("close", "session", result))
+})
+
+test("structured phases validate status and reason", () => {
+  for (const phase of ["implement", "close"] as const) {
+    assert.deepEqual(
+      structuredPhaseResult(phase, "session", {
+        ...finishedPhase,
+        status: "failed",
+        reason: "Blocked",
+      }).result,
+      { status: "failed", sessionId: "session", reason: "Blocked" },
+    )
+    for (const result of [
+      { ...finishedPhase, status: "failed", reason: " " },
+      { ...finishedPhase, reason: "Unexpected" },
+      { status: "finished", reason: null },
+    ])
+      assert.throws(() => structuredPhaseResult(phase, "session", result))
+  }
 })
 
 test("watch receives Repo Edu's workflow and joined evidence", async (t) => {
@@ -231,62 +260,45 @@ test("watch receives Repo Edu's workflow and joined evidence", async (t) => {
   assert.ok(writer.endsWith("Joined watch evidence:\nJoined episode facts"))
 })
 
-for (const phase of ["audit", "vet", "rebut", "fix", "watch"] as const) {
-  test(`${phase} accepts only the shared workflow's result shapes`, () => {
-    const finished = { status: "finished", reason: null }
-    const text = (value: unknown) =>
-      `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
-    for (const ending of ["", "\n", "\r\n", " \t\n\n"])
-      assert.deepEqual(
-        phaseResult(phase, "session", text(finished) + ending),
-        phase === "fix"
-          ? { status: "finished", sessionId: "session", settling: null }
-          : { status: "finished", sessionId: "session" },
-      )
-    assert.deepEqual(
-      phaseResult(
-        phase,
-        "session",
-        text({ status: "failed", reason: "Blocked" }),
-      ),
-      { status: "failed", sessionId: "session", reason: "Blocked" },
-    )
-    const ruling = () =>
-      phaseResult(
-        phase,
-        "session",
-        text({ status: "needs-ruling", reason: null }),
-      )
-    if (phase === "fix")
-      assert.deepEqual(ruling(), {
-        status: "needs-ruling",
-        sessionId: "session",
-      })
-    else assert.throws(ruling)
-    for (const value of [
-      { ...finished, status: "retry" },
-      { ...finished, tier: null },
-      { ...finished, clean: false },
-      { ...finished, accepted: true },
-      { ...finished, extra: true },
-      { status: "finished" },
+test("text phases accept only their result shapes", () => {
+  const finished = { status: "finished", reason: null }
+  const text = (value: unknown) =>
+    `Full assistant response\nPHASE RESULT: ${JSON.stringify(value)}`
+  for (const ending of ["", "\n", "\r\n", " \t\n\n"])
+    assert.deepEqual(phaseResult("session", text(finished) + ending), {
+      status: "finished",
+      sessionId: "session",
+    })
+  assert.deepEqual(
+    phaseResult("session", text({ status: "failed", reason: "Blocked" })),
+    { status: "failed", sessionId: "session", reason: "Blocked" },
+  )
+  const ruling = () =>
+    phaseResult("session", text({ status: "needs-ruling", reason: null }))
+  assert.throws(ruling)
+  for (const value of [
+    { ...finished, status: "retry" },
+    { ...finished, tier: null },
+    { ...finished, clean: false },
+    { ...finished, accepted: true },
+    { ...finished, extra: true },
+    { status: "finished" },
 
-      { ...finished, file: phase === "fix" ? "/file.md" : null },
-      { ...finished, file: "relative.md" },
-      { ...finished, reason: "unexpected" },
-      { status: "failed", reason: " " },
-      { status: "failed", file: "/file.md", reason: "blocked" },
-    ])
-      assert.throws(() => phaseResult(phase, "session", text(value)))
-    for (const invalid of [
-      "No result",
-      "PHASE RESULT: {broken",
-      `${text(finished)}\nExtra text`,
-      `${text(finished)}\n\`\`\``,
-    ])
-      assert.throws(() => phaseResult(phase, "session", invalid))
-  })
-}
+    { ...finished, file: null },
+    { ...finished, file: "relative.md" },
+    { ...finished, reason: "unexpected" },
+    { status: "failed", reason: " " },
+    { status: "failed", file: "/file.md", reason: "blocked" },
+  ])
+    assert.throws(() => phaseResult("session", text(value)))
+  for (const invalid of [
+    "No result",
+    "PHASE RESULT: {broken",
+    `${text(finished)}\nExtra text`,
+    `${text(finished)}\n\`\`\``,
+  ])
+    assert.throws(() => phaseResult("session", invalid))
+})
 
 test("unrelated events are ignored while malformed consumed fields fail", () => {
   for (const decode of [decodeClaude, decodeCodex])

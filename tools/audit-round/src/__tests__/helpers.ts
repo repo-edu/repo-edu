@@ -143,6 +143,31 @@ export function recordedText(assistant: Assistant): string {
   return `${model} ${effort}`
 }
 
+/** The round fixture's stamp before the Codex fix starts. */
+export function recordedFixStamp(auditor: Assistant, rebuttal = true): string {
+  const fix = "gpt-5.6-sol high"
+  const audit = recordedText(auditor)
+  const vet = recordedText("claude")
+  const time = rebuttal ? "Audit, vet and rebuttal" : "Audit and vet"
+  const auditRoles = rebuttal ? "audit, rebut" : "audit"
+  if (auditor === "claude") {
+    const roles = rebuttal ? "audit, vet, rebut" : "audit, vet"
+    return `${roles}: ${audit}\nfix: ${fix}\n${time} took 0 min.`
+  }
+  if (audit === fix)
+    return `${auditRoles}, fix: ${fix}\nvet: ${vet}\n${time} took 0 min.`
+  return `${auditRoles}: ${audit}\nvet: ${vet}\nfix: ${fix}\n${time} took 0 min.`
+}
+
+/** Worker tests pin the ready assignment independently of the latest recording. */
+export async function codexWorkerUsage(): Promise<string> {
+  const events = await recordedEvents("codex-rollout.jsonl")
+  for (const event of events)
+    if (event.type === "turn_context")
+      event.payload = { model: "gpt-5.6-sol", effort: "xhigh" }
+  return `${events.map((event) => JSON.stringify(event)).join("\n")}\n`
+}
+
 /** The selection a phase on the assistant's default runs on, with Claude's alias resolved. */
 export const resolved = (assistant: Assistant) =>
   phaseSelection(pinned(assistant), releases[assistant])
@@ -166,6 +191,12 @@ export function recordedTag(assistant: Assistant): string {
 }
 export const finishedText =
   'Résumé complete\nPHASE RESULT: {"status":"finished","reason":null}'
+export const finishedPhase = {
+  status: "finished",
+  reason: null,
+  closingNote: "Résumé complete",
+} as const
+export const finishedFix = { ...finishedPhase, settling: null }
 
 export async function writePhaseInstructions(
   repoEduRoot: string,
@@ -185,27 +216,42 @@ export async function writePhaseInstructions(
 
 export async function phaseStream(
   assistant: Assistant,
-  final = finishedText,
+  final: string | object = finishedText,
   sessionId = "test-session",
   recording: string = assistant,
 ): Promise<string> {
-  const lines = (await recorded(`${recording}.jsonl`))
+  const events = (await recorded(`${recording}.jsonl`))
     .trim()
     .split("\n")
-    .map((line) => {
-      const event = JSON.parse(line)
+    .map((line) => JSON.parse(line))
+  const lastResult = events.findLast((event) =>
+    assistant === "claude"
+      ? event.type === "result" && event.num_turns > 0
+      : event.type === "item.completed" && event.item.type === "agent_message",
+  )
+  const lines = events
+    .map((event) => {
       if (event.session_id !== undefined) event.session_id = sessionId
       if (event.type === "thread.started") event.thread_id = sessionId
-      if (event.type === "result") event.result = final
-      if (event.type === "assistant") {
+      if (event.type === "result") {
+        delete event.structured_output
+        if (typeof final === "string") event.result = final
+        else if (event === lastResult) event.structured_output = final
+      }
+      if (event.type === "assistant" && typeof final === "string")
         for (const block of event.message.content)
           if (block.type === "text") block.text = final
-      }
       if (
+        assistant === "codex" &&
         event.type === "item.completed" &&
         event.item.type === "agent_message"
-      )
-        event.item.text = final
+      ) {
+        if (event === lastResult)
+          event.item.text =
+            typeof final === "string" ? final : JSON.stringify(final)
+        else if (typeof final === "string")
+          event.item.text = "The session is working."
+      }
       return JSON.stringify(event)
     })
     .join("\n")

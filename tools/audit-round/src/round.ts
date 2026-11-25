@@ -1502,16 +1502,16 @@ export async function runRound(
             `The finished fix left serious contests or splits without winners: ${unresolved.map((number) => `finding ${number}`).join(", ")}`,
           )
         // The fix ends the round and has answered every ruling it asked, so
-        // its settling line is the recommendation the series rules read. The
+        // its settling advice is the recommendation the series rules read. The
         // audit report's closing line stands only when no fix ran.
         const widening =
           "plan" in input &&
           roundKind === "planning" &&
           planPhase(input.plan) === "widening"
         if (widening && fix.settling === null)
-          throw new Error("A widening fix must end with a settling line")
+          throw new Error("A widening fix must return settling advice")
         if (!widening && fix.settling !== null)
-          throw new Error("Only a widening fix returns a settling line")
+          throw new Error("Only a widening fix returns settling advice")
         if (fix.settling !== null)
           account = { ...account, settling: fix.settling }
         // A plan fix lands the record with its change;

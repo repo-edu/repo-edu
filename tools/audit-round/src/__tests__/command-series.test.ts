@@ -62,7 +62,12 @@ test("a ruling resumes the fix and the remaining auditor sequence without replay
         )
         const stream = await phaseStream(
           "codex",
-          'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          {
+            status: "finished",
+            reason: null,
+            closingNote: "Applied the ruling.",
+            settling: null,
+          },
           "fix-session",
         )
         await f.configure({
@@ -171,7 +176,12 @@ test("a rerun asks again for a stopped serious contest on its kept reports befor
         assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
         const stream = await phaseStream(
           "codex",
-          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          {
+            status: "finished",
+            reason: null,
+            closingNote: "Applied the stored ruling.",
+            settling: null,
+          },
           "fix-session",
         )
         await f.configure({
@@ -317,7 +327,12 @@ test("a targetless round's rerun names its plan and continues it after another p
         assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
         const stream = await phaseStream(
           "codex",
-          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          {
+            status: "finished",
+            reason: null,
+            closingNote: "Applied the stored ruling.",
+            settling: null,
+          },
           "fix-session",
         )
         await f.configure({
@@ -432,7 +447,12 @@ test("a rerun asks again for a stopped panel split before a fresh fix that reads
         assert.deepEqual(ruling.panel, ["abh", "obh"])
         const stream = await phaseStream(
           "codex",
-          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          {
+            status: "finished",
+            reason: null,
+            closingNote: "Applied the stored ruling.",
+            settling: null,
+          },
           "fix-session",
         )
         await f.configure({
@@ -531,7 +551,7 @@ test("a fix that failed after the user named a split's winner finishes on the re
   ) => {
     const stream = await phaseStream(
       "codex",
-      `Fix turn.\nPHASE RESULT: ${result}`,
+      { ...JSON.parse(result), closingNote: "Fix turn.", settling: null },
       "fix-session",
     )
     return {
@@ -688,7 +708,12 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
         assert.deepEqual(ruling.questions, [{ finding: 1, needs: "winner" }])
         const stream = await phaseStream(
           "codex",
-          'Applied the stored ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          {
+            status: "finished",
+            reason: null,
+            closingNote: "Applied the stored ruling.",
+            settling: null,
+          },
           "fix-session",
         )
         await f.configure({
@@ -761,7 +786,12 @@ test("an --auditor rerun continues the stopped round before its first entry runs
   ]
   const failing = await phaseStream(
     "codex",
-    'Fix turn.\nPHASE RESULT: {"status":"failed","reason":"Selected model is at capacity."}',
+    {
+      status: "failed",
+      reason: "Selected model is at capacity.",
+      closingNote: "Fix turn.",
+      settling: null,
+    },
     "fix-session",
   )
   await f.configure({
@@ -810,12 +840,17 @@ test("an --auditor rerun continues the stopped round before its first entry runs
 async function finishFixOnReply(
   f: Awaited<ReturnType<typeof roundFixture>>,
   _judgeAnswers?: readonly string[],
-  /** The settling line a widening fix that follows the resumed one must end with. */
-  settling?: string,
+  /** The advice from the widening fix that follows the resumed one. */
+  settling?: { recommendation: "settle" | "keep open"; reason: string },
 ) {
   const stream = await phaseStream(
     "codex",
-    'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+    {
+      status: "finished",
+      reason: null,
+      closingNote: "Applied the ruling.",
+      settling: null,
+    },
     "fix-session",
   )
   const streams =
@@ -825,7 +860,12 @@ async function finishFixOnReply(
           stream,
           await phaseStream(
             "codex",
-            `Applied the corrections.\n${settling}\nPHASE RESULT: {"status":"finished","reason":null}`,
+            {
+              status: "finished",
+              reason: null,
+              closingNote: "Applied the corrections.",
+              settling,
+            },
             "fix-session",
           ),
         ]
@@ -942,14 +982,19 @@ test("a commit audit keeps no queue file", async (t) => {
   )
 })
 
-/** A widening fix ends on its settling line, so the fixture's fix response carries one. */
+/** A widening fix returns its recommendation with the result. */
 async function configureWideningSeries(
   f: Awaited<ReturnType<typeof roundFixture>>,
-  settling: string,
+  settling: { recommendation: "settle" | "keep open"; reason: string },
 ) {
   const stream = await phaseStream(
     "codex",
-    `Applied the corrections.\n${settling}\nPHASE RESULT: {"status":"finished","reason":null}`,
+    {
+      status: "finished",
+      reason: null,
+      closingNote: "Applied the corrections.",
+      settling,
+    },
     "fix-session",
   )
   await f.configure({
@@ -1464,7 +1509,12 @@ test("a ruling in the chained deferral round stops the implementation series", a
         streams: [
           await phaseStream(
             "codex",
-            'Choose whether to change the plan.\nPHASE RESULT: {"status":"needs-ruling","reason":null}',
+            {
+              status: "needs-ruling",
+              reason: null,
+              closingNote: "Choose whether to change the plan.",
+              settling: null,
+            },
             "fix-session",
           ),
         ],
@@ -2276,11 +2326,10 @@ test("a manual queue follows a plan reopened by its fix", async (t) => {
             reportSource,
             `${detailingReport}\nSettling: keep open. The reopened decision still needs evidence.\n`,
           )
-          await finishFixOnReply(
-            f,
-            undefined,
-            "Settling: keep open. The reopened decision still needs evidence.",
-          )
+          await finishFixOnReply(f, undefined, {
+            recommendation: "keep open",
+            reason: "The reopened decision still needs evidence.",
+          })
           return { rulings: [], choices: [], reply: "Reopen the plan." }
         },
       },
@@ -2386,10 +2435,10 @@ test("a widening series ends on its settled recommendation", async (t) => {
     f.report,
     `${await readFile(f.report, "utf8")}\nSettling: keep open. Finding 1 must land before the shape can close.\n`,
   )
-  await configureWideningSeries(
-    f,
-    "Settling: settle. Finding 1 landed and no shape question remains.",
-  )
+  await configureWideningSeries(f, {
+    recommendation: "settle",
+    reason: "Finding 1 landed and no shape question remains.",
+  })
 
   assert.equal(
     await runCommand(["round", "example-widen.md", "--no-watch"], f.runtime, {
@@ -2580,7 +2629,12 @@ test("a configured Claude fixer starts and resumes the fix whoever audited", asy
       awaitAnswer: async () => {
         const stream = await phaseStream(
           "claude",
-          'Applied the ruling.\nPHASE RESULT: {"status":"finished","reason":null}',
+          {
+            status: "finished",
+            reason: null,
+            closingNote: "Applied the ruling.",
+            settling: null,
+          },
           "fix-session",
         )
         await f.configure({

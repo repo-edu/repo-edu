@@ -115,10 +115,15 @@ holds source paths with an omission notice in place of file contents.
 A session is one or more turns and ends with its process. Claude's print mode emits one result per
 turn, a background task or subagent wakes the session for a further turn, and while a subagent is
 pending the CLI defers the results and flushes them at exit behind an empty result of no turns.
-The phase's final text is the last turn's text.
+The phase's response comes from the last completed turn.
 
-**A missing result line.** A model sometimes leaves the result line off a finished response, and
-that miss would fail a round whose work was complete.
+**Structured results.** The fix, implementation worker and close use the same Zod definition to
+send a JSON Schema and validate the result. Claude takes it through `--json-schema`. Codex takes
+it through `--output-schema`, which points at a file that lives until the invocation ends. On
+resume both programs receive the schema again. Claude supplies `structured_output` in its last
+turn's result. Codex supplies JSON in its last message. A missing or invalid object fails the phase.
+
+**A missing result line.** A text phase sometimes finishes without its result line.
 
 - When the process ends on a response without the line, the invocation resumes the same session
   once and asks it to end again. The request repeats no phase work, and the new response becomes
@@ -127,7 +132,6 @@ that miss would fail a round whose work was complete.
   asks for the complete response again, because the runner reads only the last turn's text.
 - A second response without the line fails the phase with its session.
 - A line that is present but malformed fails at once.
-- The contract recorder supplies no such request, so each recording stays one invocation.
 
 **Saving.** After the process ends with at least one turn, the invocation saves audit, vet,
 rebuttal and ruler reports from the final text without the result line. A failed write fails the

@@ -895,6 +895,9 @@ export class RoundOutput<R extends Run = Run> {
       case "diagnostic":
         this.say(`${prefix} ${feedback.text}`)
         break
+      case "structured-result":
+        this.files.log(`${prefix} result: ${JSON.stringify(feedback.value)}\n`)
+        break
       case "tool": {
         if (feedback.invocation !== null) {
           const line = `${slot.held === null ? "" : `${prefix} `}${toolText(

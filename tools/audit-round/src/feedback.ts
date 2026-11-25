@@ -24,6 +24,7 @@ export type Feedback =
   | ({ readonly type: "context" } & SessionContext)
   | { readonly type: "compaction" }
   | { readonly type: "text"; readonly text: string }
+  | { readonly type: "structured-result"; readonly value: unknown }
   | { readonly type: "diagnostic"; readonly text: string }
   | {
       readonly type: "tokens"
@@ -53,7 +54,11 @@ export type Feedback =
  */
 export type AssistantEvent =
   | Feedback
-  | { readonly type: "final"; readonly text: string }
+  | {
+      readonly type: "final"
+      readonly text: string | undefined
+      readonly structuredOutput?: unknown
+    }
   | { readonly type: "complete" }
 
 /**

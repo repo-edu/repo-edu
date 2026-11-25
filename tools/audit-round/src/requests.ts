@@ -12,6 +12,7 @@ import type {
   PinnedField,
 } from "./phase.js"
 import { phaseWorkflow } from "./phase.js"
+import { usesStructuredResult } from "./phase-result-schema.js"
 import type { RoundKind } from "./target.js"
 
 export const claudeSettingsRequest = {
@@ -75,11 +76,16 @@ export function claudeArguments(
 export function codexArguments(
   sessionId: string | null,
   model: ModelRequest,
+  schemaPath?: string,
 ): string[] {
   const pin = codexPin(model)
+  const options = [
+    "--json",
+    ...(schemaPath === undefined ? [] : ["--output-schema", schemaPath]),
+  ]
   return sessionId === null
-    ? ["exec", "--approve-for-me", ...pin, "--json"]
-    : ["exec", "--approve-for-me", ...pin, "resume", "--json", sessionId, "-"]
+    ? ["exec", "--approve-for-me", ...pin, ...options]
+    : ["exec", "--approve-for-me", ...pin, "resume", ...options, sessionId, "-"]
 }
 
 export function interactiveArguments(session: InteractiveSession): string[] {
@@ -198,7 +204,9 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
             .join("\n"),
       true,
     ),
-    resultRequest: resultRequest(input),
+    ...(usesStructuredResult(input.phase)
+      ? {}
+      : { resultRequest: resultRequest(input) }),
     supplied: files === null ? [] : [...files.keys()],
   }
 }
@@ -223,6 +231,9 @@ function formatPhasePrompt(
   omitEvidence = false,
 ): string {
   const { repoEduRoot, cwd } = input
+  const ending = usesStructuredResult(input.phase)
+    ? "Return your final response in the supplied schema. Use the schema for this invocation even when continuing an earlier session."
+    : runnerResultRule(repoEduRoot)
   const prompt = `${phaseOpening(input, input.sessionId === null ? "fresh" : "resumed")}
 Working directory: ${cwd}
 Repo Edu checkout: ${repoEduRoot}
@@ -231,7 +242,7 @@ ${instructions === null ? "Continue the supplied workflow in this resumed sessio
 Phase arguments (JSON array): ${JSON.stringify(input.arguments)}
 Workflow: ${phaseWorkflow(input)}
 The supplied workflow and phase arguments are already resolved. Work in the printed working directory and follow its repository instructions even if this session started elsewhere. This invokes the selected phase with its ordinary authority and gates.
-${runnerResultRule(repoEduRoot)}${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : ""}`
+${ending}${input.phase === "watch" ? `\n\nJoined watch evidence:\n${omitEvidence ? "(contents omitted from log)" : input.evidence}` : ""}`
   if (input.phase !== "fix" && input.phase !== "implement") return prompt
   const fixPrompt = `${prompt}\n\nRuling output path (JSON string): ${JSON.stringify(input.rulingFile)}\nIf a user decision remains open, follow ${repoEduRoot}/.agents/skills/fix/references/ruling.md at that path.`
   if (input.rulingReply === undefined) return fixPrompt
@@ -246,15 +257,21 @@ export function phaseRequest(
   input: AssistantTurnInput,
   sessionId: string | null,
   prompt: string,
+  schemaArgument?: string,
 ) {
   const { assistant, model } = input
   return assistant === "codex"
     ? {
-        args: codexArguments(sessionId, model),
+        args: codexArguments(sessionId, model, schemaArgument),
         input: prompt,
       }
     : {
-        args: claudeArguments(additionalDirectories(input), sessionId, model),
+        args: [
+          ...claudeArguments(additionalDirectories(input), sessionId, model),
+          ...(schemaArgument === undefined
+            ? []
+            : ["--json-schema", schemaArgument]),
+        ],
         input: `${JSON.stringify(claudeSettingsRequest)}\n${JSON.stringify({ type: "user", message: { role: "user", content: prompt } })}\n`,
       }
 }

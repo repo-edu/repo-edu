@@ -50,7 +50,8 @@ Before this rule the file held the automatic-series rules in four places.
 | `round.ts` | The fixed phase sequence of a round, the questions the user answers before the fix, the reply a fix's open item needs, the watch that follows a round, the call of the series decision and the close's run | [Round sequence](references/rounds.md#round-sequence), [Winners and rulings](references/rounds.md#winners-and-rulings), [Watch](references/watch.md#watch), [Stopped rounds](#stopped-rounds), [close](#close) |
 | `clean.ts` | Direct completion when the audit report has no findings | [Clean audits](references/rounds.md#clean-audits) |
 | `report.ts`, `vet.ts`, `ruler-report.ts` | The readers of the audit report, the vet and rebuttal reports and the ruler report | [Report readers](references/rounds.md#report-readers) |
-| `phase-result.ts` | The readers of the `PHASE RESULT` line, the watch grade line and the settling line | [Phase routing](#phase-routing), [One invocation](references/sessions.md#one-invocation), [After the fix](references/rounds.md#after-the-fix), [Watch](references/watch.md#watch) |
+| `phase-result.ts` | The readers of the `PHASE RESULT` line, the watch grade line and the audit's settling line | [Phase routing](#phase-routing), [One invocation](references/sessions.md#one-invocation), [Watch](references/watch.md#watch) |
+| `phase-result-schema.ts` | The schemas and closing notes for the fix, implementation worker and close | [One invocation](references/sessions.md#one-invocation), [After the fix](references/rounds.md#after-the-fix) |
 | `finding-tokens.ts` | The rating and location token definitions that the audit report reader, the record bullet reader and round data share | [Audit report](references/rounds.md#audit-report), [Record bullets](references/commit-hooks.md#record-bullets), [Round data](#round-data) |
 | `phase.ts`, `settings.ts` | Who runs each phase and on what, the capability tag's vocabulary, workflow selection and the loaded settings | [Selections](references/sessions.md#selections), [Startup](references/sessions.md#startup), [Model settings](#model-settings), [Report readers](references/rounds.md#report-readers), [The ruler](references/rounds.md#the-ruler), [Manual queue](references/series.md#manual-queue), [Watch](references/watch.md#watch) |
 | `judge.ts`, `replay.ts` | The automatic-series evidence, the three fixed rules and their replay | [Automatic series](references/series.md#automatic-series), [replay](#replay) |
@@ -81,7 +82,7 @@ Before this rule the file held the automatic-series rules in four places.
 
 Workflows own findings, authority, gates and phase outcomes. The shared protocol's
 [Runner result](../../.agents/references/round-protocol.md#runner-result) rule defines the meaning
-of a phase result, and a phase result carries only status and reason. The runner reads audit
+of a phase result. The runner reads audit
 reports, vet reports, rebuttal reports, ruler reports and the fix's landed subjects for routing and
 completion checks, and it reads the log the glance counts. The automatic-series decision is runner
 code and has no workflow or assistant selection.
@@ -350,7 +351,7 @@ are never edited by hand.
 - its finding review and outcome data;
 - for a new automatic round, the ordered resolved auditor list used for its series answer;
 - for a planning entry, the required `settling` field. It keeps the widening round's settling
-  recommendation as it stands when the round ends: the fix's settling line, or the audit report's
+  recommendation as it stands when the round ends: the fix's advice, or the audit report's
   closing settling line when the clean audit ran no fix. Detailing entries use `""`;
 - for a commit entry, its original groups, advancing groups and judged repos. Each advancing group
   keeps the references the round carried, because the audit report's `Target:` line repeats them
@@ -1145,6 +1146,8 @@ the built-in default selection.
 - The Claude probe also ends a turn on a background command and the recorder requires that second
   turn, so the recording pins one result per turn.
 - A second probe resumes the first session and requires token usage from both invocations.
+- Both probes use the fix schema and require a valid structured result. The Claude recording also
+  keeps a finished turn without the object before its final turn.
 - It invokes no workflow and refreshes only this package's recordings.
 
 ## Verification

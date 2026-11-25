@@ -1081,17 +1081,21 @@ ending, including an early stop. It is shared by audit, vet, rebuttal, ruler, fi
 implement, watch and close. Ordinary interactive invocations add
 no result line.
 
-The [phase-result grammar](round-grammar.md#phase-result) owns the final control
-line, its place, exact JSON object, statuses and phase admission. Audit, vet,
-rebuttal and ruler return their complete document before it and write no file;
-the runner saves that text without the control line.
+The fix, implementation worker and close return their result through the schema the runner
+supplies. The runner displays the Markdown in `closingNote`. A finished widening fix also
+returns `settling`, with a recommendation and its one-line reason. Other fix results use `null`
+for `settling`.
+
+The remaining phases follow the [phase-result grammar](round-grammar.md#phase-result) for their
+final control line. Audit, vet, rebuttal and ruler return their complete document before the
+line and write no report file. The runner saves their text without the control line.
 
 - `finished` means the phase completed all required work.
 - `needs-ruling` means the fix or implementation worker wrote the final ruling
   for an open decision. The runner checks and displays it, collects the user's
   reply and resumes the same session. No other phase can return this status.
-- `failed` means required work remains incomplete. Give a short non-empty
-  reason.
+- `failed` means required work remains incomplete. Give a short non-empty reason.
+  Use `null` for the reason on every other status.
 
 Each phase judges its own outcome. A clean audit finishes. A vetter that accepts
 every finding finishes and needs no rebuttal. A permission refusal, missing

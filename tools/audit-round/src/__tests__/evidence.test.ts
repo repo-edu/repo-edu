@@ -5,11 +5,11 @@ import { test } from "node:test"
 import { execa } from "execa"
 import { runCommand } from "./configured-runner.js"
 import {
+  codexWorkerUsage,
   evidencePending,
   evidenceSubjects,
-  finishedText,
+  finishedPhase,
   phaseStream,
-  recorded,
 } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
 
@@ -131,10 +131,10 @@ test("a step run commits its log and transcript", async (t) => {
         subject: "example/impl-1 obx feat(audit-round): implement fixture",
       },
     ],
-    stream: await phaseStream("codex", finishedText, "implementation-session"),
+    stream: await phaseStream("codex", finishedPhase, "implementation-session"),
     usage: {
       path: `${f.root}/rollout-implementation-session.jsonl`,
-      text: await recorded("codex-rollout.jsonl"),
+      text: await codexWorkerUsage(),
     },
   }
   await f.configure({ phases: f.phases })

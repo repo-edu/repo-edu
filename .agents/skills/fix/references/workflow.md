@@ -24,8 +24,8 @@ uses the shared protocol's **Direct clean completion**.
 
 The [shared round protocol](../../../references/round-protocol.md) owns rating meanings,
 reconciliation, record meaning and runner result meaning. The
-[round grammar](../../../references/round-grammar.md) owns parsed audit report, vet report, rebuttal
-report, record-bullet and result forms. The runner owns paths under
+[round grammar](../../../references/round-grammar.md) owns the audit, vet and rebuttal reports and
+the commit record bullets. The runner owns paths under
 [Phase routing](../../../../tools/audit-round/CLAUDE.md#phase-routing).
 Follow its **Reconciliation** rule after grounding the findings below.
 
@@ -38,9 +38,8 @@ that names vetter tags applies those vetters' verdicts. Every fix invocation is 
 any supplied contest lacks a winner, and a fix that reports finished with an open contest fails the
 round.
 
-Follow the shared
-[Runner result](../../../references/round-protocol.md#runner-result) for every
-ending.
+Follow the shared [Runner result](../../../references/round-protocol.md#runner-result) for every
+ending. Put the closing note in `closingNote` and use `null` for `settling`.
 
 Follow the `CLAUDE.md` of every repo a fix touches.
 

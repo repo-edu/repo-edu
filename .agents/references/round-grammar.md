@@ -1394,21 +1394,13 @@ Audit ranges: 1-2, 2-4.
 <phase-result-line> ::= "PHASE RESULT: "<phase-result>
 <phase-result>      ::= {"status":"finished","reason":null}
                       | {"status":"failed","reason":<reason-string>}
-                      | {"status":"needs-ruling","reason":null} ; fix or implement only
 <reason-string>     ::= a JSON string containing non-whitespace text
 ```
 
 The phase result is the response's last line and stays outside a code fence.
-The JSON object has exactly the two fields shown. Audit, vet, rebuttal, ruler, design, pick,
-watch and close admit `finished` or `failed`. Fix and implement also
-admit `needs-ruling`.
-
-### Phase table
-
-| Phase | `finished` | `failed` | `needs-ruling` |
-| --- | --- | --- | --- |
-| Fix or implement | Parsed; `phase-result/finished` | Parsed; `phase-result/failed` | Parsed; `phase-result/work-needs-ruling` |
-| Every other phase | Parsed; `phase-result/finished` | Parsed; `phase-result/failed` | Refused; `phase-result/report-needs-ruling` |
+The JSON object has exactly the two fields shown. Audit, vet, rebuttal, ruler, design, pick
+and watch use this line. The fix, implementation worker and close use the schema described
+under [Runner result](round-protocol.md#runner-result).
 
 ### Examples
 
@@ -1422,12 +1414,6 @@ PHASE RESULT: {"status":"finished","reason":null}
 
 ```text
 PHASE RESULT: {"status":"failed","reason":"The report is malformed."}
-```
-
-#### `phase-result/work-needs-ruling` — parsed
-
-```text
-PHASE RESULT: {"status":"needs-ruling","reason":null}
 ```
 
 #### `phase-result/report-needs-ruling` — refused
@@ -1489,14 +1475,9 @@ Watch grade: yellow
 <one-line-reason> ::= non-empty text on one line
 ```
 
-The line is exactly one plain line and closes two widening outputs. A widening
-audit report ends with it as its last line, after the last finding field, under
-[Audit report](#audit-report). A widening fix returns it after its Markdown,
-immediately before the final `PHASE RESULT` line. Every other audit report and
-fix carries none, and the reader refuses a line where none is required. A fix that
-needs a ruling returns no line, because the round has not ended. It is control
-data for the runner, which retains the audit's line, replaced by the fix's line
-when a fix runs, as the round's settling recommendation for the series decision.
+The line is the last line of a widening audit report, after its last finding field.
+Every other audit report omits it. The runner retains the audit's recommendation for
+the series decision and replaces it with the fix's advice when a fix runs.
 
 ### Examples
 

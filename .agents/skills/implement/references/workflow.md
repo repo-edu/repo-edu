@@ -111,3 +111,6 @@ once when added.
 Before finishing, verify that every assigned repo share has its step commit.
 Report each commit SHA, checks and results, deviations and any unresolved
 blocker. The runner checks Git rather than trusting this report.
+
+Put that report in `closingNote` in the supplied schema. Follow the shared
+[Runner result](../../../references/round-protocol.md#runner-result) for every ending.

@@ -1,8 +1,8 @@
-{"type":"thread.started","thread_id":"01a11df0-c53d-7e32-a5d5-1915388a35b6"}
-{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"Running the two contract probe commands in sequence."}}
+{"type":"thread.started","thread_id":"01a214c4-634a-7252-8ff3-088466468a14"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"{\"status\":\"finished\",\"reason\":null,\"closingNote\":\"I’m running the two probe commands in the requested order. The second failure will be left as the intended result.\",\"settling\":null}"}}
 {"type":"item.started","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'printf audit-round-probe'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
 {"type":"item.completed","item":{"id":"item_1","type":"command_execution","command":"/bin/zsh -lc 'printf audit-round-probe'","aggregated_output":"audit-round-probe","exit_code":0,"status":"completed"}}
 {"type":"item.started","item":{"id":"item_2","type":"command_execution","command":"/bin/zsh -lc 'sh -c \"echo audit-round-probe-error >&2; exit 7\"'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
 {"type":"item.completed","item":{"id":"item_2","type":"command_execution","command":"/bin/zsh -lc 'sh -c \"echo audit-round-probe-error >&2; exit 7\"'","aggregated_output":"audit-round-probe-error\n","exit_code":7,"status":"failed"}}
-{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"PHASE RESULT: {\"status\":\"finished\",\"reason\":null}"}}
-{"type":"turn.completed","usage":{"input_tokens":81575,"cached_input_tokens":66048,"cache_write_input_tokens":0,"output_tokens":253,"reasoning_output_tokens":90}}
+{"type":"item.completed","item":{"id":"item_3","type":"agent_message","text":"{\"status\":\"finished\",\"reason\":null,\"closingNote\":\"CLI contract probe complete.\",\"settling\":null}"}}
+{"type":"turn.completed","usage":{"input_tokens":95265,"cached_input_tokens":63104,"cache_write_input_tokens":0,"output_tokens":211,"reasoning_output_tokens":0}}

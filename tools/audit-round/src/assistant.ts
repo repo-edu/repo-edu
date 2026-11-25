@@ -1,7 +1,9 @@
-import { writeFile } from "node:fs/promises"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { decodeClaude } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
-import { decodeCodex } from "./codex.js"
+import { decodeCodex, decodeCodexMessage } from "./codex.js"
 import { CodexSessionReader, codexSessionsRoot } from "./codex-session.js"
 import {
   errorMessage,
@@ -27,6 +29,12 @@ import {
   watchOutput,
   withoutPhaseResult,
 } from "./phase-result.js"
+import {
+  closingNote,
+  outputSchema,
+  structuredPhaseResult,
+  usesStructuredResult,
+} from "./phase-result-schema.js"
 import {
   type AssistantPrompt,
   phasePrompt,
@@ -94,7 +102,7 @@ function readRuling(
   readonly reading: RulerReading
   readonly missed: readonly string[]
 } | null {
-  if (phaseResult("rule", "", finalText).status !== "finished") return null
+  if (phaseResult("", finalText).status !== "finished") return null
   const scope = input.arguments.at(-1) as RulerScope
   const reading = readRulerReport(
     withoutPhaseResult(finalText),
@@ -156,8 +164,18 @@ export function runAssistantInvocation(
     prompt,
     output,
     runtime,
-    async (sessionId, finalText, toolLines) => {
-      const result = phaseResult(input.phase, sessionId, finalText)
+    async (sessionId, finalText, toolLines, structuredOutput) => {
+      if (usesStructuredResult(input.phase)) {
+        const { result, text } = structuredPhaseResult(
+          input.phase,
+          sessionId,
+          structuredOutput,
+        )
+        return { phaseResult: result, text, complete: () => result }
+      }
+      if (finalText === undefined)
+        throw new Error("CLI ended without final text")
+      const result = phaseResult(sessionId, finalText)
       if (input.phase === "rule" && result.status === "finished") {
         const ruling = readRuling(input, finalText, toolLines, prompt.supplied)
         if (ruling === null) throw new Error("The ruler did not finish")
@@ -228,10 +246,12 @@ async function runAssistantTurn<T>(
   runtime: AssistantRuntime,
   admit: (
     sessionId: string,
-    finalText: string,
+    finalText: string | undefined,
     toolLines: readonly string[],
+    structuredOutput: unknown,
   ) => Promise<{
     readonly phaseResult: PhaseControlResult
+    readonly text?: string
     readonly complete: (completion: PhaseCompletion) => T
   }>,
   record?: (value: unknown) => Promise<void>,
@@ -255,14 +275,20 @@ async function runAssistantTurn<T>(
       : undefined
   const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
   const env = childEnvironment(input, runtime.env)
+  const structuredPhase = usesStructuredResult(input.phase) ? input.phase : null
+  const schema =
+    structuredPhase === null ? undefined : outputSchema(structuredPhase)
+  const codexPhase = input.assistant === "codex" ? structuredPhase : null
+  let schemaDirectory: string | undefined
   /**
    * One CLI process on the session. A session is one or more turns and ends
    * with its process; the response is the last finished turn's text.
    */
-  const respond = async (text: string) => {
+  const respond = async (text: string, schemaArgument?: string) => {
     let finalText: string | undefined
+    let structuredOutput: unknown
     let turns = 0
-    const request = phaseRequest(input, sessionId, text)
+    const request = phaseRequest(input, sessionId, text, schemaArgument)
     await withCliProcess(
       { ...runtime, cwd: input.cwd, env, openContests: openContests(input) },
       input.assistant,
@@ -282,8 +308,18 @@ async function runAssistantTurn<T>(
             if (event.type === "complete") {
               turns += 1
             } else if (event.type === "final") {
+              // Codex's newest message may be the result. Display it as
+              // commentary only when another message takes its place.
+              if (codexPhase !== null && finalText !== undefined) {
+                const note = closingNote(
+                  codexPhase,
+                  decodeCodexMessage(finalText),
+                )
+                await observe({ type: "text", text: note ?? finalText })
+              }
               finalText = event.text
-            } else {
+              structuredOutput = event.structuredOutput
+            } else if (codexPhase === null || event.type !== "text") {
               await observe(event)
             }
           }
@@ -292,18 +328,22 @@ async function runAssistantTurn<T>(
       },
       (diagnostic) => observe({ type: "diagnostic", text: diagnostic }),
     )
-    if (turns === 0 || sessionId === null || finalText === undefined)
-      throw new Error(
-        "CLI ended without a completed turn, session identity or final text",
-      )
+    if (turns === 0 || sessionId === null)
+      throw new Error("CLI ended without a completed turn or session identity")
     await usage?.read(sessionId, observe, true)
-    return { sessionId, finalText }
+    return { sessionId, finalText, structuredOutput }
   }
   try {
     try {
       runtime.signal?.throwIfAborted()
       recorder = await output.start(input, prompt.log)
       if (sessionId !== null) await usage?.prepareResume(sessionId)
+      let schemaArgument = schema
+      if (schema !== undefined && codexPhase !== null) {
+        schemaDirectory = await mkdtemp(join(tmpdir(), "audit-round-schema-"))
+        schemaArgument = join(schemaDirectory, "result.json")
+        await writeFile(schemaArgument, schema, "utf8")
+      }
       let resultRequested = false
       // The model can leave the line off a finished response. The session is
       // asked once to end again, which repeats no phase work; a second
@@ -314,6 +354,7 @@ async function runAssistantTurn<T>(
         if (
           resultRequested ||
           prompt.resultRequest === undefined ||
+          response.finalText === undefined ||
           hasPhaseResult(response.finalText)
         )
           return response
@@ -324,8 +365,11 @@ async function runAssistantTurn<T>(
         })
         return respond(prompt.resultRequest)
       }
-      let response = await ended(await respond(prompt.text))
-      const sendBack = review?.(response.finalText, toolLines) ?? null
+      let response = await ended(await respond(prompt.text, schemaArgument))
+      const sendBack =
+        response.finalText === undefined
+          ? null
+          : (review?.(response.finalText, toolLines) ?? null)
       if (sendBack !== null) {
         await observe({
           type: "diagnostic",
@@ -333,15 +377,31 @@ async function runAssistantTurn<T>(
         })
         response = await ended(await respond(sendBack))
       }
+      const structuredOutput =
+        codexPhase !== null && response.finalText !== undefined
+          ? decodeCodexMessage(response.finalText)
+          : response.structuredOutput
+      if (schema !== undefined) {
+        if (structuredOutput === undefined)
+          throw new Error("CLI ended without a structured phase result")
+        await observe({ type: "structured-result", value: structuredOutput })
+      }
       const admitted = await admit(
         response.sessionId,
         response.finalText,
         toolLines,
+        structuredOutput,
       )
+      if (admitted.text) await observe({ type: "text", text: admitted.text })
       const completion = await recorder.finish(admitted.phaseResult)
       return admitted.complete(completion)
     } finally {
-      await usage?.close()
+      try {
+        await usage?.close()
+      } finally {
+        if (schemaDirectory !== undefined)
+          await rm(schemaDirectory, { recursive: true, force: true })
+      }
     }
   } catch (error) {
     return { status: "failed", sessionId, reason: errorMessage(error) }

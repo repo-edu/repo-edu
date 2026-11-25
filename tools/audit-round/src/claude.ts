@@ -99,6 +99,7 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
             .parse(block)
           if (tool.name === "Bash")
             z.object({ command: z.string() }).parse(tool.input)
+          if (tool.name === "StructuredOutput") continue
           feedback.push({
             type: "tool",
             invocation: `${tool.name} ${toolInputText(tool.input)}`,
@@ -144,6 +145,7 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
           is_error: z.boolean(),
           num_turns: z.number().int().nonnegative(),
           result: z.string().optional(),
+          structured_output: z.unknown().optional(),
           errors: z.array(z.string()).optional(),
           subtype: z.string(),
           modelUsage: modelUsage.optional(),
@@ -154,7 +156,7 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
           result.result || result.errors?.join("; ") || result.subtype,
         )
       if (result.num_turns === 0) return []
-      if (result.result === undefined)
+      if (result.result === undefined && result.structured_output === undefined)
         throw new Error("Claude finished a turn without its text")
       if (result.modelUsage === undefined)
         throw new Error("Claude finished a turn without token usage")
@@ -174,7 +176,11 @@ export function decodeClaude(record: unknown): AssistantEvent[] {
             })),
           },
         },
-        { type: "final", text: result.result },
+        {
+          type: "final",
+          text: result.result,
+          structuredOutput: result.structured_output,
+        },
         { type: "complete" },
       ]
     }

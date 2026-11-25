@@ -21,10 +21,10 @@ import type { Coder } from "../settings.js"
 import type { Repository } from "../subject.js"
 import { runCommand, testSettings } from "./configured-runner.js"
 import {
-  finishedText,
+  codexWorkerUsage,
+  finishedPhase,
   fixture,
   phaseStream,
-  recorded,
   testContext,
 } from "./helpers.js"
 import { commitFixture, roundFixture } from "./round-fixture.js"
@@ -518,10 +518,10 @@ test("the command launches the assigned worker, verifies its share and writes th
         subject: "example/impl-1 obx feat(audit-round): implement fixture",
       },
     ],
-    stream: await phaseStream("codex", finishedText, "implementation-session"),
+    stream: await phaseStream("codex", finishedPhase, "implementation-session"),
     usage: {
       path: `${f.root}/rollout-implementation-session.jsonl`,
-      text: await recorded("codex-rollout.jsonl"),
+      text: await codexWorkerUsage(),
     },
   }
   await f.configure({ phases: f.phases })
@@ -573,7 +573,7 @@ test("the command launches the assigned worker, verifies its share and writes th
   const markdown = await readFile(transcript, "utf8")
   assert.match(markdown, /^# Implementation of example\.md, step 1/m)
   assert.match(markdown, /## implement \(codex, fresh\)/)
-  assert.ok(markdown.includes(finishedText))
+  assert.ok(markdown.includes(finishedPhase.closingNote))
   assert.doesNotMatch(markdown, /Abandoned attempt|\[implement\] prompt:/)
   assert.doesNotMatch(await readFile(log, "utf8"), /Abandoned attempt/)
   assert.deepEqual(
@@ -616,11 +616,15 @@ Audit ranges: 1-2.
   )
   const usage = {
     path: `${f.root}/rollout-implementation-session.jsonl`,
-    text: await recorded("codex-rollout.jsonl"),
+    text: await codexWorkerUsage(),
   }
   const failed = await phaseStream(
     "codex",
-    'Lost the stream.\nPHASE RESULT: {"status":"failed","reason":"The stream disconnected."}',
+    {
+      status: "failed",
+      reason: "The stream disconnected.",
+      closingNote: "Lost the stream.",
+    },
     "implementation-session",
   )
   return { f, usage, failed }
@@ -655,7 +659,7 @@ test("a standalone recovery appends to both step files after a tag change and st
         subject: "example/impl-1 obx feat(audit-round): first step",
       },
     ],
-    stream: await phaseStream("codex", finishedText, "implementation-session"),
+    stream: await phaseStream("codex", finishedPhase, "implementation-session"),
     usage,
   }
   await f.configure({ phases: f.phases })
@@ -703,7 +707,7 @@ test("a standalone recovery appends to both step files after a tag change and st
   const resumedText = recoveredTranscript.slice(failedTranscript.length)
   assert.match(resumedText, /resuming session implementation-session/)
   assert.match(resumedText, /## implement \(codex, resumed\)/)
-  assert.ok(resumedText.includes(finishedText))
+  assert.ok(resumedText.includes(finishedPhase.closingNote))
 })
 
 test("a failure without a session prints no runner resume command", async (t) => {
