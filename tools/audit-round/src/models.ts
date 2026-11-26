@@ -895,7 +895,12 @@ function rulerSection(
   ]
 }
 
-function disprovedRow(entry: DisprovedEvidence): ReasonRow {
+type AuditRulingEvidence = Exclude<
+  DisprovedEvidence,
+  { kind: "implementation" }
+>
+
+function disprovedRow(entry: AuditRulingEvidence): ReasonRow {
   return {
     cells: [
       entry.date,
@@ -920,7 +925,7 @@ function disprovedRow(entry: DisprovedEvidence): ReasonRow {
 }
 
 /** The model a table's rows group by: the auditor, or the ruler in a ruler table. */
-function disprovedModel(entry: DisprovedEvidence): string {
+function disprovedModel(entry: AuditRulingEvidence): string {
   if (entry.claim !== "ruler") return modelText(entry.auditor)
   const ruler = entry.wrong.find((party) => party.role === "ruler")?.identity
   return ruler == null ? "" : modelText(ruler)
@@ -941,10 +946,13 @@ const disprovedClaims = [
 function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
   const lines = ["## Later rulings", ""]
   if (entries.length === 0) return [...lines, "No later rulings."]
+  const auditRulings = entries.filter(
+    (entry) => entry.kind !== "implementation",
+  )
   let numbered = 0
   for (const [claim, title] of disprovedClaims)
     for (const workClass of ["planning", "implementation"] as const) {
-      const rows = entries
+      const rows = auditRulings
         .filter(
           (entry) => entry.claim === claim && entry.workClass === workClass,
         )
@@ -967,6 +975,34 @@ function disprovedSection(entries: readonly DisprovedEvidence[]): string[] {
       )
       numbered += rows.length
     }
+  const implementation = entries
+    .filter((entry) => entry.kind === "implementation")
+    .sort(
+      (first, second) =>
+        modelText(first.coder).localeCompare(modelText(second.coder)) ||
+        second.date.localeCompare(first.date) ||
+        first.stem.localeCompare(second.stem),
+    )
+  if (implementation.length > 0) {
+    if (lines.length > 2) lines.push("")
+    lines.push(
+      "### Implementation findings",
+      "",
+      ...reasonTable(
+        ["Date", "Plan", "Tier", "Coder"],
+        implementation.map((entry) => ({
+          cells: [
+            entry.date,
+            escapeCell(entry.stem),
+            entry.tier,
+            escapeCell(modelText(entry.coder)),
+          ],
+          reason: entry.reason,
+        })),
+        numbered + 1,
+      ),
+    )
+  }
   return lines
 }
 

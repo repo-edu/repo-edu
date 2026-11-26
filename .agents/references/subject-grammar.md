@@ -268,7 +268,7 @@ Rules across the classes:
 | `plan-audit` | plan | one planning round; its name pairs it with `impl-audit-<scope>`, so a record says which audit it was |
 | `settle` | plan | rename onto the bare topic name without changing text |
 | `ready` | plan | plan declared ready for implementation, no file change |
-| `disprove` | plan | user's later ruling that a finding was wrong, the finding stood as written or one vetter's revision was right |
+| `disprove` | plan | user's later ruling on an audit finding or a new implementation finding against a named coder |
 | `chat` | plan | a chat's commit on one active plan's file outside a round |
 | `impl-<n>` | either | one implementation step, exactly one step per commit |
 | `impl-audit-<scope>` | either | an implementation-audit fix commit or record |

@@ -1,9 +1,9 @@
 ---
 title: pnpm audit-round disprove
-description: Record your later ruling on an audit finding or a vetter's revision
+description: Record your later ruling on an audit finding, a vetter's revision or an implementation
 ---
 
-`pnpm audit-round disprove` records your later judgement on an audit finding.
+`pnpm audit-round disprove` records your later judgement on an audit finding or an implementation.
 The model read-out uses that judgement to count the finding and credit the models that
 were right. See [`pnpm audit-round models`](/repo-edu/tooling/models/).
 
@@ -22,6 +22,8 @@ pnpm audit-round disprove <stem> <target> <round> <finding> --revision <tag> <re
                                                     credit one vetter's revision
 pnpm audit-round disprove <stem> <target> --by "<model> <effort>" <reason>
                                                     disprove a finding the round data lacks
+pnpm audit-round disprove <stem> <target> --by "<model> <effort>" --implementation <A|B|C|D> <reason>
+                                                    record an implementation finding against the coder
 pnpm audit-round disprove -h | --help               show the command's help
 ```
 
@@ -36,6 +38,7 @@ For a recorded finding, copy the target exactly as stored, including any older s
 Take the round and finding numbers from the same record. For `--by`, use `<stem>-plan-audit`
 or `<stem>-impl-audit-<scope>`. The reason is the rest of the line. Quote it so the shell
 keeps it whole.
+With `--implementation`, use the implementation target and name the coder in `--by`.
 
 ## Behaviour
 
@@ -58,6 +61,11 @@ assistant and reads no settings.
 5. **The `--by` form** records the date, full reason and the named model and effort, for a finding
    the round data never held. It creates the round-data file when none exists. Each such ruling
    appends, because two unrecorded findings by one auditor may both be real.
+6. **The `--by --implementation <tier>` form** records a new implementation finding at your stated
+   tier against the named coder. It appears under **Implementation findings** in **Later rulings**.
+   It adds to that coder's findings when the plan qualifies for the closed-plan comparison. It
+   attributes no audit or vet work. It is omitted from `models --from` because it has no known
+   round start.
 
 The command never rewrites the old audit report, commit or finding metadata.
 
@@ -72,6 +80,7 @@ The command never rewrites the old audit report, commit or finding metadata.
    `<stem>/disprove: <target> round <n> vet finding <n>` or
    `<stem>/disprove: <target> by <model> <effort>`, with the reason as the body. The command prints
    `Committed <sha>: <subject>`. A winning revision uses the plain `finding <n>` subject.
+   An implementation finding uses the `by <model> <effort>` subject with the coder's identity.
 
 ## Refuses when
 
@@ -89,3 +98,5 @@ A refusal while looking up the plan, finding or revision exits with status 1.
    and numbers. Use `--by` for a finding the round data never held.
 8. **The named vetter gave no revision on this finding.** Use the tag from the finding's
    recorded reviews.
+9. **`--implementation` lacks `--by`, has a tier outside A–D or names a planning target.**
+   It cannot accompany `--vet` or `--revision`.

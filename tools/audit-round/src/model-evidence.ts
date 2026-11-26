@@ -199,6 +199,15 @@ export type DisprovedEvidence =
   | (DisprovedBase & {
       readonly kind: "detached"
     })
+  | {
+      readonly kind: "implementation"
+      readonly stem: string
+      readonly workClass: "implementation"
+      readonly date: string
+      readonly reason: string
+      readonly coder: ModelIdentity
+      readonly tier: RoundFinding["tier"]
+    }
 
 export type ModelEvidence = {
   readonly auditors: ReadonlyMap<string, AuditorRow>
@@ -539,6 +548,18 @@ function readLaterRulings(
   const entries = files
     .flatMap((file) =>
       file.data.disproved.flatMap<DisprovedEvidence>((entry) => {
+        if ("coder" in entry) {
+          if (included !== undefined) return []
+          return {
+            kind: "implementation",
+            stem: file.stem,
+            workClass: "implementation",
+            date: entry.date,
+            reason: entry.reason,
+            coder: { assistant: null, ...entry.coder },
+            tier: entry.tier,
+          }
+        }
         if ("auditor" in entry) {
           if (included !== undefined) return []
           const auditor = { assistant: null, ...entry.auditor }
@@ -597,7 +618,13 @@ function readLaterRulings(
     )
     .sort(
       (first, second) =>
-        auditorKey(first.auditor).localeCompare(auditorKey(second.auditor)) ||
+        auditorKey(
+          first.kind === "implementation" ? first.coder : first.auditor,
+        ).localeCompare(
+          auditorKey(
+            second.kind === "implementation" ? second.coder : second.auditor,
+          ),
+        ) ||
         second.date.localeCompare(first.date) ||
         first.stem.localeCompare(second.stem),
     )
@@ -1140,6 +1167,7 @@ function planAdmission(
 async function coderRows(
   context: ExecutionContext,
   records: readonly RoundRecord[],
+  rulings: readonly DisprovedEvidence[],
   from: Date | undefined,
 ): Promise<Map<string, CoderRow>> {
   const logs = await readImplementationLogs(context)
@@ -1238,7 +1266,15 @@ async function coderRows(
         modelRoundComplete(round.data),
       )
       const kept = (range: TierRange) =>
-        complete.reduce((total, round) => total + round.counts[range].kept, 0)
+        complete.reduce((total, round) => total + round.counts[range].kept, 0) +
+        rulings.filter(
+          (entry) =>
+            entry.kind === "implementation" &&
+            entry.stem === plan.stem &&
+            entry.coder.model === identity.model &&
+            entry.coder.effort === identity.effort &&
+            tierWithin(entry.tier, range),
+        ).length
       const fixMinutes = plan.rounds
         .flatMap((round) => round.data.phases)
         .filter((phase) => phase.phase === "fix")
@@ -1279,7 +1315,7 @@ export async function readModelEvidence(
   const winners = ruledFindings(records, byFinding)
   return {
     auditors: auditorRows(allRecords, entries, included),
-    coders: await coderRows(context, allRecords, from),
+    coders: await coderRows(context, allRecords, entries, from),
     vetPairs: vetPairSamples(records, byFinding),
     vetterTimes: vetterTimes(records),
     rulings: winners.user,

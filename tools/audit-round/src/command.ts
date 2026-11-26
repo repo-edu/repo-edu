@@ -191,6 +191,7 @@ type Invocation =
               readonly effort: "low" | "medium" | "high" | "xhigh"
             }
           }
+        | Pick<Extract<DisprovedFinding, { coder: unknown }>, "coder" | "tier">
     }
   | { readonly kind: "plan" }
   | {
@@ -317,12 +318,9 @@ type LineRange = {
   readonly last: number
 }
 
-type DisprovedAuditor = Extract<
-  Extract<Invocation, { kind: "disprove" }>["finding"],
-  { readonly auditor: unknown }
->["auditor"]
+type RulingModel = Extract<DisprovedFinding, { auditor: unknown }>["auditor"]
 
-function disprovedAuditor(value: string): DisprovedAuditor {
+function rulingModel(value: string): RulingModel {
   const match = /^(\S+) (low|medium|high|xhigh)$/.exec(value)
   if (match === null)
     throw new InvalidArgumentError(
@@ -330,7 +328,7 @@ function disprovedAuditor(value: string): DisprovedAuditor {
     )
   return {
     model: match[1],
-    effort: match[2] as DisprovedAuditor["effort"],
+    effort: match[2] as RulingModel["effort"],
   }
 }
 
@@ -344,16 +342,17 @@ function positiveInteger(value: string, name: string): number {
 }
 
 type DisproveOptions = {
-  by?: DisprovedAuditor
+  by?: RulingModel
   vet?: boolean
   revision?: string
+  implementation?: "A" | "B" | "C" | "D"
 }
 
 function disproveInvocation(
   value: string,
   target: string,
   details: readonly string[],
-  { by: auditor, vet, revision }: DisproveOptions,
+  { by: author, vet, revision, implementation }: DisproveOptions,
 ): Extract<Invocation, { kind: "disprove" }> {
   if (/[\\/]/.test(value))
     throw new InvalidArgumentError("Name the plan by its stem, without a path.")
@@ -362,17 +361,24 @@ function disproveInvocation(
     throw new InvalidArgumentError(
       `Expected the stored round target to start with ${stem}-.`,
     )
-  const reasonAt = auditor === undefined ? 2 : 0
+  if (implementation !== undefined && author === undefined)
+    throw new InvalidArgumentError(
+      '--implementation requires --by "<model> <effort>" to name the coder.',
+    )
+  const reasonAt = author === undefined ? 2 : 0
   const reason = details.slice(reasonAt).join(" ").trim()
   if (reason.length === 0)
     throw new InvalidArgumentError("Expected the full reason for the ruling.")
-  if (auditor !== undefined)
+  if (author !== undefined)
     return {
       kind: "disprove",
       stem,
       target,
       reason,
-      finding: { auditor },
+      finding:
+        implementation === undefined
+          ? { auditor: author }
+          : { coder: author, tier: implementation },
     }
   if (details.length < 3)
     throw new InvalidArgumentError(
@@ -429,11 +435,15 @@ async function disprovePath(
   directory: string,
   { stem, target, finding }: Extract<Invocation, { kind: "disprove" }>,
 ): Promise<string> {
-  if ("auditor" in finding) {
+  if (!("round" in finding)) {
     const kind = planTargetKind(stem, target)
     if (kind === null)
       throw new InvalidArgumentError(
         `The target must be ${stem}-plan-audit or a ${stem}-impl-audit-<scope> target.`,
+      )
+    if ("coder" in finding && kind !== "implementation")
+      throw new InvalidArgumentError(
+        "An implementation finding needs an implementation target.",
       )
     return join(directory, roundDataFilename(stem, kind))
   }
@@ -992,17 +1002,25 @@ Examples (from either checkout):
     })
   command
     .command("disprove")
-    .description("Record a later ruling on an audit finding.")
+    .description("Record a later ruling on an audit finding or implementation.")
     .argument("<stem>", "the active or archived plan")
     .argument("<target>", "the round-data target exactly as stored")
     .argument(
       "<details...>",
-      "<round> <finding> <reason>, or the reason when --by names the auditor",
+      "<round> <finding> <reason>, or the reason when --by names the model",
     )
     .option(
       "--by <model-effort>",
       "record a finding absent from retained round data",
-      disprovedAuditor,
+      rulingModel,
+    )
+    .addOption(
+      new Option(
+        "--implementation <tier>",
+        "record an implementation finding against the coder named by --by",
+      )
+        .choices(["A", "B", "C", "D"])
+        .conflicts(["vet", "revision"]),
     )
     .addOption(
       new Option("--vet", "record that the finding stood as written").conflicts(
@@ -1353,12 +1371,16 @@ export async function runCommand(
             : "finding"
         subject = `${invocation.stem}/disprove: ${invocation.target} round ${invocation.finding.round} ${side} ${invocation.finding.number}`
       } else {
+        const author =
+          "coder" in invocation.finding
+            ? invocation.finding.coder
+            : invocation.finding.auditor
         entry = {
           date,
           reason: invocation.reason,
-          auditor: invocation.finding.auditor,
+          ...invocation.finding,
         }
-        subject = `${invocation.stem}/disprove: ${invocation.target} by ${invocation.finding.auditor.model} ${invocation.finding.auditor.effort}`
+        subject = `${invocation.stem}/disprove: ${invocation.target} by ${author.model} ${author.effort}`
       }
       writeDisprovedFinding(file.path, entry)
       if (file.archived) {

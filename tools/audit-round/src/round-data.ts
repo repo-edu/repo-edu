@@ -369,7 +369,7 @@ const attachedRuling = z.strictObject({
   round: z.number().int().positive(),
   finding: z.number().int().positive(),
 })
-export const disprovedFindingSchema = z.union([
+const auditRulingSchema = z.union([
   attachedRuling.extend({
     side: z.enum(["finding", "vet"]).optional(),
   }),
@@ -382,9 +382,21 @@ export const disprovedFindingSchema = z.union([
     }),
   }),
 ])
+const implementationFindingSchema = z.strictObject({
+  ...commonDisprovedFinding,
+  coder: z.strictObject({
+    model: z.string().min(1),
+    effort,
+  }),
+  tier: z.enum(["A", "B", "C", "D"]),
+})
+export const disprovedFindingSchema = z.union([
+  auditRulingSchema,
+  implementationFindingSchema,
+])
 const planningRoundFileSchema = z.strictObject({
   rounds: z.array(planningRoundDataSchema),
-  disproved: z.array(disprovedFindingSchema),
+  disproved: z.array(auditRulingSchema),
 })
 const implementationRoundFileSchema = z.strictObject({
   rounds: z.array(implementationRoundDataSchema),
@@ -1033,8 +1045,8 @@ export function writeRoundData(path: string, value: RoundData): void {
 /**
  * Whether two disproved entries rule on the same retained finding. One finding
  * holds one later ruling, so a second ruling replaces the first even when it
- * changes which side was wrong. A detached entry names an auditor and no
- * finding, so two of them may both be real and never match.
+ * changes which side was wrong. A detached ruling or implementation finding
+ * names a model and no retained finding, so separate entries never match.
  */
 function sameDisprovedFinding(
   first: DisprovedFinding,

@@ -1084,6 +1084,137 @@ test("disprove creates and commits detached archived data", async (t) => {
   )
 })
 
+test("disprove records a graded implementation finding against its coder", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(f, "settled")
+  const path = join(f.roundRoot, "example-impl-rounds.json")
+  writeRoundData(path, disproveRound())
+  const reason =
+    "The schema left the audit unable to finish. The session exhausted its output limit."
+  const args = [
+    "disprove",
+    "example",
+    "example-impl-audit-01..01",
+    "--by",
+    "gpt-6.2-sol xhigh",
+    "--implementation",
+    "A",
+    reason,
+  ]
+  assert.equal(
+    await runCommand(args, f.runtime, {
+      ...f.options,
+      now: () => Date.UTC(2026, 10, 26, 12),
+    }),
+    0,
+    f.errors.join("\n"),
+  )
+  const data = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in data)
+  assert.equal(data.rounds.length, 1)
+  assert.deepEqual(data.disproved, [
+    {
+      date: "2026-11-26",
+      reason,
+      coder: { model: "gpt-6.2-sol", effort: "xhigh" },
+      tier: "A",
+    },
+  ])
+  assert.equal(
+    await runCommand(["models"], f.runtime, f.options),
+    0,
+    f.errors.join("\n"),
+  )
+  assert.match(f.visible.at(-1) ?? "", /### Implementation findings/)
+  assert.match(f.visible.at(-1) ?? "", /\| A \| gpt-6\.2-sol xhigh \|/)
+})
+
+test("implementation finding options reject missing attribution and incompatible targets or verdicts", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  await lifecyclePlan(f, "settled")
+  for (const [target, options, message] of [
+    ["example-impl-audit-01..01", ["--implementation", "A"], /requires --by/],
+    [
+      "example-plan-audit",
+      ["--by", "gpt-6.2-sol xhigh", "--implementation", "A"],
+      /implementation target/,
+    ],
+    [
+      "example-impl-audit-01..01",
+      ["--by", "gpt-6.2-sol xhigh", "--implementation", "E"],
+      /Allowed choices/,
+    ],
+    [
+      "example-impl-audit-01..01",
+      ["--by", "gpt-6.2-sol xhigh", "--implementation", "A", "--vet"],
+      /cannot be used/,
+    ],
+    [
+      "example-impl-audit-01..01",
+      [
+        "--by",
+        "gpt-6.2-sol xhigh",
+        "--implementation",
+        "A",
+        "--revision",
+        "abx",
+      ],
+      /cannot be used/,
+    ],
+  ] as const) {
+    assert.equal(
+      await runCommand(
+        [
+          "disprove",
+          "example",
+          target,
+          ...options,
+          "The implementation failed.",
+        ],
+        f.runtime,
+        f.options,
+      ),
+      2,
+      f.errors.join("\n"),
+    )
+    assert.match(f.errors.at(-1) ?? "", message)
+  }
+})
+
+test("an archived implementation finding uses the existing named-model ruling commit", async (t) => {
+  const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
+  const archive = await archivedPlan(f)
+  const reason = "The implementation failed after its plan closed."
+  assert.equal(
+    await runCommand(
+      [
+        "disprove",
+        "example",
+        "example-impl-audit-01..01",
+        "--by",
+        "gpt-6.2-sol xhigh",
+        "--implementation",
+        "A",
+        reason,
+      ],
+      f.runtime,
+      f.options,
+    ),
+    0,
+    f.errors.join("\n"),
+  )
+  const path = join(archive, "example-impl-rounds.json")
+  const data = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in data)
+  assert.equal(data.disproved.length, 1)
+  assert.equal(
+    (
+      await execa("git", ["log", "-1", "--format=%B"], { cwd: f.planRoot })
+    ).stdout.trim(),
+    `example/disprove: example-impl-audit-01..01 by gpt-6.2-sol xhigh\n\n${reason}`,
+  )
+})
+
 test("disprove prints an action refusal with the runner prefix and a parser refusal without it", async (t) => {
   const f = await roundFixture(t, "codex", "plan", false, null, false, "plan")
 

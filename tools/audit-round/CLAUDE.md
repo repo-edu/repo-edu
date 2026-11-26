@@ -379,6 +379,8 @@ tier and the rebuttal's answer to it.
 
 **A later ruling** records its date and full reason in the `disproved` list. A detached entry
 names the auditor's model and effort. An attached entry names its target, round and finding.
+An implementation finding names the coder's model and effort and its tier. It belongs only in
+implementation round data and names no retained audit finding.
 
 | Attached entry | Meaning |
 | --- | --- |
@@ -1098,11 +1100,17 @@ data. It writes through the shared atomic writer, starts no assistant and reads 
   round data does not hold, under the manually named auditor. It creates the round-kind file when
   it does not exist. Each such ruling appends, because two unrecorded findings by one auditor may
   both be real.
+- Adding `--implementation <A|B|C|D>` to `--by` records an implementation finding against the
+  named coder. It requires an implementation target and cannot accompany `--vet` or `--revision`.
+  It appends to the same later-ruling list without inventing an audit round. The model read-out
+  displays it under **Implementation findings** and counts it against that coder once the plan
+  qualifies for the coder comparison. Like other rulings without a known round, it is omitted
+  from a date-filtered read-out.
 
 An active plan's file in the round folder stays there until loop-close moves it. An archived
 plan's file is committed alone, as the tag-free `<stem>/disprove:` form with the reason as its
 body. A finding that stood as written uses `vet finding` in that subject. Both other attached
-rulings use `finding`.
+rulings use `finding`. A detached ruling or implementation finding uses `by <model> <effort>`.
 
 ### mark
 

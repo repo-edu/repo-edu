@@ -661,6 +661,35 @@ test("round data stores attached and detached disproved findings beside rounds",
   ])
 })
 
+test("implementation findings survive later round writes and belong only to implementation data", async (t) => {
+  const f = await fixture(t)
+  const path = join(f.runtime.roundRoot, "example-impl-rounds.json")
+  const ruling = {
+    date: "2026-11-26",
+    reason: "The implementation caused a failed audit.",
+    coder: { model: "gpt-6.2-sol", effort: "xhigh" as const },
+    tier: "A" as const,
+  }
+  writeDisprovedFinding(path, ruling)
+  writeRoundData(path, entry("example-impl-audit-01..04", 1))
+  writeDisprovedFinding(path, {
+    date: "2026-11-26",
+    reason: "An independent audit claim was wrong.",
+    auditor: { model: "gpt-6.2-sol", effort: "xhigh" },
+  })
+  const stored = parseRoundDataFile(path, await readFile(path, "utf8"))
+  assert.ok("disproved" in stored)
+  assert.equal(stored.rounds.length, 1)
+  assert.deepEqual(stored.disproved[0], ruling)
+  assert.equal(stored.disproved.length, 2)
+  assert.throws(() =>
+    writeDisprovedFinding(
+      join(f.runtime.roundRoot, "example-plan-rounds.json"),
+      ruling,
+    ),
+  )
+})
+
 test("a later ruling replaces any earlier statement on the same finding while detached rulings append", async (t) => {
   const f = await fixture(t)
   const path = join(f.runtime.roundRoot, "example-impl-rounds.json")

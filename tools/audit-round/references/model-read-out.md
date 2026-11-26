@@ -215,6 +215,10 @@ The comparison works as follows:
   minimum of three plans enters it.
 - Each table shows plans, steps, kept findings of its range, kept per step and time per step. It
   sorts by its range's accepted findings per step, fewest first, then by time.
+- Later implementation findings add to the kept count of their stated range for the same plan,
+  model and effort. They do not create a coder sample for a plan that fails admission and do not
+  affect auditor or vetter counts. Like other rulings without a known round, they are omitted
+  when filtering by date.
 - A winning coder outside `coders` is named as such.
 
 ## Ruling winners and ruler winners
@@ -250,11 +254,11 @@ user can check a ruler's winner and overturn it with `disprove`.
 
 ## Later rulings
 
-Each later ruling prints once, in one of six numbered tables. A table is named by its work class
-and by its subject, like the sections above it: `Planning auditor findings`,
+Each later ruling prints once, in one of seven numbered tables. The first six are named by work
+class and by its subject, like the sections above it: `Planning auditor findings`,
 `Implementation auditor findings`, `Planning vetter verdicts`, `Implementation vetter verdicts`,
-`Planning ruler winners` and `Implementation ruler winners`. They print in that order, and a table
-without rows is not printed.
+`Planning ruler winners` and `Implementation ruler winners`. They print in that order, followed by
+`Implementation findings`. A table without rows is not printed.
 
 - A ruling that changes who the ruler proved right prints under ruler winners.
 - Otherwise a finding that stood as written prints under vetter verdicts. The other rulings print
@@ -262,6 +266,8 @@ without rows is not printed.
 - Rows group by the auditor, or by the ruler in a ruler table, and run newest first within one.
 - A detached entry prints under its work class's auditor findings and says that no retained round
   data holds the finding.
+- An implementation finding names the date, plan, tier and coder, followed by the reason. It
+  groups by coder and runs newest first within one. It shares the section's reason numbering.
 
 The model is no heading, because a vetter row names several vetters.
 

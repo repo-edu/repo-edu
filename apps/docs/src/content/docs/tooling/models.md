@@ -61,7 +61,9 @@ The read-out compares rather than ranks by taste:
    vetter was right. A wrong finding adds nothing to the coder's kept count. A finding that
    stood as written counts as kept at its reported tier. A winning revision supplies the final
    tier. For example, a B revised to C counts once as downgraded in A/B and adds no kept finding
-   against the coder. See [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
+   against the coder. A later implementation finding adds to the named coder's count at your
+   stated tier when the plan qualifies for the coder comparison. It changes no auditor or vetter
+   count. See [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
 
 In both planning and implementation, auditors, vetter pairs and vetters by auditor have one table
 for A and B findings and another for C findings only. Coders use the same two groups. Auditor and
@@ -139,13 +141,16 @@ followed by excluded plans. Each auditor section prints its main table, then a s
    The tables use the same form with a column for the ruler's model and effort. You can check
    each winner and overturn it with
    [`pnpm audit-round disprove`](/repo-edu/tooling/disprove/).
-8. **Later rulings** print in up to six numbered tables. A ruling that changes who the ruler
+8. **Later rulings** print in up to seven numbered tables. A ruling that changes who the ruler
    credited prints under ruler winners for that work class. Otherwise a finding that stood as
    written prints under vetter verdicts. The rest print under auditor findings. The `Wrong` column
    can be empty when everyone was right. The `Wrong` and `Right` columns name
    each auditor, vetter and ruler on the side your ruling put it, with a vetter's verdict or the
    ruler's winner in brackets. Every table shows each reason's first sentence, then the full
-   reasons as a numbered list, numbered across the section.
+   reasons as a numbered list, numbered across the section. The last table, **Implementation
+   findings**, names the date, plan, tier and coder for each implementation fault you recorded.
+   Its rows group by coder, newest first within each coder. These findings have no known round
+   start, so `--from` omits them.
 9. **Rounds by plan** list the plan with the newest round first, and a plan's rows by model. A plan
    without a retained round comes last. Their finding columns sum to the class totals
    behind wrong claims, and their kept findings and rounds on shared plans sum to both count cells.

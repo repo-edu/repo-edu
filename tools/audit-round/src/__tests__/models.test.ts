@@ -1128,6 +1128,162 @@ test("disproved rulings separate finding and vet sides with one numbering sequen
   )
 })
 
+test("implementation findings have their own numbered table without attributing audit work", async (t) => {
+  const f = await modelFixture(t)
+  const path = join(f.roundRoot, "example-impl-rounds.json")
+  writeDisprovedFinding(path, {
+    date: "2026-11-25",
+    reason: "The audit claim was wrong.",
+    auditor: { model: "audit-alpha", effort: "low" },
+  })
+  for (const [model, effort, date, tier, reason] of [
+    [
+      "coder-beta",
+      "xhigh",
+      "2026-11-26",
+      "A",
+      "The audit stalled. The saved response contains only whitespace after its first finding.",
+    ],
+    [
+      "coder-alpha",
+      "low",
+      "2026-11-24",
+      "C",
+      "A separate implementation fault.",
+    ],
+    [
+      "coder-beta",
+      "xhigh",
+      "2026-11-27",
+      "B",
+      "A later fault on the same coder.",
+    ],
+  ] as const)
+    writeDisprovedFinding(path, {
+      date,
+      coder: { model, effort },
+      tier,
+      reason,
+    })
+  const evidence = await readModelEvidence(f.runtime)
+  assert.equal(evidence.auditors.size, 1)
+  assert.equal(evidence.coders.size, 0)
+  assert.deepEqual(evidence.vetPairs, [])
+  const report = await modelsReport(f.runtime, testSettings)
+  assert.equal(
+    report.split("### Implementation findings\n\n")[1],
+    [
+      "| # | Date | Plan | Tier | Coder | Reason |",
+      "| ---: | --- | --- | --- | --- | --- |",
+      "| 2 | 2026-11-24 | example | C | coder-alpha low | A separate implementation fault. |",
+      "| 3 | 2026-11-27 | example | B | coder-beta xhigh | A later fault on the same coder. |",
+      "| 4 | 2026-11-26 | example | A | coder-beta xhigh | The audit stalled. |",
+      "",
+      "2. A separate implementation fault.",
+      "3. A later fault on the same coder.",
+      "4. The audit stalled. The saved response contains only whitespace after its first finding.",
+      "",
+    ].join("\n"),
+  )
+  const filtered = await readModelEvidence(
+    f.runtime,
+    new Date("2026-11-01T00:00:00Z"),
+  )
+  assert.deepEqual(filtered.disproved, [])
+})
+
+test("implementation findings count only against the named coder in admitted plans", async (t) => {
+  const f = await modelFixture(t)
+  const stem = "implemented"
+  await commit(
+    f.planRoot,
+    `${stem}/ready: ready`,
+    "Coder: codex coder-alpha low",
+    "2026-11-01T08:00:00Z",
+  )
+  await commit(
+    f.root,
+    `${stem}/impl-1 obl feat(audit-round): fixture step`,
+    "coder-alpha low\nImplementation took 10 min.",
+    "2026-11-01T09:00:00Z",
+  )
+  const audit = await commit(
+    f.root,
+    `${stem}/impl-audit-1 obl clean: whole-plan audit`,
+    "coder-alpha low",
+    "2026-11-01T10:00:00Z",
+  )
+  await commit(
+    f.planRoot,
+    `${stem}/closed obl: close the plan`,
+    "coder-alpha low",
+    "2026-11-01T11:00:00Z",
+  )
+  const archive = await archivePlan(f.planRoot, stem, ["repo-edu"])
+  const path = join(archive, `${stem}-impl-rounds.json`)
+  writeRoundData(path, {
+    ...round(
+      `${stem}-impl-audit-01..01`,
+      1,
+      "2026-11-01T10:00:00Z",
+      {
+        assistant: "claude",
+        ...selection("audit-alpha"),
+        chosenBy: "settings",
+      },
+      settings,
+      [phase("audit", "claude", "audit-alpha", 60_000)],
+      [{ repository: "repo-edu", sha: audit }],
+      [],
+    ),
+    scope: "1",
+    judgedRepos: ["repo-edu"],
+  })
+  for (const [model, effort, tier] of [
+    ["coder-alpha", "low", "A"],
+    ["coder-alpha", "low", "C"],
+    ["coder-alpha", "low", "D"],
+    ["coder-alpha", "high", "A"],
+    ["coder-beta", "low", "A"],
+  ] as const)
+    writeDisprovedFinding(path, {
+      date: "2026-11-26",
+      coder: { model, effort },
+      tier,
+      reason: `${model} ${effort} ${tier} fault.`,
+    })
+  writeDisprovedFinding(join(f.roundRoot, "other-impl-rounds.json"), {
+    date: "2026-11-26",
+    coder: { model: "coder-alpha", effort: "low" },
+    tier: "A",
+    reason: "Another plan failed.",
+  })
+  const identity = {
+    assistant: "codex" as const,
+    model: "coder-alpha",
+    effort: "low",
+  }
+  const evidence = await readModelEvidence(f.runtime)
+  assert.deepEqual(evidence.coders.get(modelKey(identity))?.samples, [
+    {
+      stem,
+      steps: 1,
+      kept: { "A/B": 1, C: 1 },
+      minutes: 10,
+    },
+  ])
+  const auditor = evidence.auditors.get(JSON.stringify(["audit-alpha", "low"]))
+  assert.equal(auditor?.samples[0]?.counts["A/B"].kept, 0)
+  const filtered = await readModelEvidence(
+    f.runtime,
+    new Date("2026-11-01T00:00:00Z"),
+  )
+  assert.deepEqual(filtered.coders.get(modelKey(identity))?.samples[0]?.kept, {
+    "A/B": 0,
+    C: 0,
+  })
+})
+
 test("restoring a unanimously accepted finding leaves the Wrong column empty", async (t) => {
   const f = await modelFixture(t)
   const audit = await commit(
@@ -2702,9 +2858,10 @@ test("one winning revision supplies the grade for auditor and coder counts and t
       ending,
     })
     const row = evidence.disproved[0]
-    assert.equal(row?.claim, "auditor")
+    assert.ok(row?.kind === "attached")
+    assert.equal(row.claim, "auditor")
     assert.deepEqual(
-      row?.right.map((party) => party.identity?.model),
+      row.right.map((party) => party.identity?.model),
       [revision === "atl" ? "vet-alpha" : "vet-beta"],
     )
   }
