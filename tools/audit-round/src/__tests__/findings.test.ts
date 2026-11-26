@@ -98,10 +98,7 @@ test("a leading finding token carries the audit report finding number", () => {
 
 test("the round grammar's area tokens use current area IDs", () => {
   const areaKinds = new Map(areaModel.areas.map((area) => [area.id, area.kind]))
-  const examples = roundGrammarExamples().filter(
-    (example) =>
-      example.id.startsWith("report/") || example.id.startsWith("record/"),
-  )
+  const examples = roundGrammarExamples("record/")
   for (const example of examples) {
     for (const match of example.source.matchAll(/\[(area|cover):([^\]]+)\]/g)) {
       const [, token, id] = match

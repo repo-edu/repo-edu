@@ -13,20 +13,11 @@ const grammar = fileURLToPath(
 )
 
 const formPrefixes = [
-  "report/",
-  "vet/",
-  "rebuttal/",
-  "ruler/",
   "record/",
   "plan-step/",
   "audit-ranges/",
-  "phase-result/",
-  "watch-grade/",
-  "settling/",
-  "judge/",
   "watch/",
   "move-list/",
-  "pick/",
   "split-result/",
 ] as const
 
