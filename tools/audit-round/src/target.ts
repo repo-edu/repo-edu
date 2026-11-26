@@ -195,7 +195,7 @@ export function planStem(plan: string): string {
   ).replace(/-widen$/, "")
 }
 
-/** The target as an audit report's opening repeats it, so the parser holds the audit report to its round. */
+/** The target the runner writes in the audit report's opening. */
 export function reportTarget(target: AuditTarget): string {
   if ("groups" in target)
     return target.groups.flatMap((group) => group.references).join(" ")

@@ -123,11 +123,11 @@ for (const auditor of ["codex", "claude"] as const) {
       ),
       1,
     )
-    const { log } = await f.records()
-    assert.match(
-      log,
-      /\[audit\] failed: Premise conflict\. The premise needs a decision\./,
-    )
+    const { log, markdown } = await f.records()
+    const failure =
+      /\[audit\] failed: Premise conflict\. The premise needs a decision\./
+    assert.match(log, failure)
+    assert.match(markdown, failure)
     assert.doesNotMatch(log, /\[(?:vet|rebut|fix|rule|watch)\] starting/)
     assert.match(log, /^Session: audit-session$/m)
     assert.equal(

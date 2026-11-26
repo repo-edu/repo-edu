@@ -1034,12 +1034,18 @@ export class RoundOutput<R extends Run = Run> {
     }
     if (result.status === "finished") this.say(`${this.run.name} finished.`)
     else {
-      const outcome =
+      const failure =
         result.status === "failed"
-          ? `\n[${result.phase}] failed: ${result.reason}\nSession: ${result.sessionId ?? "unavailable"}`
-          : `Stopped without a ruling. The round files are retained.\nSession: ${result.sessionId ?? "unavailable"}`
+          ? `\n[${result.phase}] failed: ${result.reason}`
+          : null
+      if (failure !== null) this.transcribe(`${failure}\n`)
+      const outcome =
+        failure ?? "Stopped without a ruling. The round files are retained."
+      const session = `Session: ${result.sessionId ?? "unavailable"}`
       const recovery = this.recoveryText(result)
-      this.say(recovery === null ? outcome : `${outcome}\n${recovery}`)
+      this.say(
+        [outcome, session, recovery].filter((line) => line !== null).join("\n"),
+      )
     }
     // The closing rule pairs with the opening one, so the chain's messages
     // between rounds sit outside both boxes.

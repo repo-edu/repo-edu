@@ -753,8 +753,7 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
     0,
     `${f.errors.join("\n")}\n${f.visible.join("\n")}`,
   )
-  // The kept audit report still reads as valid against the target it judged,
-  // so only the fix runs.
+  // The saved audit result and its report are still present, so only the fix runs.
   assert.deepEqual(
     (await f.prompts())
       .slice(priorPrompts)

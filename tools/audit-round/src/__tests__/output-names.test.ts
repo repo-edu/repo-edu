@@ -484,7 +484,7 @@ test("a continued round keeps the stored round's start in its round data", async
   )
 })
 
-test("a stopped round without a valid kept audit report leaves the call a new round", async (t) => {
+test("a stopped round needs both the saved audit result and its report to continue", async (t) => {
   const f = await fixture(t)
   const setup = { ...testSetup(f.root), plan: "example.md", scope: "1" }
   await stoppedRound(setup, null)
