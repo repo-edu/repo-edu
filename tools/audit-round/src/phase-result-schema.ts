@@ -2,7 +2,6 @@ import { z } from "zod"
 import { watchGradeSchema } from "./glance.js"
 import type {
   FinishedReport,
-  Phase,
   PhaseControlResult,
   PhaseFailure,
   PhaseInput,
@@ -34,12 +33,6 @@ const schemas = {
 }
 
 type StructuredPhase = keyof typeof schemas
-
-export function closingNote(phase: Phase, value: unknown): string | undefined {
-  if (phase !== "fix" && phase !== "implement" && phase !== "close") return
-  const answer = schemas[phase].safeParse(value)
-  return answer.success ? answer.data.closingNote : undefined
-}
 
 export function structuredPhaseResult(
   phase: StructuredPhase,
@@ -81,6 +74,7 @@ type AdmittedResult = PhaseResult | Omit<WatchResult, "compactions">
 type ResultContract = {
   readonly file?: string
   readonly schema: string
+  readonly recognise: (value: unknown) => { readonly note?: string } | null
   readonly read: (
     sessionId: string,
     value: unknown,
@@ -93,8 +87,18 @@ type ResultContract = {
 type ReportDetails<T extends FinishedReport = FinishedReport> =
   T extends FinishedReport ? Omit<T, "status" | "sessionId"> : never
 
-function jsonSchema(definition: z.ZodType): string {
-  return JSON.stringify(z.toJSONSchema(definition, { target: "draft-7" }))
+function resultShape<Shape>(
+  definition: z.ZodType<Shape>,
+  closingNote?: (answer: Shape) => string,
+): Pick<ResultContract, "schema" | "recognise"> {
+  return {
+    schema: JSON.stringify(z.toJSONSchema(definition, { target: "draft-7" })),
+    recognise(value) {
+      const answer = definition.safeParse(value)
+      if (!answer.success) return null
+      return closingNote === undefined ? {} : { note: closingNote(answer.data) }
+    },
+  }
 }
 
 const documentEnding = { status: completedStatus, reason }
@@ -132,7 +136,7 @@ function reportContract<Payload>(
   })
   return {
     file,
-    schema: jsonSchema(definition),
+    ...resultShape(definition),
     read(sessionId, value) {
       const answer = definition.parse(value)
       const admitted = documentResult(
@@ -165,7 +169,7 @@ function documentContract<Payload>(
     result: payload.nullable().describe("The completed phase's fields"),
   })
   return {
-    schema: jsonSchema(definition),
+    ...resultShape(definition),
     read(sessionId, value) {
       const answer = definition.parse(value)
       const admitted = documentResult(
@@ -239,7 +243,7 @@ export function phaseResultContract(input: PhaseInput): ResultContract {
     case "implement":
     case "close":
       return {
-        schema: jsonSchema(schemas[input.phase]),
+        ...resultShape(schemas[input.phase], (answer) => answer.closingNote),
         read: (sessionId, value) =>
           structuredPhaseResult(input.phase, sessionId, value),
       }

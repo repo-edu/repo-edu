@@ -122,6 +122,8 @@ send a JSON Schema and validate the result. Claude takes it through `--json-sche
 it through `--output-schema`, which points at a file that lives until the invocation ends. On
 resume both programs receive the schema again. Claude supplies `structured_output` in its last
 turn's result. Codex supplies JSON in its last message. A missing or invalid object fails the phase.
+Codex can also send a message that fits the schema before its last message. The runner logs that
+object. The terminal still shows ordinary commentary and any closing note carried by the message.
 
 **Saving.** After the process ends with at least one turn, the invocation saves audit, vet,
 rebuttal and ruler reports from the checked result. A failed write fails the phase before

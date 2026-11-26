@@ -206,12 +206,30 @@ test("a due glance admits and publishes the returned watch without round session
   assert.match(f.visible.join("\n"), /Audit round finished\./)
 })
 
-test("a compacted watch publishes neither its document nor cadence record", async (t) => {
+test("a compacted watch logs its draft and publishes no watch document or cadence record", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
   await f.steps(3)
   const watchPhase = f.phases.watch as {
+    assistants: { codex: { stream: string } }
     usage: { path: string; text: string }
   }
+  const progress = "The watch is checking the evidence."
+  const draft = {
+    status: "finished",
+    reason: null,
+    result: { document: "Draft watch text.", grade: "green" },
+  }
+  const [opening, ...events] = watchPhase.assistants.codex.stream
+    .replace("The session is working.", progress)
+    .split("\n")
+  watchPhase.assistants.codex.stream = [
+    opening,
+    JSON.stringify({
+      type: "item.completed",
+      item: { type: "agent_message", id: "draft", text: JSON.stringify(draft) },
+    }),
+    ...events,
+  ].join("\n")
   watchPhase.usage.text = await recorded("codex-compacted.jsonl")
   await f.configure({ phases: f.phases })
   const before = await readFile(join(f.options.cacheRoot, "watch.json"), "utf8")
@@ -235,8 +253,11 @@ test("a compacted watch publishes neither its document nor cadence record", asyn
     await readFile(join(f.options.cacheRoot, "watch.json"), "utf8"),
     before,
   )
-  assert.doesNotMatch((await f.records()).markdown, /## Watch/)
-  assert.doesNotMatch(f.visible.join("\n"), /Complete watch text\./)
+  const { log, markdown } = await f.records()
+  assert.ok(log.includes(`[watch] result: ${JSON.stringify(draft)}`))
+  assert.doesNotMatch(markdown, /## Watch|Draft watch text\./)
+  assert.doesNotMatch(f.visible.join("\n"), /(?:Complete|Draft) watch text\./)
+  assert.ok(f.visible.includes(progress))
 })
 
 for (const target of ["implementation", "planning", "commits"] as const) {

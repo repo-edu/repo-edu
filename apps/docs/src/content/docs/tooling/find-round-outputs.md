@@ -41,8 +41,8 @@ settle and reopen markers, the handoff and the queue carry no tag.
 | --- | --- |
 | `-0-claim.md` | Empty reservation for the round number |
 | `-0-settle.md`, `-0-reopen.md` | Empty marker files showing where the plan's shape closed or reopened among its rounds |
-| `-1-round.<tag>.md` | Complete audit, vet, rebuttal, ruler and fix conversation, including ruling replies |
-| `-1-round.<tag>.log` | Tool calls and phase prompts, with supplied instruction contents omitted |
+| `-1-round.<tag>.md` | Complete audit, vet, rebuttal, ruler and fix conversation, including ruling replies. A saved watch document appears under `## Watch`. |
+| `-1-round.<tag>.log` | Tool calls, phase results as JSON and prompts with supplied instruction contents omitted |
 | `-2-audit.<tag>.md` | Audit report and its target, judged repositories and audited heads |
 | `-3-vet.<tag>.md` | Vet report: one vetter's verdicts on every finding; a round keeps one per vetter of its panel |
 | `-4-rebut.<tag>.md` | Rebuttal report: the rebuttal's answers to each vetter's revisions, drops and referrals, each naming its vetter |
@@ -74,9 +74,9 @@ Each implementation worker writes its files in the same folder.
 <stem>-impl-<step>-implement-ruling.<tag>.md
 ```
 
-Open the transcript for the worker's commentary and final summary. Open the log for prompts and
-tool calls. A recovery appends to both files. The ruling file holds the worker's question when it
-needs your decision.
+Open the transcript for the worker's commentary and final summary. Open the log for prompts,
+tool calls and the result as JSON. A recovery appends to both files. The ruling file holds the
+worker's question when it needs your decision.
 
 ## What remains
 

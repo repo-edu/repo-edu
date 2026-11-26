@@ -11,34 +11,34 @@ const area = z
   .regex(areaPattern)
   .describe("The source's primary area ID")
 
-export const designSchema = z.union([
-  z.strictObject({
-    area,
-    kind: z.literal("moves"),
-    moves: z
-      .array(
-        z.strictObject({
-          target: z
-            .string()
-            .regex(pathPattern)
-            .describe("The target path relative to Repo Edu"),
-          responsibility: sentence.describe("The target's responsibility"),
-          ranges: z
-            .array(z.strictObject({ start: line, end: line }))
-            .min(1)
-            .describe("The inclusive line ranges in the original source"),
-        }),
-      )
-      .min(1)
-      .describe("The moves in execution order"),
-  }),
-  z.strictObject({
-    area,
-    kind: z.literal("no-split"),
-    result: z.enum(listResults),
-    reason: sentence.describe("Why the file should stay whole or needs a plan"),
-  }),
-])
+const movesSchema = z.strictObject({
+  area,
+  kind: z.literal("moves"),
+  moves: z
+    .array(
+      z.strictObject({
+        target: z
+          .string()
+          .regex(pathPattern)
+          .describe("The target path relative to Repo Edu"),
+        responsibility: sentence.describe("The target's responsibility"),
+        ranges: z
+          .array(z.strictObject({ start: line, end: line }))
+          .min(1)
+          .describe("The inclusive line ranges in the original source"),
+      }),
+    )
+    .min(1)
+    .describe("The moves in execution order"),
+})
+const noSplitSchema = z.strictObject({
+  area,
+  kind: z.literal("no-split"),
+  result: z.enum(listResults),
+  reason: sentence.describe("Why the file should stay whole or needs a plan"),
+})
+
+export const designSchema = z.union([movesSchema, noSplitSchema])
 
 export type DesignAnswer = z.infer<typeof designSchema>
 
@@ -50,7 +50,10 @@ export type PickCandidate = {
 
 export function pickSchema(candidates: readonly PickCandidate[]) {
   const eligible = candidates.filter(({ refusal }) => refusal === null)
-  return z.strictObject({
+  const number = z
+    .literal(eligible.map(({ number }) => number))
+    .describe("The chosen answer number")
+  const details = {
     judgements: z
       .strictObject(
         Object.fromEntries(
@@ -58,20 +61,20 @@ export function pickSchema(candidates: readonly PickCandidate[]) {
         ),
       )
       .describe("The judgement on each supplied answer, by number"),
-    number: z
-      .literal(eligible.map(({ number }) => number))
-      .nullable()
-      .describe(
-        "The chosen answer number, or null for the picker's own no-split answer",
-      ),
     reason: z.string().trim().min(1).describe("The main reason for the choice"),
     repairs: z
       .array(z.string().trim().min(1))
       .describe("Each repair with the fact that requires it"),
-    replacement: designSchema
-      .nullable()
-      .describe("The repaired move list or the picker's own no-split answer"),
-  })
+  }
+  return z.union([
+    z.strictObject({ ...details, number, replacement: z.null() }),
+    z.strictObject({ ...details, number, replacement: movesSchema }),
+    z.strictObject({
+      ...details,
+      number: z.null(),
+      replacement: noSplitSchema,
+    }),
+  ])
 }
 
 export type PickAnswer = z.infer<ReturnType<typeof pickSchema>>

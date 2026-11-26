@@ -19,7 +19,7 @@ import type {
   PhaseResult,
   RoundDependencies,
 } from "./phase.js"
-import { closingNote, phaseResultContract } from "./phase-result-schema.js"
+import { phaseResultContract } from "./phase-result-schema.js"
 import {
   type AssistantPrompt,
   phasePrompt,
@@ -120,7 +120,11 @@ export async function runAssistantInvocation(
    * One CLI process on the session. A session is one or more turns and ends
    * with its process; the response is the last finished turn's text.
    */
-  const respond = async (text: string, schemaArgument: string) => {
+  const respond = async (
+    text: string,
+    schemaArgument: string,
+    contract: ReturnType<typeof phaseResultContract>,
+  ) => {
     let finalText: string | undefined
     let structuredOutput: unknown
     let turns = 0
@@ -145,11 +149,15 @@ export async function runAssistantInvocation(
               finalText !== undefined &&
               (nextMessage || toolStarted)
             ) {
-              const note = closingNote(
-                input.phase,
-                decodeCodexMessage(finalText),
-              )
-              await observe({ type: "text", text: note ?? finalText })
+              const value = decodeCodexMessage(finalText)
+              const result = contract.recognise(value)
+              if (result === null) {
+                await observe({ type: "text", text: finalText })
+              } else {
+                await observe({ type: "structured-result", value })
+                if (result.note !== undefined)
+                  await observe({ type: "text", text: result.note })
+              }
               finalText = undefined
             }
             if (event.type === "session") {
@@ -195,7 +203,7 @@ export async function runAssistantInvocation(
         await writeFile(schemaArgument, contract.schema, "utf8")
       }
       const read = async (message: string) => {
-        const ending = await respond(message, schemaArgument)
+        const ending = await respond(message, schemaArgument, contract)
         if (ending.structuredOutput === undefined)
           throw new Error("CLI ended without a structured phase result")
         await observe({

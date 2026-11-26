@@ -24,7 +24,11 @@ import {
 import { namedAnswer } from "../split-answers.js"
 import { type AttemptReply, attemptMoveList } from "../split-attempt.js"
 import type { SessionAnswer } from "../split-design.js"
-import type { DesignAnswer, PickAnswer } from "../split-result-schema.js"
+import {
+  type DesignAnswer,
+  type PickAnswer,
+  pickSchema,
+} from "../split-result-schema.js"
 import { pinned, runCommand, testSettings } from "./configured-runner.js"
 import {
   fixture as assistantFixture,
@@ -124,39 +128,63 @@ const clean: AttemptReply = {
   ],
 }
 
-function moveAnswer(responsibility = "Holds b."): DesignAnswer {
+function moveAnswer(responsibility = "Holds b.") {
   return {
     area: "pkg-demo",
-    kind: "moves",
+    kind: "moves" as const,
     moves: [{ target, responsibility, ranges: [{ start: 2, end: 2 }] }],
   }
 }
 
-function noSplitAnswer(result: "fine" | "needs-plan"): DesignAnswer {
+function noSplitAnswer(result: "fine" | "needs-plan") {
   return {
     area: "pkg-demo",
-    kind: "no-split",
+    kind: "no-split" as const,
     result,
     reason: "The file holds one responsibility.",
   }
 }
 
 function picked(
-  number: number | null,
-  replacement: DesignAnswer | null = null,
+  ...[number, replacement]:
+    | [number: number, replacement?: ReturnType<typeof moveAnswer>]
+    | [number: null, replacement: ReturnType<typeof noSplitAnswer>]
 ): PickAnswer {
-  return {
-    number,
+  const details = {
     reason: "The choice follows the source.",
     repairs: replacement?.kind === "moves" ? ["The target holds b."] : [],
     judgements: {},
-    replacement,
   }
+  return number === null
+    ? { ...details, number, replacement }
+    : { ...details, number, replacement: replacement ?? null }
 }
 
 function completed(result: DesignAnswer | PickAnswer) {
   return { status: "finished", reason: null, result }
 }
+
+test("the picker must choose an answer, repair its moves or supply a no-split answer", () => {
+  const schema = pickSchema([{ number: 1, path: source, refusal: null }])
+  const details = {
+    reason: "The file decides the choice.",
+    repairs: [],
+    judgements: { 1: "The answer fits." },
+  }
+  for (const [number, replacement, valid] of [
+    [1, null, true],
+    [1, moveAnswer(), true],
+    [null, noSplitAnswer("fine"), true],
+    [null, null, false],
+    [null, moveAnswer(), false],
+    [1, noSplitAnswer("fine"), false],
+  ] as const) {
+    assert.equal(
+      schema.safeParse({ ...details, number, replacement }).success,
+      valid,
+    )
+  }
+})
 
 function sessions(designs: DesignAnswer[], pick: PickAnswer = picked(1)) {
   return {

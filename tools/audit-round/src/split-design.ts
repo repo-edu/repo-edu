@@ -171,36 +171,26 @@ async function selectAnswer(
   { pick, writer }: Extract<SessionAnswer<"pick">, { status: "finished" }>,
 ) {
   const { number, replacement } = pick
-  const original = answers.find((a) => a.record.number === number)
-  if (
-    number !== null &&
-    (!original ||
-      candidates.some((c) => c.number === number && c.refusal !== null))
-  )
-    throw new Error(`The picker selected unavailable answer ${number}`)
-  if (
-    replacement !== null &&
-    (number === null
-      ? replacement.kind !== "no-split"
-      : original?.list.kind !== "moves" || replacement.kind !== "moves")
-  )
-    throw new Error(
-      "The replacement must repair the named move list or give the picker's own no-split answer",
+  const report = pickReport(candidates, pick)
+  if (number !== null) {
+    const original = answers.find((a) => a.record.number === number)
+    if (
+      !original ||
+      candidates.some((c) => c.number === number && c.refusal !== null)
     )
-  const selected =
-    replacement === null
-      ? original
-      : answer({ ...replacement, source, hash }, size, {
-          ...writer,
-          number: await nextSplitNumber(folder, splitLabel(source), "design"),
-          designer: null,
-          density: null,
-        })
-  if (!selected) throw new Error("The picker gave no answer")
-  return {
-    report: pickReport(candidates, pick),
-    number,
-    selected,
-    newAnswer: replacement !== null,
+      throw new Error(`The picker selected unavailable answer ${number}`)
+    if (replacement === null)
+      return { report, number, selected: original, newAnswer: false }
+    if (original.list.kind !== "moves")
+      throw new Error(
+        `The picker can only repair a move list (answer ${number})`,
+      )
   }
+  const selected = answer({ ...replacement, source, hash }, size, {
+    ...writer,
+    number: await nextSplitNumber(folder, splitLabel(source), "design"),
+    designer: null,
+    density: null,
+  })
+  return { report, number, selected, newAnswer: true }
 }
