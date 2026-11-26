@@ -82,6 +82,7 @@ export type PickAnswer = z.infer<ReturnType<typeof pickSchema>>
 export function pickReport(
   candidates: readonly PickCandidate[],
   pick: PickAnswer,
+  replacementNumber: number | null,
 ): string {
   const judgements = candidates.map(
     ({ number }) =>
@@ -90,10 +91,13 @@ export function pickReport(
   const repairs = pick.repairs.map(
     (repair, index) => `### Repair ${index + 1}\n\n${repair}`,
   )
-  return [
+  const sections = [
     ...judgements,
     `### Reason for the choice\n\n${pick.reason}`,
     ...repairs,
     `Pick: ${pick.number ?? "none"}`,
-  ].join("\n\n")
+  ]
+  if (replacementNumber !== null)
+    sections.push(`Replacement answer: ${replacementNumber}`)
+  return sections.join("\n\n")
 }

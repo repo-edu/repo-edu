@@ -137,13 +137,18 @@ export async function pickSplit(
     return invalidAnswer(pick.sessionId, error)
   }
   const reportNumber = await nextSplitNumber(folder, label, "pick")
-  await writeFile(
-    join(folder, pickFilename(label, reportNumber, pick.writer.tag)),
-    `${selection.report}\n`,
-  )
   if (selection.newAnswer)
     await saveAnswers(folder, label, [selection.selected])
-  showReport(selection.report)
+  const report = pickReport(
+    candidates,
+    pick.pick,
+    selection.newAnswer ? selection.selected.record.number : null,
+  )
+  await writeFile(
+    join(folder, pickFilename(label, reportNumber, pick.writer.tag)),
+    `${report}\n`,
+  )
+  showReport(report)
   if (selection.newAnswer) showReport(selection.selected.text)
   return {
     selected: selection.selected,
@@ -171,7 +176,6 @@ async function selectAnswer(
   { pick, writer }: Extract<SessionAnswer<"pick">, { status: "finished" }>,
 ) {
   const { number, replacement } = pick
-  const report = pickReport(candidates, pick)
   if (number !== null) {
     const original = answers.find((a) => a.record.number === number)
     if (
@@ -180,7 +184,7 @@ async function selectAnswer(
     )
       throw new Error(`The picker selected unavailable answer ${number}`)
     if (replacement === null)
-      return { report, number, selected: original, newAnswer: false }
+      return { number, selected: original, newAnswer: false }
     if (original.list.kind !== "moves")
       throw new Error(
         `The picker can only repair a move list (answer ${number})`,
@@ -192,5 +196,5 @@ async function selectAnswer(
     designer: null,
     density: null,
   })
-  return { report, number, selected, newAnswer: true }
+  return { number, selected, newAnswer: true }
 }

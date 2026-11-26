@@ -341,6 +341,13 @@ test("a repair takes the next answer number even when newer designs were not nam
     listText(f.hash, "Later design."),
   )
   assert.equal(await readFile(f.answer("03", "otx"), "utf8"), listText(f.hash))
+  assert.match(
+    await readFile(
+      join(f.context.roundRoot, `${label}-pick-01.otx.md`),
+      "utf8",
+    ),
+    /Pick: 1\n\nReplacement answer: 3\n$/,
+  )
 })
 
 test("unanimous no-split answers need no picker and choosing an earlier designer commits its exact number", async (t) => {
@@ -389,6 +396,13 @@ test("refused lists reach the picker with reasons and an all-refused pick needs 
   assert.equal(
     await readFile(f.answer("04", "otx"), "utf8"),
     noSplitText(f.hash, "needs-plan"),
+  )
+  assert.match(
+    await readFile(
+      join(f.context.roundRoot, `${label}-pick-01.otx.md`),
+      "utf8",
+    ),
+    /Pick: none\n\nReplacement answer: 4\n$/,
   )
 })
 

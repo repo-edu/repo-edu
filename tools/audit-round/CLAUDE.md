@@ -280,7 +280,8 @@ highest saved answer filename. Each `<label>-design-<n>.<tag>.md` has at least t
 answer from the picker takes the next number. An unchanged answer keeps its name and text.
 `<label>-pick-<n>.<tag>.md` holds a pick report. Its number is one higher than the
 highest saved report number for the source, or 1 for the first report.
-Report numbers and answer numbers count separately. Each report lists the answers it judged.
+Report numbers and answer numbers count separately. Each report lists the answers it judged and
+gives the number of any new answer from the picker.
 `<label>-designs.json` records each writer and each designer's position and density. The runner
 replaces this record by rename so an interrupted write preserves earlier entries. The plan list
 keeps the selected number as `splits/<source stem>.<n>.mv.md`.
