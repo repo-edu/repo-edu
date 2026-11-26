@@ -136,6 +136,22 @@ export async function runAssistantInvocation(
           const value: unknown = JSON.parse(line)
           const events = decode(value)
           for (const event of events) {
+            const nextMessage = event.type === "final"
+            const toolStarted =
+              event.type === "tool" && event.stage === "started"
+            // A newer message or a tool start shows the held message was progress.
+            if (
+              codex &&
+              finalText !== undefined &&
+              (nextMessage || toolStarted)
+            ) {
+              const note = closingNote(
+                input.phase,
+                decodeCodexMessage(finalText),
+              )
+              await observe({ type: "text", text: note ?? finalText })
+              finalText = undefined
+            }
             if (event.type === "session") {
               if (sessionId !== null && event.sessionId !== sessionId)
                 throw new Error("CLI reported a different session")
@@ -144,15 +160,6 @@ export async function runAssistantInvocation(
             if (event.type === "complete") {
               turns += 1
             } else if (event.type === "final") {
-              // Codex's newest message may be the result. Display it as
-              // commentary only when another message takes its place.
-              if (codex && finalText !== undefined) {
-                const note = closingNote(
-                  input.phase,
-                  decodeCodexMessage(finalText),
-                )
-                await observe({ type: "text", text: note ?? finalText })
-              }
               finalText = event.text
               structuredOutput = event.structuredOutput
             } else if (!codex || event.type !== "text") {

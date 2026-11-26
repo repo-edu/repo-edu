@@ -538,6 +538,21 @@ for (const assistant of ["claude", "codex"] as const) {
     assert.doesNotMatch(logged, /fix workflow\n/)
     const [call] = await f.calls()
     if (assistant === "codex") {
+      assert.deepEqual(
+        f.feedback
+          .filter(
+            (event) =>
+              event.type === "text" ||
+              (event.type === "tool" && event.stage === "started"),
+          )
+          .map((event) => (event.type === "text" ? event.text : event.type)),
+        [
+          "I’m running the two probe commands in the requested order. The second failure will be left as the intended result.",
+          "tool",
+          "tool",
+          finishedFix.closingNote,
+        ],
+      )
       assert.deepEqual(call.args, [
         "exec",
         "--approve-for-me",
