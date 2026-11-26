@@ -53,7 +53,7 @@ const deferredRepoEdu = z.strictObject({
 const deferredPlan = z.strictObject({
   kind: z.literal("deferred"),
   repository: z.literal("plan"),
-  plan: z.string().regex(/^(?=[^\]\r\n]*\S)[^\]\r\n]+$/),
+  plan: z.string().regex(/^[^\]\r\n]*[^\s\]][^\]\r\n]*$/),
 })
 
 function locationSchema(scope: AuditScope) {
@@ -66,7 +66,12 @@ function locationSchema(scope: AuditScope) {
 
 export function auditSchema(scope: AuditScope) {
   const fields = {
-    title: z.string().regex(/^(?!.*: )\S[^\r\n]*$/),
+    title: oneLine
+      .refine(
+        (title) => !title.includes(": "),
+        "Omit colon followed by a space",
+      )
+      .describe("A one-line finding title without a colon followed by a space"),
     tier: findingTier,
     location: locationSchema(scope),
     growthPattern: growthPatternSchema,

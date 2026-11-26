@@ -1,8 +1,11 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
+import { phaseResultContract } from "../phase-result-schema.js"
 import { type AuditScope, auditReport, auditSchema } from "../report.js"
 import { rulerReport, rulerSchema, unopenedSources } from "../ruler-report.js"
 import { rebuttalReport, rebuttalSchema, vetReport, vetSchema } from "../vet.js"
+import { pinned } from "./configured-runner.js"
+import { testContext } from "./helpers.js"
 
 const finding = {
   title: "Keep the record",
@@ -99,6 +102,51 @@ test("the implementation audit schema admits only locations allowed by the judge
       expected,
     )
   }
+})
+
+test("the exported audit contracts omit lookaheads and still check finding text", () => {
+  const repoOnly: AuditScope = {
+    target: "example.md 2",
+    planPhase: null,
+    heads: [{ repository: "repo-edu", head: "def12345" }],
+  }
+  for (const reportScope of [planning, repoOnly]) {
+    const contract = phaseResultContract({
+      ...testContext(
+        "/repo-edu",
+        reportScope.planPhase === null ? "implementation" : "planning",
+      ),
+      assistant: "codex",
+      model: pinned("codex"),
+      phase: "audit",
+      arguments: ["audit.md", reportScope.target],
+      reportScope,
+      sessionId: null,
+    })
+    JSON.parse(contract.schema, (key, value: unknown) => {
+      if (key === "pattern" && typeof value === "string")
+        assert.doesNotMatch(value, /^\^\(\?[=!]/)
+      return value
+    })
+  }
+
+  const schema = auditSchema(repoOnly)
+  const accepts = (title: string, plan: string) =>
+    schema.safeParse({
+      opening: "",
+      findings: [
+        {
+          ...finding,
+          title,
+          location: { kind: "deferred", repository: "plan", plan },
+        },
+      ],
+      settling: null,
+    }).success
+  assert.ok(accepts("Review area:tool-audit-round", " example.md#decisions "))
+  assert.ok(!accepts("Review area: tool-audit-round", "example.md"))
+  for (const plan of ["", " \t", "example].md", "example\n.md"])
+    assert.ok(!accepts(finding.title, plan))
 })
 
 test("vet and rebuttal use the runner's finding identities and panel", () => {
