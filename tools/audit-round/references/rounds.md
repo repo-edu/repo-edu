@@ -1,6 +1,6 @@
 # Rounds
 
-This file describes one round: its phase sequence, the readers of its reports, the winner rule and a
+This file describes one round: its phase sequence, its report results, the winner rule and a
 ruling's wait. Read [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the
 runner's [CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names
 the source files this file describes. It follows the runner documentation's
@@ -10,18 +10,17 @@ the source files this file describes. It follows the runner documentation's
 
 `round.ts` is the coordinator of one round. It runs a fixed sequence of phases: audit, vet,
 rebuttal, ruler and fix, and asks the user's questions before the fix. Each phase starts a fresh
-session. The coordinator retains the audit
-result and the audit report as local values. A round that continues a stopped one skips phases
+session. A round that continues a stopped one skips phases
 under [Stopped rounds](../CLAUDE.md#stopped-rounds).
 
 1. **Audit.** The runner names every input and output path of the round before the audit starts:
    the audit report, the vet reports, the rebuttal report, the ruler report, the ruling and the
-   watch. The coordinator reads the saved audit report through `report.ts` to decide whether it is
-   clean. A clean audit ends the round under [Clean audits](#clean-audits).
+   watch. The coordinator checks the audit result's finding list. An empty list ends the round
+   under [Clean audits](#clean-audits).
 2. **Vet.** The vetters of the target work class's panel run side by side, each on the audit report
    alone. The round waits for every vetter. A failed vet fails the round, and the finished vetters'
-   vet reports stay. The coordinator reads each vet report through `vet.ts` and decides from its
-   verdict lines whether every finding was accepted.
+   vet reports stay. The coordinator checks the vet results to see whether every vetter accepted
+   every finding.
 3. **Rebuttal.** One rebuttal answers every vetter of the panel. It starts as a new session on the
    audit's resolved model and effort, including `--auditor` or `--first` fields, because it answers
    for the audit report. Its workflow grounds answers in current sources. Only Accept verdicts skip
@@ -106,8 +105,9 @@ order and includes the audit's tier. Each rebuttal finding follows panel order.
 ### Ruler report
 
 The ruler schema names each finding the ruler judges and the panel tags
-available as winners. A source is an absolute path or the first six characters
-of a commit ID. The runner checks these names against actual tool calls and the
+available as winners. A point may have no opened sources. Each finding must name at least one
+opened source across its points. A source is an absolute path or the first six characters of a
+commit ID. The runner checks these names against actual tool calls and the
 files supplied whole in the prompt. It leaves out the call that returns the
 result because that call repeats the names. It asks the same session once to open any
 missing sources and obtain a new result. A second miss fails the phase.

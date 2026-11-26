@@ -143,8 +143,7 @@ test("the exported audit contracts omit lookaheads and still check finding text"
       ],
       settling: null,
     }).success
-  assert.ok(accepts("Review area:tool-audit-round", " example.md#decisions "))
-  assert.ok(!accepts("Review area: tool-audit-round", "example.md"))
+  assert.ok(accepts("Review area: tool-audit-round", " example.md#decisions "))
   for (const plan of ["", " \t", "example].md", "example\n.md"])
     assert.ok(!accepts(finding.title, plan))
 })
@@ -198,6 +197,11 @@ test("the ruler writes each named source and checks it against tool calls", () =
         ],
         record: "The decision covers the case.",
       },
+      {
+        question: "Did the case occur before?",
+        sources: [],
+        record: "Unchecked: the review names no earlier round.",
+      },
     ],
     winner: ["obx"],
     reason: "The decision holds.",
@@ -210,6 +214,10 @@ test("the ruler writes each named source and checks it against tool calls", () =
   assert.match(
     text,
     /- Opened: `\/repo\/plan\.md`, Decision 1\n- Opened: `abc123`\./,
+  )
+  assert.match(
+    text,
+    /Point 2: Did the case occur before\?\n\nUnchecked: the review names no earlier round\./,
   )
   assert.match(
     text,
@@ -228,5 +236,14 @@ test("the ruler writes each named source and checks it against tool calls", () =
       headDrift: "",
       findings: { 2: { ...answer, winner: ["abx"] } },
     }),
+  )
+  const given = [...findings, { number: 3, tier: "C" as const }]
+  const incomplete = rulerSchema(given, ["obx"]).parse({
+    headDrift: "",
+    findings: { 2: answer, 3: { ...answer, points: answer.points.slice(1) } },
+  })
+  assert.throws(
+    () => rulerReport(given, incomplete),
+    /Ruler finding 3 names no opened source/,
   )
 })

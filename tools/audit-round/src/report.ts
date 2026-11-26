@@ -66,12 +66,7 @@ function locationSchema(scope: AuditScope) {
 
 export function auditSchema(scope: AuditScope) {
   const fields = {
-    title: oneLine
-      .refine(
-        (title) => !title.includes(": "),
-        "Omit colon followed by a space",
-      )
-      .describe("A one-line finding title without a colon followed by a space"),
+    title: oneLine.describe("The finding's title"),
     tier: findingTier,
     location: locationSchema(scope),
     growthPattern: growthPatternSchema,

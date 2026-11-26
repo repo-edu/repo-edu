@@ -23,7 +23,7 @@ const source = z.strictObject({
 
 const point = z.strictObject({
   question: oneLine.describe("The disputed point"),
-  sources: z.array(source).min(1),
+  sources: z.array(source).describe("The sources opened for this point"),
   record: z.string().describe("The evidence record for this point in Markdown"),
 })
 
@@ -57,6 +57,11 @@ export function rulerReport(
   const entries = given.map(({ number, tier }) => {
     const { points, winner, reason, openChoice } =
       answer.findings[String(number)]
+    const openedSources = points.flatMap(({ sources }) =>
+      sources.map(({ source }) => source),
+    )
+    if (openedSources.length === 0)
+      throw new Error(`Ruler finding ${number} names no opened source`)
     const evidence = points.map(({ question, sources, record }, index) =>
       [
         `Point ${index + 1}: ${question}`,
@@ -69,9 +74,7 @@ export function rulerReport(
     )
     return {
       winner: { number, tier, winner, reason, choice: openChoice },
-      sources: points.flatMap(({ sources }) =>
-        sources.map(({ source }) => source),
-      ),
+      sources: openedSources,
       text: [
         `### ${number}. [${tier}]`,
         ...evidence,
