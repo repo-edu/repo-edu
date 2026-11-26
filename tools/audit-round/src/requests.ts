@@ -194,8 +194,8 @@ export function phasePrompt(input: PhaseInput): AssistantPrompt {
 
 /**
  * Sends a ruler back once to open the sources its report named without
- * opening them, and to return the whole report again, because the runner reads
- * only the last turn's text.
+ * opening them. It asks for the complete result again because the runner uses
+ * only the last turn's structured result.
  */
 export function rulerSourceRequest(
   input: PhaseInput,

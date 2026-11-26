@@ -45,10 +45,9 @@ const commitGroup = z.strictObject({
   startingHead: z.string().regex(/^[0-9a-f]{6,40}$/i),
 })
 /**
- * A group the round audited also keeps its references as the round carried
- * them, because its audit report's `Target:` line repeats them and a continued
- * round reads that report against them. Entries written before it was kept
- * carry none.
+ * A group the round audited keeps the references shown on the audit report's
+ * `Target:` line. A continued round restores its commits and references from
+ * the stored group. Older entries carry no references.
  */
 const auditedCommitGroup = commitGroup.extend({
   references: z.array(z.string().min(1)).min(1).optional(),
@@ -478,7 +477,7 @@ type RetainedCommitRoundData = {
 export type ModelTokenUsage = z.infer<typeof tokenUsage>
 export type LandedCommit = RoundData["commits"][number]
 
-/** One verdict line read from a vet report. */
+/** One verdict from a vet phase result. */
 export type FindingReview = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
@@ -486,7 +485,7 @@ export type FindingReview = {
   readonly revisedTier?: RoundFinding["tier"]
 }
 
-/** One answer line read from a rebuttal report, naming the vetter it answers. */
+/** One answer from a rebuttal phase result, naming the vetter it answers. */
 export type FindingRebuttal = {
   readonly number: number
   readonly tier: RoundFinding["tier"]
@@ -792,9 +791,9 @@ export function highestGrade(
   )
 }
 
-/** Attach each panel vetter's review while the audit report still owns finding identity. */
+/** Attach the current panel's verdicts and answers by finding number and vetter tag. */
 export function reviewedRoundFindings(
-  findings: readonly ReportFinding[],
+  findings: readonly (ReportFinding | RoundFinding)[],
   panel: readonly PanelVet[] = [],
   rebuttals: readonly FindingRebuttal[] = [],
 ): readonly RoundFinding[] {
@@ -807,27 +806,38 @@ export function reviewedRoundFindings(
         .map((rebuttal) => [rebuttal.number, rebuttal.answer]),
     ),
   }))
-  return findings.map((finding) => ({
-    ...finding,
-    reviews: readings.flatMap(({ vet, reviews, answers }) => {
-      const review = reviews.get(finding.number)
-      if (review === undefined) return []
-      return [
-        {
-          vet,
-          verdict: review.verdict,
-          ...(review.revisedTier === undefined
-            ? {}
-            : { revisedTier: review.revisedTier }),
-          answer: answers.get(finding.number) ?? null,
-        },
-      ]
-    }),
-    outcome: null,
-    finalTier: null,
-    finalReach: null,
-    finalRarity: null,
-  }))
+  return findings.map((finding) => {
+    // A stored winner is restored only after the reviews it judged are kept.
+    const { ruling: _ruling, ...base }: Omit<RoundFinding, "reviews"> =
+      "reviews" in finding
+        ? finding
+        : {
+            ...finding,
+            outcome: null,
+            finalTier: null,
+            finalReach: null,
+            finalRarity: null,
+          }
+    const { number } = base
+    if (number === null) return { ...base, reviews: [] }
+    return {
+      ...base,
+      reviews: readings.flatMap(({ vet, reviews, answers }) => {
+        const review = reviews.get(number)
+        if (review === undefined) return []
+        return [
+          {
+            vet,
+            verdict: review.verdict,
+            ...(review.revisedTier === undefined
+              ? {}
+              : { revisedTier: review.revisedTier }),
+            answer: answers.get(number) ?? null,
+          },
+        ]
+      }),
+    }
+  })
 }
 
 function recordLocation(

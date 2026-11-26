@@ -246,12 +246,9 @@ function chainedEntry(stored: RoundData): boolean {
 }
 
 /**
- * The stopped round a call continues, and the setup it continues on: the
- * target's newest round, when its entry says it stopped early, it is chained
- * exactly when the call is, and its kept audit report reads as valid against
- * the target that report judged. A round that stopped in its audit kept no
- * report, so the call opens a new round. Only the newest round counts, because
- * a round that a later one followed is never continued.
+ * Continue only the target's newest round. It must have stopped early, saved
+ * its audit result and kept the audit report file. The chained kind must
+ * match the call. For a planning round, the plan phase must match too.
  */
 async function continuedRound(
   call: RoundSetup,
@@ -288,11 +285,9 @@ async function continuedRound(
 }
 
 /**
- * Describe the round a call opens. When the target's newest round stopped
- * early and kept a valid audit report, the call continues that round under
- * its number and files, on the selections the stored entry fixes, and every
- * phase still to run takes the current settings. Otherwise it claims the next
- * number for a new round.
+ * Describe the round a call opens. A continued round keeps its number, files
+ * and the selections fixed by the stored entry. Each other phase takes the
+ * current settings. If no stopped round qualifies, claim the next number.
  */
 export async function roundRun(
   call: RoundSetup & { readonly implementationSeriesScope?: string },

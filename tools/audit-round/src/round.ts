@@ -36,6 +36,7 @@ import {
 } from "./phase.js"
 import type { AuditScope, FindingIdentity } from "./report.js"
 import {
+  type FindingRebuttal,
   findingSplit,
   highestGrade,
   type LandedCommit,
@@ -236,9 +237,9 @@ function rulingQuestions(account: RoundAccount): readonly RulingQuestion[] {
 
 /**
  * Record each admitted winner with who named it, and whether the user's
- * answer added a choice to it. The waiting run already checked that the
- * user's answer is complete, and the ruler report's reader that the ruler
- * answered every finding it was given.
+ * answer added a choice to it. The waiting run checks that the user's answer
+ * is complete. The ruler result schema requires an answer for each finding
+ * given to the ruler.
  */
 function recordWinners(
   account: RoundAccount,
@@ -317,9 +318,9 @@ export type RoundInput = RoundSetup & {
   readonly watch: WatchTarget | null
   /**
    * The stored round data entry of the stopped round this run continues,
-   * absent for a new round. It supplies what no kept report holds: the winners
-   * the user named, the commits the round landed and whether its fix or clean
-   * completion ended.
+   * absent for a new round. It supplies the saved findings, verdicts,
+   * rebuttal answers and winners. It also holds the landed commits and the
+   * outcome of the fix or clean completion.
    */
   readonly stored?: RoundData
 }
@@ -425,12 +426,10 @@ function storedAccount(stored: RoundData): RoundAccount {
 /** Restore winners once the reports and reviews they judged have been retained. */
 function restoreWinners(
   account: RoundAccount,
-  saved: RoundAccount,
+  saved: readonly RoundFinding[],
   namedBy: "ruler" | "user",
 ): RoundAccount {
-  const rulings = new Map(
-    saved.findings.map(({ number, ruling }) => [number, ruling]),
-  )
+  const rulings = new Map(saved.map(({ number, ruling }) => [number, ruling]))
   return {
     ...account,
     findings: account.findings.map((finding) => {
@@ -875,6 +874,16 @@ function storedVet(stored: RoundData, tag: string): PanelVet {
   }
 }
 
+function storedRebuttals(stored: RoundData): readonly FindingRebuttal[] {
+  return stored.findings.flatMap(({ number, tier, reviews }) =>
+    number === null
+      ? []
+      : reviews.flatMap(({ vet, answer }) =>
+          answer === null ? [] : [{ number, tier, vet, answer }],
+        ),
+  )
+}
+
 type Review = {
   readonly account: RoundAccount
   /** The vet, rebuttal and ruler reports the fix reads after the audit report. */
@@ -906,9 +915,11 @@ async function reviewRound(
   })
   const deferralScope: readonly DeferralScope[] =
     input.deferrals === undefined ? [] : [{ deferrals: input.deferrals }]
-  let audit: RoundAccount
   if (stored?.reports !== undefined) {
-    audit = storedAccount(stored)
+    account = {
+      ...storedAccount(stored),
+      findings: reviewedRoundFindings(stored.findings),
+    }
   } else {
     const audited = await reportPhase<"audit">(async () =>
       dependencies.runPhase.audit({
@@ -927,18 +938,14 @@ async function reviewRound(
     )
     if (audited.status === "failed")
       return stopped("audit", phases.audit, audited)
-    audit = {
+    account = {
       settling: audited.report.settling,
       judgedRepos: audited.report.judgedRepos,
       findings: reviewedRoundFindings(audited.report.findings),
     }
   }
-  const baseFindings = audit.findings.map(
-    ({ ruling: _ruling, ...finding }) => ({ ...finding, reviews: [] }),
-  )
   account = {
-    ...audit,
-    findings: baseFindings,
+    ...account,
     reports: { audit: true, vets: [], rebut: false, rule: false },
   }
   const findings = findingIdentities(account)
@@ -978,22 +985,7 @@ async function reviewRound(
   account = {
     ...account,
     reports: savedVets,
-    findings: baseFindings.map((finding) => ({
-      ...finding,
-      reviews: vets.flatMap(({ vet, reviews }) => {
-        const review = reviews.find(({ number }) => number === finding.number)
-        if (review === undefined) return []
-        const { verdict, revisedTier } = review
-        return [
-          {
-            vet,
-            verdict,
-            ...(revisedTier === undefined ? {} : { revisedTier }),
-            answer: null,
-          },
-        ]
-      }),
-    })),
+    findings: reviewedRoundFindings(account.findings, vets),
   }
   for (const { vet, result } of vetted)
     if ("status" in result && result.status === "failed")
@@ -1013,55 +1005,27 @@ async function reviewRound(
     stored?.reports?.rebut === true &&
     keptPanel &&
     (await dependencies.fileExists(rebut))
-  if (keptRebut) {
-    const reviews = new Map(
-      audit.findings.map((finding) => [finding.number, finding.reviews]),
-    )
-    account = {
-      ...account,
-      findings: account.findings.map((finding) => {
-        const saved = reviews.get(finding.number)
-        return {
-          ...finding,
-          reviews: finding.reviews.map((review) => ({
-            ...review,
-            answer:
-              saved?.find(({ vet }) => vet === review.vet)?.answer ?? null,
-          })),
-        }
-      }),
-    }
-  } else {
-    const rebutted = await reportPhase<"rebut">(() =>
-      dependencies.runPhase.rebut({
-        phase: "rebut",
-        ...phases.rebut,
-        ...context,
-        findings,
-        reviews: vets,
-        arguments: [report, ...twins, rebut],
-        sessionId: null,
-      }),
-    )
-    if (rebutted.status === "failed")
-      return stopped("rebut", phases.rebut, rebutted)
-    account = {
-      ...account,
-      findings: account.findings.map((finding) => ({
-        ...finding,
-        reviews: finding.reviews.map((review) => ({
-          ...review,
-          answer:
-            rebutted.answers.find(
-              ({ number, vet }) =>
-                number === finding.number && vet === review.vet,
-            )?.answer ?? null,
-        })),
-      })),
-    }
-  }
+  const rebutted = keptRebut
+    ? { answers: storedRebuttals(stored) }
+    : await reportPhase<"rebut">(() =>
+        dependencies.runPhase.rebut({
+          phase: "rebut",
+          ...phases.rebut,
+          ...context,
+          findings,
+          reviews: vets,
+          arguments: [report, ...twins, rebut],
+          sessionId: null,
+        }),
+      )
+  if ("status" in rebutted && rebutted.status === "failed")
+    return stopped("rebut", phases.rebut, rebutted)
   const savedRebut = { ...savedVets, rebut: true }
-  account = { ...account, reports: savedRebut }
+  account = {
+    ...account,
+    reports: savedRebut,
+    findings: reviewedRoundFindings(account.findings, vets, rebutted.answers),
+  }
   twins.push(rebut)
 
   const given = rulerFindings(account).map((number) => ({
@@ -1074,7 +1038,7 @@ async function reviewRound(
       stored?.reports?.rule === true &&
       (await dependencies.fileExists(ruler))
     if (keptRuler) {
-      account = restoreWinners(account, audit, "ruler")
+      account = restoreWinners(account, stored.findings, "ruler")
     } else {
       const ruled = await reportPhase<"rule">(() =>
         dependencies.runPhase.rule({
@@ -1110,7 +1074,9 @@ async function reviewRound(
     twins.push(ruler)
   }
   return {
-    account: keptRebut ? restoreWinners(account, audit, "user") : account,
+    account: keptRebut
+      ? restoreWinners(account, stored.findings, "user")
+      : account,
     twins,
   }
 }
@@ -1236,11 +1202,10 @@ async function concludeFixed(
 }
 
 /**
- * Run one round, new or continued, along one path: the audit, the vet, the
- * rebuttal and the ruler each run unless a kept report reads as valid, then a
- * fresh fix, then the watch and the series rules. A continued round whose
- * stored account carries its outcomes already ended its fix or clean
- * completion, so it goes on after them.
+ * Run one round, new or continued. Reuse report results when the stored
+ * entries, report files and inputs still match. Then start a fresh fix,
+ * followed by the watch and the series rules. A continued round with a
+ * recorded fix or clean completion resumes after that work.
  */
 export async function runRound(
   input: RoundInput,
