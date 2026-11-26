@@ -7,22 +7,36 @@ import type { ExecutionContext } from "./context.js"
 import { commitOnly, type LifecycleCommit } from "./lifecycle.js"
 import type { PhaseFailure } from "./phase.js"
 import { splitLabel } from "./round-paths.js"
-import { type Answer, type NamedAnswer, savedAnswer } from "./split-answers.js"
+import {
+  type Answer,
+  loadAnswers,
+  type NamedAnswer,
+  savedAnswer,
+} from "./split-answers.js"
 import type { AttemptFile, AttemptReply } from "./split-attempt.js"
 import {
   type Choice,
-  type DesignSessions,
   designSplit,
   type Moves,
+  pickSplit,
+  type SplitSessions,
   type TrialFailure,
 } from "./split-design.js"
 import type { SplitResult, SplitResultWord } from "./split-result.js"
 import { parseSubject } from "./subject.js"
 import { committedListPath, numberedListPath } from "./target.js"
 
-export type SplitRequest =
-  | { mode: "design" | "both"; source: string; sessions: DesignSessions }
+export type SplitCall =
+  | { mode: "design" | "both"; source: string }
+  | { mode: "pick"; source: string; numbers: readonly number[] }
   | { mode: "run"; named: NamedAnswer }
+export type SplitRequest =
+  | Extract<SplitCall, { mode: "run" }>
+  | (Exclude<SplitCall, { mode: "run" }> & { sessions: SplitSessions })
+type SplitOutcome =
+  | { status: "result"; result: SplitResult }
+  | { status: "answers-saved"; hash: string; answers: readonly Answer[] }
+  | (PhaseFailure & { pickNumbers?: readonly number[] })
 export type CheckFailure = { readonly command: string; readonly output: string }
 export type SplitDependencies = {
   attempt: (list: Moves) => Promise<AttemptReply>
@@ -210,7 +224,7 @@ export async function runSplit(
   context: ExecutionContext,
   request: SplitRequest,
   dependencies: SplitDependencies,
-): Promise<{ status: "result"; result: SplitResult } | PhaseFailure> {
+): Promise<SplitOutcome> {
   const { repoEduRoot, roundRoot } = context
   const source =
     request.mode === "run" ? request.named.list.source : request.source
@@ -218,21 +232,45 @@ export async function runSplit(
   const say = dependencies.message
   const snapshot = await sourceSnapshot(repoEduRoot, source)
   const hash = request.mode === "run" ? request.named.list.hash : snapshot.hash
-  const ended = (result: SplitResultWord, message: string) => ({
+  const ended = (
+    result: SplitResultWord,
+    message: string,
+    resultHash = hash,
+  ) => ({
     status: "result" as const,
-    result: { result, hash, message },
+    result: { result, hash: resultHash, message },
   })
-  const stale = () =>
-    ended("skipped", `${source} changed since the move list was designed.`)
+  const stale = (staleHash = hash) =>
+    ended(
+      "skipped",
+      `${source} changed since the move list was designed.`,
+      staleHash,
+    )
   let choice: Choice
   if (request.mode === "run") {
     if (snapshot.hash !== hash) return stale()
     choice = { selected: await savedAnswer(roundRoot, label, request.named) }
   } else {
-    const outcome = await designSplit(
+    const designed =
+      request.mode === "pick"
+        ? { answers: await loadAnswers(roundRoot, source, request.numbers) }
+        : await designSplit(
+            snapshot,
+            roundRoot,
+            request.sessions.designers,
+            dependencies.showReport,
+          )
+    if ("status" in designed) return designed
+    const { answers } = designed
+    if (request.mode === "design")
+      return { status: "answers-saved", hash, answers }
+    const outdated = answers.find(({ list }) => list.hash !== hash)
+    if (outdated) return stale(outdated.list.hash)
+    const outcome = await pickSplit(
       snapshot,
       roundRoot,
-      request.sessions,
+      answers,
+      request.sessions.pick,
       (answers) =>
         withSplitLock(repoEduRoot, async () => {
           const replies: (TrialFailure | null)[] = []
@@ -245,7 +283,11 @@ export async function runSplit(
         }),
       dependencies.showReport,
     )
-    if ("status" in outcome) return outcome
+    if ("status" in outcome)
+      return {
+        ...outcome,
+        pickNumbers: answers.map(({ record }) => record.number),
+      }
     if ("result" in outcome) return ended(outcome.result, outcome.message)
     choice = outcome
   }
@@ -275,7 +317,7 @@ export async function runSplit(
           return { ended: ended("skipped", commit) }
         await say(`Committed ${commit.sha}: ${commit.subject}`)
       }
-      if (request.mode === "design")
+      if (request.mode === "pick")
         return { ended: ended("designed", join(context.planRoot, listPath)) }
       const dirty = await uncommitted(
         repoEduRoot,

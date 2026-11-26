@@ -735,21 +735,21 @@ Result: skipped. Another run changed the file.
 ```text
 <split-result-line> ::= "SPLIT RESULT: "<split-result>
 <split-result>      ::= {"result":<result-word>,"hash":<hash-string>,"message":<message-string>}
-<result-word>       ::= "made" | "designed" | "fine" | "needs-plan" | "skipped" | "checks-failed"
+<result-word>       ::= "made" | "answers-saved" | "designed" | "fine" | "needs-plan" | "skipped" | "checks-failed"
 <hash-string>       ::= a JSON string containing a <blob-hash>
 <message-string>    ::= a JSON string containing non-whitespace text
 ```
 
-A split call ends with one split result line, which the `split` command prints
-last. The JSON object has exactly the three fields shown. The result word names
-one of the six results:
+A split call that finishes prints one split result line last. The JSON object
+has exactly the three fields shown.
 
 1. `made`: the split was made and committed.
-2. `designed`: the chosen move list was committed. The message names its path.
-3. `fine`: no split, because the file should stay whole.
-4. `needs-plan`: no split, because the file needs a plan.
-5. `skipped`: no split, because the call was skipped.
-6. `checks-failed`: no split, because the checks or the tests failed and the
+2. `answers-saved`: the designers' answers were saved. The message gives the pick command.
+3. `designed`: the chosen move list was committed. The message names its path.
+4. `fine`: no split, because the file should stay whole.
+5. `needs-plan`: no split, because the file needs a plan.
+6. `skipped`: no split, because the call was skipped.
+7. `checks-failed`: no split, because the checks or the tests failed and the
    files are back as they were.
 
 The hash names the content of the source file that the design session read.
@@ -770,6 +770,12 @@ SPLIT RESULT: {"result":"made","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad"
 SPLIT RESULT: {"result":"designed","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"/plan/splits/packages/domain/src/roster.01.mv.md"}
 ```
 
+#### `split-result/answers-saved` — parsed
+
+```text
+SPLIT RESULT: {"result":"answers-saved","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"pnpm audit-round split pick packages/domain/src/roster.ts 1 2"}
+```
+
 #### `split-result/checks-failed` — parsed
 
 ```text
@@ -778,7 +784,7 @@ SPLIT RESULT: {"result":"checks-failed","hash":"3b18e512dba79e4c8300dd08aeb37f8e
 
 #### `split-result/unknown-result` — refused
 
-Refusal: `Split result must be made, designed, fine, needs-plan, skipped or checks-failed`
+Refusal: `Expected made, answers-saved, designed, fine, needs-plan, skipped or checks-failed`
 
 ```text
 SPLIT RESULT: {"result":"split","hash":"3b18e512dba79e4c8300dd08aeb37f8e728b8dad","message":"The split was made."}

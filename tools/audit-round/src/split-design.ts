@@ -7,7 +7,7 @@ import type { Density } from "./settings.js"
 import {
   type Answer,
   answer,
-  nextDesignNumber,
+  nextSplitNumber,
   saveAnswers,
   type Writer,
 } from "./split-answers.js"
@@ -18,7 +18,7 @@ export type Moves = Extract<MoveList, { kind: "moves" }>
 export type SessionAnswer<P extends "design" | "pick"> =
   | PhaseFailure
   | (PhaseResult<P> & { readonly writer: Writer })
-export type DesignSessions = {
+export type SplitSessions = {
   designers: readonly {
     density: Density
     run: (hash: string) => Promise<SessionAnswer<"design">>
@@ -38,28 +38,24 @@ export type Choice = {
 }
 export type TrialFailure = Exclude<AttemptReply, { outcome: "clean" }>
 type Verdict = { result: "needs-plan" | "skipped"; message: string }
-type DesignOutcome = Choice | Verdict | PhaseFailure
 type SourceSnapshot = {
   readonly source: string
   readonly hash: string
   readonly size: number
 }
 
-/** Number in settings order, retain every finished answer and judge only after every designer ends. */
+/** Number in settings order and retain every answer that finished. */
 export async function designSplit(
   snapshot: SourceSnapshot,
   folder: string,
-  sessions: DesignSessions,
-  trials: (
-    answers: readonly Answer[],
-  ) => Promise<readonly (TrialFailure | null)[]>,
+  designers: SplitSessions["designers"],
   showReport: (text: string) => void,
-): Promise<DesignOutcome> {
+): Promise<{ answers: readonly Answer[] } | PhaseFailure> {
   const { source, hash, size } = snapshot
   const label = splitLabel(source)
-  const first = await nextDesignNumber(folder, label)
+  const first = await nextSplitNumber(folder, label, "design")
   const results = await Promise.allSettled(
-    sessions.designers.map(async (designer, index) => {
+    designers.map(async (designer, index) => {
       const number = first + index
       const outcome = await designer.run(hash)
       if (outcome.status === "failed") return outcome
@@ -89,7 +85,21 @@ export async function designSplit(
   }
   await saveAnswers(folder, label, answers)
   for (const { text } of answers) showReport(text)
-  if (failure) return failure
+  return failure ?? { answers }
+}
+
+export async function pickSplit(
+  snapshot: SourceSnapshot,
+  folder: string,
+  answers: readonly Answer[],
+  pickAnswer: SplitSessions["pick"],
+  trials: (
+    answers: readonly Answer[],
+  ) => Promise<readonly (TrialFailure | null)[]>,
+  showReport: (text: string) => void,
+): Promise<Choice | Verdict | PhaseFailure> {
+  const { source, hash } = snapshot
+  const label = splitLabel(source)
   const initial = answers[0]
   const list = initial.list
   if (
@@ -118,16 +128,17 @@ export async function designSplit(
         .map((c) => `Answer ${c.number}: ${c.refusal}`)
         .join("\n"),
     }
-  const pick = await sessions.pick(hash, candidates)
+  const pick = await pickAnswer(hash, candidates)
   if (pick.status === "failed") return pick
-  let selection: ReturnType<typeof selectAnswer>
+  let selection: Awaited<ReturnType<typeof selectAnswer>>
   try {
-    selection = selectAnswer(snapshot, answers, candidates, pick)
+    selection = await selectAnswer(snapshot, folder, answers, candidates, pick)
   } catch (error) {
     return invalidAnswer(pick.sessionId, error)
   }
+  const reportNumber = await nextSplitNumber(folder, label, "pick")
   await writeFile(
-    join(folder, pickFilename(label, first, pick.writer.tag)),
+    join(folder, pickFilename(label, reportNumber, pick.writer.tag)),
     `${selection.report}\n`,
   )
   if (selection.newAnswer)
@@ -152,8 +163,9 @@ function invalidAnswer(sessionId: string, error: unknown): PhaseFailure {
   }
 }
 
-function selectAnswer(
+async function selectAnswer(
   { source, hash, size }: SourceSnapshot,
+  folder: string,
   answers: readonly Answer[],
   candidates: PhaseInput<"pick">["arguments"][2],
   { pick, writer }: Extract<SessionAnswer<"pick">, { status: "finished" }>,
@@ -180,7 +192,7 @@ function selectAnswer(
       ? original
       : answer({ ...replacement, source, hash }, size, {
           ...writer,
-          number: answers[answers.length - 1].record.number + 1,
+          number: await nextSplitNumber(folder, splitLabel(source), "design"),
           designer: null,
           density: null,
         })

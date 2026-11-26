@@ -121,7 +121,13 @@ export function designFilename(
 }
 
 export function readDesignFilename(name: string) {
-  const match = /^(split-.+)-design-(\d{2,})\.([ao][btu][lmhx])\.md$/.exec(name)
+  return readSplitFilename(name, "design")
+}
+
+export function readSplitFilename(name: string, kind: "design" | "pick") {
+  const match = new RegExp(
+    `^(split-.+)-${kind}-(\\d{2,})\\.(${tagPattern})\\.md$`,
+  ).exec(name)
   return match === null
     ? null
     : { label: match[1], number: Number(match[2]), tag: match[3] }
@@ -133,10 +139,10 @@ export function designsFilename(label: string): string {
 
 export function pickFilename(
   label: string,
-  first: number,
+  number: number,
   tag: string,
 ): string {
-  return `${label}-pick-${answerNumber(first)}.${tag}.md`
+  return `${label}-pick-${answerNumber(number)}.${tag}.md`
 }
 
 /** The log one loop-close keeps. */
@@ -183,9 +189,7 @@ export function seriesFile(label: string, name: string): boolean {
       name === splitLogFilename(label) ||
       name === designsFilename(label) ||
       readDesignFilename(name)?.label === label ||
-      new RegExp(
-        `^${escapedPattern(label)}-pick-\\d{2,}\\.${tagPattern}\\.md$`,
-      ).test(name)
+      readSplitFilename(name, "pick")?.label === label
     )
   if (name === roundDataFilename(label, "series")) return true
   const prefix = escapedPattern(label)

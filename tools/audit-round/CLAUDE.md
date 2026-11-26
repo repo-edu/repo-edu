@@ -278,7 +278,9 @@ not among them, because the close archives it beside the plan.
 **Split answers.** Designers share one number sequence per source. The next number follows the
 highest saved answer filename. Each `<label>-design-<n>.<tag>.md` has at least two digits. A new
 answer from the picker takes the next number. An unchanged answer keeps its name and text.
-`<label>-pick-<first>.<tag>.md` holds the report for the call starting at that number.
+`<label>-pick-<n>.<tag>.md` holds a pick report. Its number is one higher than the
+highest saved report number for the source, or 1 for the first report.
+Report numbers and answer numbers count separately. Each report lists the answers it judged.
 `<label>-designs.json` records each writer and each designer's position and density. The runner
 replaces this record by rename so an interrupted write preserves earlier entries. The plan list
 keeps the selected number as `splits/<source stem>.<n>.mv.md`.
@@ -408,7 +410,7 @@ restore the working directory.
 `round-paths.ts` supplies each phase's absolute arguments in this order:
 
 - design: the source path relative to Repo Edu, its blob hash and this entry's density.
-- pick: the source path, the same hash and the answers in designer order. Each entry gives the
+- pick: the source path, the current hash and the answers in number order. Each entry gives the
   number, absolute answer path and any refusal.
 - audit: audit report output, then either a plan with an optional implementation
   scope and open-deferral object, a plan with an open-deferral object for a
@@ -824,6 +826,7 @@ pnpm audit-round close
 pnpm audit-round close example --aborted "The check cost more than it gave."
 pnpm audit-round split packages/domain/src/roster.ts
 pnpm audit-round split design packages/domain/src/roster.ts
+pnpm audit-round split pick packages/domain/src/roster.ts 1 2
 pnpm audit-round split run ../plan/splits/packages/domain/src/roster.01.mv.md
 pnpm audit-round split packages/domain/src/roster.ts -v
 pnpm audit-round run example
@@ -1018,21 +1021,24 @@ round-data commit from the close selection alone.
 
 ### split
 
-1. `split design <source>` runs independent design sessions, then a fresh picker when a choice
-   remains. Every call designs anew. It ends as `designed` with the committed path when the chosen
-   answer has moves.
-2. `split run <move list>` reads a numbered committed plan path from Git's HEAD or a designer's
+1. `split design <source>` runs the designers side by side and saves their answers in designer
+   order. The source path, hash and line count come from one snapshot. The call prints the answer
+   paths and the pick command, then ends as `answers-saved`.
+2. `split pick <source> <answer>...` compares the named saved answers in number order, including
+   answers from different design calls. It loads their writer records and skips if any answer's
+   hash differs from the current source. A pick with moves ends as `designed` and prints the command
+   to run the committed list.
+3. `split run <move list>` reads a numbered committed plan path from Git's HEAD or a designer's
    answer by its evidence path. It checks the source hash before acting. A designer's moves are
    published in a tag-free `choose` commit. A no-split answer returns its saved reason. The command
    starts no assistant and looks up no release.
-3. `split <source>` makes a new design and immediately carries out the selected moves.
+4. `split <source>` designs, picks and immediately carries out the selected moves.
 
-The source path is relative to Repo Edu and belongs to a workspace package. All designers run side
-by side. The runner writes saved answers from the design results, with the source path, hash and
-line count from one snapshot. It writes the pick report and any replacement answer from the
-pick result. Every moves answer gets a trial in memory. The picker sees the tool's refusal on any
-ineligible list. Unanimous no-split results need no pick. If every answer is a refused list, the
-call ends as `needs-plan`.
+The source path is relative to Repo Edu and belongs to a workspace package. During the pick stage,
+the runner tries proposed moves in memory. The picker sees the tool's refusal on any ineligible
+list. Unanimous no-split results stand without a picker session. If every answer is a refused list,
+the call ends as `needs-plan`. The runner writes the pick report and any replacement answer from
+the pick result.
 
 The final attempt runs under the split lock. A clean result supplies every path and text to write. A
 picked or user-chosen list is copied from its saved answer and replaces the older numbered plan list
@@ -1049,7 +1055,9 @@ the picker and names the original answer and its designers.
 
 The final line follows the
 [split result grammar](../../.agents/references/round-grammar.md#split-result). A failed session
-prints its reason, session ID and rerun command. The next design runs every designer again.
+prints its reason, session ID and rerun command. A failed design reruns every designer. A failed
+picker reruns `split pick` with the same answer numbers, including when the picker ran inside a
+bare split.
 
 ### plan
 

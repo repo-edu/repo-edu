@@ -11,8 +11,8 @@ reads:
 # Choose a split design
 
 Apply the simple-words requirement throughout and skip its confirm-and-wait step. This fresh session
-chooses among answers written by other sessions. Read the source whole and every supplied answer in
-designer-list order. The phase arguments give the source path, its Git blob hash and the answers.
+chooses among the saved answers named for the pick. Read the source whole and every supplied answer
+in answer number order. The phase arguments give the source path, its Git blob hash and the answers.
 Each answer has a number, an absolute path and the tool's refusal message or null.
 
 ## Judge the answers

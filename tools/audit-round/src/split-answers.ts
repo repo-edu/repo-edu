@@ -9,6 +9,7 @@ import {
   designFilename,
   designsFilename,
   readDesignFilename,
+  readSplitFilename,
   seriesArchiveFolder,
   splitLabel,
 } from "./round-paths.js"
@@ -31,10 +32,14 @@ export function answer(list: MoveList, size: number, record: DesignRecord) {
   return { text: moveListText(list, size), list, record }
 }
 
-export async function nextDesignNumber(folder: string, label: string) {
+export async function nextSplitNumber(
+  folder: string,
+  label: string,
+  kind: "design" | "pick",
+) {
   let last = 0
   for (const name of await readdir(folder)) {
-    const saved = readDesignFilename(name)
+    const saved = readSplitFilename(name, kind)
     if (saved?.label === label) last = Math.max(last, saved.number)
   }
   return last + 1
@@ -69,6 +74,29 @@ export async function saveAnswers(
   const temporary = `${path}.${process.pid}.tmp`
   await writeFile(temporary, `${JSON.stringify(records, null, 2)}\n`)
   await rename(temporary, path)
+}
+
+/** Read only the selected answers, in number order, using each saved writer's tag. */
+export async function loadAnswers(
+  folder: string,
+  source: string,
+  numbers: readonly number[],
+): Promise<readonly Answer[]> {
+  const label = splitLabel(source)
+  const records = await designRecords(folder, label)
+  const answers: Answer[] = []
+  for (const number of [...new Set(numbers)].sort((a, b) => a - b)) {
+    const record = records.find((entry) => entry.number === number)
+    if (!record)
+      throw new Error(`No matching writer record for answer ${number}`)
+    const path = join(folder, designFilename(label, number, record.tag))
+    const text = await readFile(path, "utf8")
+    const list = readMoveList(text)
+    if (list.source !== source)
+      throw new Error(`Answer ${number}'s file name and source disagree`)
+    answers.push({ text, list, record })
+  }
+  return answers
 }
 
 export type NamedAnswer = {

@@ -207,14 +207,22 @@ async function fixture(t: TestContext) {
   }
   const run = async (request: SplitRequest) => {
     const result = await runSplit(context, request, deps)
-    if (result.status !== "result") assert.fail(result.reason)
+    if (result.status !== "result") assert.fail(JSON.stringify(result))
     return result.result
   }
-  const design = (
-    designs: DesignAnswer[],
-    pick?: PickAnswer,
-    mode: "design" | "both" = "design",
-  ) => run({ mode, source, sessions: sessions(designs, pick) })
+  const design = async (designs: DesignAnswer[]) => {
+    const result = await runSplit(
+      context,
+      { mode: "design", source, sessions: sessions(designs) },
+      deps,
+    )
+    if (result.status !== "answers-saved") assert.fail(JSON.stringify(result))
+    return result.answers.map(({ record }) => record.number)
+  }
+  const pick = (numbers: number[], choice?: PickAnswer) =>
+    run({ mode: "pick", source, numbers, sessions: sessions([], choice) })
+  const designAndPick = async (designs: DesignAnswer[], choice?: PickAnswer) =>
+    pick(await design(designs), choice)
   const runFile = async (path: string) =>
     run({
       mode: "run",
@@ -224,12 +232,27 @@ async function fixture(t: TestContext) {
     join(context.roundRoot, `${label}-design-${n}.${tag}.md`)
   const planFile = (n: string) =>
     join(context.planRoot, `splits/packages/demo/src/source.${n}.mv.md`)
-  return { context, hash, deps, trials, design, run, runFile, answer, planFile }
+  return {
+    context,
+    hash,
+    deps,
+    trials,
+    design,
+    pick,
+    designAndPick,
+    run,
+    runFile,
+    answer,
+    planFile,
+  }
 }
 
 test("a fresh design keeps its number and a committed run uses Git's text and its saved writer", async (t) => {
   const f = await fixture(t)
-  const first = await f.design([moveAnswer(), noSplitAnswer("fine")], picked(1))
+  const first = await f.designAndPick(
+    [moveAnswer(), noSplitAnswer("fine")],
+    picked(1),
+  )
   assert.equal(first.result, "designed")
   assert.equal(first.message, f.planFile("01"))
   assert.equal(
@@ -240,7 +263,7 @@ test("a fresh design keeps its number and a committed run uses Git's text and it
     await git(f.context.planRoot, "log", "-1", "--format=%B"),
     /\/design otx:.*\n\ngpt-6.2-astra xhigh/s,
   )
-  await f.design([moveAnswer()], picked(3))
+  await f.designAndPick([moveAnswer()], picked(3))
   assert.deepEqual(f.trials, Array(4).fill("Holds b."))
   await assert.rejects(readFile(f.planFile("01")))
   const local = noSplitText(f.hash, "needs-plan")
@@ -257,8 +280,13 @@ test("a fresh design keeps its number and a committed run uses Git's text and it
 test("a repair is saved under a new number and the bare call uses its final attempt for the write", async (t) => {
   const f = await fixture(t)
   assert.equal(
-    (await f.design([moveAnswer("Holds a.")], picked(1, moveAnswer()), "both"))
-      .result,
+    (
+      await f.run({
+        mode: "both",
+        source,
+        sessions: sessions([moveAnswer("Holds a.")], picked(1, moveAnswer())),
+      })
+    ).result,
     "made",
   )
   assert.deepEqual(f.trials, ["Holds a.", "Holds b."])
@@ -272,11 +300,26 @@ test("a repair is saved under a new number and the bare call uses its final atte
   )
 })
 
+test("a repair takes the next answer number even when newer designs were not named", async (t) => {
+  const f = await fixture(t)
+  await f.design([moveAnswer("Holds a.")])
+  await f.design([moveAnswer("Later design.")])
+  const result = await f.pick([1], picked(1, moveAnswer()))
+  assert.equal(result.result, "designed")
+  assert.equal(result.message, f.planFile("03"))
+  assert.deepEqual(f.trials, ["Holds a.", "Holds b."])
+  assert.equal(
+    await readFile(f.answer("02"), "utf8"),
+    listText(f.hash, "Later design."),
+  )
+  assert.equal(await readFile(f.answer("03", "otx"), "utf8"), listText(f.hash))
+})
+
 test("unanimous no-split answers need no picker and choosing an earlier designer commits its exact number", async (t) => {
   const f = await fixture(t)
-  await f.design([moveAnswer(), noSplitAnswer("fine")], picked(2))
+  await f.designAndPick([moveAnswer(), noSplitAnswer("fine")], picked(2))
   const head = await git(f.context.planRoot, "rev-parse", "HEAD")
-  assert.equal((await f.design([noSplitAnswer("fine")])).result, "fine")
+  assert.equal((await f.designAndPick([noSplitAnswer("fine")])).result, "fine")
   assert.equal((await f.runFile(f.answer("02"))).result, "fine")
   assert.equal(await git(f.context.planRoot, "rev-parse", "HEAD"), head)
   assert.equal((await f.runFile(f.answer("01"))).result, "made")
@@ -287,13 +330,13 @@ test("unanimous no-split answers need no picker and choosing an earlier designer
   )
 })
 
-test("refused lists reach the picker with reasons and an all-refused design needs a plan", async (t) => {
+test("refused lists reach the picker with reasons and an all-refused pick needs a plan", async (t) => {
   const f = await fixture(t)
   f.deps.attempt = async () => ({
     outcome: "refused",
     message: "target spans an import",
   })
-  assert.equal((await f.design([moveAnswer()])).result, "needs-plan")
+  assert.equal((await f.designAndPick([moveAnswer()])).result, "needs-plan")
   const selection = sessions([moveAnswer(), noSplitAnswer("fine")])
   const res = await f.run({
     mode: "both",
@@ -324,20 +367,29 @@ test("refused lists reach the picker with reasons and an all-refused design need
 test("publication protects the old and new plan paths and execution protects all affected source paths", async (t) => {
   const f = await fixture(t)
   const list = listText(f.hash)
-  await f.design([moveAnswer()], picked(1))
+  await f.designAndPick([moveAnswer()], picked(1))
   await writeFile(f.planFile("01"), "local list")
-  assert.equal((await f.design([moveAnswer()], picked(2))).result, "skipped")
+  assert.equal(
+    (await f.designAndPick([moveAnswer()], picked(2))).result,
+    "skipped",
+  )
   assert.equal(await readFile(f.planFile("01"), "utf8"), "local list")
   await writeFile(f.planFile("01"), list)
   await writeFile(f.planFile("03"), "new local list")
-  assert.equal((await f.design([moveAnswer()], picked(3))).result, "skipped")
+  assert.equal(
+    (await f.designAndPick([moveAnswer()], picked(3))).result,
+    "skipped",
+  )
   await writeFile(
     join(f.context.planRoot, ".git/info/exclude"),
     "source.04.mv.md\n",
   )
   await writeFile(f.planFile("04"), "ignored local list")
   const head = await git(f.context.planRoot, "rev-parse", "HEAD")
-  assert.equal((await f.design([moveAnswer()], picked(4))).result, "skipped")
+  assert.equal(
+    (await f.designAndPick([moveAnswer()], picked(4))).result,
+    "skipped",
+  )
   assert.equal(await readFile(f.planFile("04"), "utf8"), "ignored local list")
   assert.equal(await git(f.context.planRoot, "rev-parse", "HEAD"), head)
   await writeFile(join(f.context.repoEduRoot, target), "local target")
@@ -350,7 +402,7 @@ test("publication protects the old and new plan paths and execution protects all
 
 test("a stop during the final move attempt leaves the chosen answer unpublished", async (t) => {
   const f = await fixture(t)
-  await f.design([moveAnswer(), noSplitAnswer("fine")], picked(2))
+  await f.designAndPick([moveAnswer(), noSplitAnswer("fine")], picked(2))
   const head = await git(f.context.planRoot, "rev-parse", "HEAD")
   const stop = new AbortController()
   f.deps.attempt = (list) => {
@@ -387,12 +439,22 @@ test("failed checks restore the files and a stale no-split answer skips without 
   const f = await fixture(t)
   f.deps.checks = async () => ({ command: "pnpm check", output: "failed" })
   assert.equal(
-    (await f.design([moveAnswer(), noSplitAnswer("fine")], picked(1), "both"))
-      .result,
+    (
+      await f.run({
+        mode: "both",
+        source,
+        sessions: sessions([moveAnswer(), noSplitAnswer("fine")], picked(1)),
+      })
+    ).result,
     "checks-failed",
   )
   assert.equal(await git(f.context.repoEduRoot, "status", "--porcelain"), "")
   await writeFile(join(f.context.repoEduRoot, source), "changed")
+  assert.deepEqual(await f.pick([1, 2]), {
+    result: "skipped",
+    hash: f.hash,
+    message: `${source} changed since the move list was designed.`,
+  })
   assert.equal((await f.runFile(f.answer("02"))).result, "skipped")
   assert.equal(f.trials.length, 2)
 })
@@ -437,10 +499,13 @@ test("a failed designer retains the other answers and a failed pick keeps the ne
     ).status,
     "failed",
   )
-  assert.equal((await f.design([moveAnswer()], picked(4))).result, "designed")
+  assert.equal(
+    (await f.designAndPick([moveAnswer()], picked(4))).result,
+    "designed",
+  )
 })
 
-test("split design runs same-tag designers in separate slots and split run returns a saved answer without assistant startup", async (t) => {
+test("split commands save numbered designs, retry only the picker and run a saved answer without startup", async (t) => {
   const f = await roundFixture(
     t,
     "codex",
@@ -471,69 +536,70 @@ test("split design runs same-tag designers in separate slots and split run retur
       picker: cli,
     },
   }
-  await f.configure({
-    phases: {
-      ...f.phases,
-      design: {
-        assistants: {
-          claude: {
-            stream: await phaseStream(
-              "claude",
-              completed(noSplitAnswer("fine")),
-              "design-claude",
-            ),
-          },
-          codex: {
-            stream: await phaseStream(
-              "codex",
-              completed(noSplitAnswer("needs-plan")),
-              "design-codex",
-            ),
-            usage: {
-              path: join(f.root, "rollout-design-codex.jsonl"),
-              text: await recorded("codex-rollout.jsonl"),
-            },
-          },
-        },
-      },
-      pick: {
+  const design = {
+    assistants: {
+      claude: {
         stream: await phaseStream(
           "claude",
-          completed({
-            ...picked(1),
-            judgements: {
-              1: "Keep the source together.",
-              2: "Same division.",
-              3: "The file can stay whole.",
-            },
-          }),
-          "fresh-picker",
+          completed(noSplitAnswer("fine")),
+          "design-claude",
         ),
       },
+      codex: {
+        stream: await phaseStream(
+          "codex",
+          completed(noSplitAnswer("needs-plan")),
+          "design-codex",
+        ),
+        usage: {
+          path: join(f.root, "rollout-design-codex.jsonl"),
+          text: await recorded("codex-rollout.jsonl"),
+        },
+      },
     },
-  })
-  const code = await runCommand(["split", "design", source], f.runtime, {
-    ...f.options,
-    settings: config,
-  })
-  assert.equal(code, 0, f.errors.join("\n"))
-  assert.match(f.visible.at(-1) ?? "", /"result":"fine"/)
-  const prompts = (await f.prompts()).map((entry) => String(entry.prompt))
+  }
+  const configurePick = async (result: object, sessionId: string) =>
+    f.configure({
+      phases: {
+        ...f.phases,
+        design,
+        pick: { stream: await phaseStream("claude", result, sessionId) },
+      },
+    })
+  await configurePick(
+    { status: "failed", reason: "Picker stopped.", result: null },
+    "failed-picker",
+  )
+  const command = (...args: string[]) =>
+    runCommand(["split", ...args], f.runtime, {
+      ...f.options,
+      settings: config,
+    })
+  const prompts = async () =>
+    (await f.prompts()).map(({ prompt }) => String(prompt))
+  assert.equal(await command("design", source), 0, f.errors.join("\n"))
+  assert.equal(
+    f.visible.at(-1),
+    `SPLIT RESULT: ${JSON.stringify({
+      result: "answers-saved",
+      hash,
+      message: `pnpm audit-round split pick ${source} 1 2 3`,
+    })}`,
+  )
+  const designPrompts = await prompts()
+  assert.equal(designPrompts.length, 3)
+  assert.ok(
+    designPrompts.every((prompt) => prompt.startsWith("Run the design phase")),
+  )
   for (const density of ["normal", "coarse"])
     assert.ok(
-      prompts.some((prompt) =>
+      designPrompts.some((prompt) =>
         prompt.includes(
           "Phase arguments (JSON array): " +
             JSON.stringify([source, hash, density]),
         ),
       ),
     )
-  const pickPrompt = prompts.find((prompt) =>
-    prompt.startsWith("Run the pick phase"),
-  )
-  assert.ok(pickPrompt)
-  for (const number of ["01", "02", "03"])
-    assert.ok(pickPrompt.includes(`${label}-design-${number}.`))
   const folder = join(f.evidenceRoot, "splits", label)
   const records = JSON.parse(
     await readFile(join(folder, `${label}-designs.json`), "utf8"),
@@ -543,13 +609,72 @@ test("split design runs same-tag designers in separate slots and split run retur
     [1, 2, 3],
   )
   const path = join(folder, `${label}-design-01.${records[0].tag}.md`)
-  const reportName = (await readdir(folder)).find((name) =>
-    name.includes("-pick-"),
+  assert.ok(f.visible.some((line) => line.includes(path)))
+  assert.ok(!(await readdir(folder)).some((name) => name.includes("-pick-")))
+  assert.equal(await command(source), 1)
+  const retry = f.visible.find((line) =>
+    line.includes("Session: failed-picker"),
   )
-  assert.ok(reportName)
-  const report = await readFile(join(folder, reportName), "utf8")
-  assert.match(report, /### Answer 3\n\nThe file can stay whole\./)
-  assert.match(report, /Pick: 1\n$/)
+  assert.equal(
+    retry,
+    `Split session failed: Picker stopped.\nSession: failed-picker\nRerun: pnpm audit-round split pick ${source} 4 5 6`,
+  )
+  const beforeRetry = (await prompts()).length
+  await configurePick(
+    completed({
+      ...picked(4),
+      judgements: { 4: "Keep it whole.", 5: "Agrees.", 6: "Needs a plan." },
+    }),
+    "retry-picker",
+  )
+  assert.equal(
+    await command("pick", source, "4", "5", "6"),
+    0,
+    f.errors.join("\n"),
+  )
+  const retryPrompts = (await prompts()).slice(beforeRetry)
+  assert.equal(retryPrompts.length, 1)
+  assert.ok(retryPrompts[0].startsWith("Run the pick phase"))
+  for (const number of ["04", "05", "06"])
+    assert.ok(retryPrompts[0].includes(`${label}-design-${number}.`))
+  assert.match(f.visible.at(-1) ?? "", /"result":"fine"/)
+  const reports = async () =>
+    (await readdir(folder)).filter((name) => name.includes("-pick-")).sort()
+  const [firstReport] = await reports()
+  assert.ok(firstReport.startsWith(`${label}-pick-01.`))
+  const firstText = await readFile(join(folder, firstReport), "utf8")
+  assert.match(firstText, /### Answer 6\n\nNeeds a plan\./)
+  assert.match(firstText, /Pick: 4\n$/)
+
+  await configurePick(
+    completed({
+      ...picked(1),
+      judgements: { 1: "Keep it whole.", 6: "Needs a plan." },
+    }),
+    "mixed-picker",
+  )
+  for (const reportNumber of ["02", "03"]) {
+    const beforePick = (await prompts()).length
+    assert.equal(
+      await command("pick", source, "06", "01"),
+      0,
+      f.errors.join("\n"),
+    )
+    const [prompt, ...otherPrompts] = (await prompts()).slice(beforePick)
+    assert.deepEqual(otherPrompts, [])
+    const candidates = Array.from(
+      prompt.matchAll(new RegExp(`${label}-design-(\\d+)\\.`, "g")),
+      (match) => match[1],
+    )
+    assert.deepEqual(candidates, ["01", "06"])
+    const name = (await reports()).at(-1)
+    assert.ok(name?.startsWith(`${label}-pick-${reportNumber}.`))
+  }
+  assert.deepEqual(
+    (await reports()).map((name) => name.split("-pick-")[1].split(".")[0]),
+    ["01", "02", "03"],
+  )
+  assert.equal(await readFile(join(folder, firstReport), "utf8"), firstText)
   const calls = await f.calls()
   const lookups = f.releaseLookup.mock.callCount()
   assert.equal(
@@ -584,40 +709,46 @@ test("a designer can send prose before its structured move list and the runner t
     assert.ok(saved.startsWith("# Move list\n"))
     return attempt(list)
   }
-  const result = await f.run({
-    mode: "design",
-    source,
-    sessions: {
-      ...sessions([], picked(1)),
-      designers: [
-        {
-          density: "normal",
-          run: async (hash) => {
-            const design = await runAssistantPhase<"design">(
-              {
-                ...testContext(cli.root),
-                phase: "design",
-                assistant: "claude",
-                model: pinned("claude"),
-                number: 1,
-                arguments: [source, hash, "normal"],
-                sessionId: null,
-              },
-              cli.output,
-              cli.runtime,
-            )
-            return design.status === "failed" ? design : { ...design, writer }
+  const result = await runSplit(
+    f.context,
+    {
+      mode: "design",
+      source,
+      sessions: {
+        ...sessions([], picked(1)),
+        designers: [
+          {
+            density: "normal",
+            run: async (hash) => {
+              const design = await runAssistantPhase<"design">(
+                {
+                  ...testContext(cli.root),
+                  phase: "design",
+                  assistant: "claude",
+                  model: pinned("claude"),
+                  number: 1,
+                  arguments: [source, hash, "normal"],
+                  sessionId: null,
+                },
+                cli.output,
+                cli.runtime,
+              )
+              return design.status === "failed" ? design : { ...design, writer }
+            },
           },
-        },
-      ],
+        ],
+      },
     },
-  })
+    f.deps,
+  )
   assert.ok(
     cli.feedback.some((event) => event.type === "text" && event.text === prose),
   )
-  assert.equal(result.result, "designed")
+  assert.equal(result.status, "answers-saved")
+  assert.deepEqual(f.trials, [])
   const saved = await readFile(f.answer("01"), "utf8")
   assert.ok(saved.startsWith("# Move list\n"))
   assert.equal(saved, listText(f.hash))
+  assert.equal((await f.pick([1])).result, "designed")
   assert.deepEqual(f.trials, ["Holds b.", "Holds b."])
 })

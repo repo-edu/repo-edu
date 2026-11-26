@@ -136,6 +136,7 @@ import {
 import { RunClock } from "./run-clock.js"
 import { claimRound } from "./run-files.js"
 import { type Auditor, type RoundSettings, readSettings } from "./settings.js"
+import type { SplitCall } from "./split.js"
 import { namedAnswer } from "./split-answers.js"
 import { splitStage } from "./split-output.js"
 import { prepareAssistants, resolveCacheRoot } from "./startup.js"
@@ -251,12 +252,14 @@ type Invocation =
       /** A failed worker's step and session, which this entry resumes. */
       readonly resume?: WorkerResume
     }
-  | {
+  | ({
       readonly kind: "split"
-      readonly mode: "both" | "run" | "design"
       readonly path: string
       readonly verbose?: boolean
-    }
+    } & (
+      | { readonly mode: "both" | "run" | "design" }
+      | { readonly mode: "pick"; readonly numbers: readonly number[] }
+    ))
 
 /**
  * The commands that may write a round file. Each ends with an evidence commit;
@@ -648,7 +651,10 @@ function parseInvocation(
        audit-round ready [stem]
        audit-round implement [options] <stem> [scope]
        audit-round close [options] [stem]
-       audit-round split [options] [design | run] <path>
+       audit-round split [options] <source>
+       audit-round split [options] design <source>
+       audit-round split [options] pick <source> <answer>...
+       audit-round split [options] run <move list>
        audit-round plan`,
     )
     .configureOutput({
@@ -1021,33 +1027,42 @@ Examples (from either checkout):
     )
   command
     .command("split")
-    .description(
-      "Design and carry out a file split, design only or run a saved answer.",
-    )
-    .argument("<path-or-mode>", "source path, design or run")
+    .description("Design, pick or run a split, or do all three.")
+    .argument("<path-or-mode>", "source path, design, pick or run")
     .argument(
-      "[path]",
-      "source for design, or numbered move list or designer's answer for run",
+      "[args...]",
+      "source for design, source and answer numbers for pick, or a saved list for run",
     )
     .option("-v, --verbose", "show tool calls as well as assistant text")
     .addHelpText(
       "after",
-      "\n  split <source>\n  split design <source>\n  split run <move list>",
+      "\n  split <source>\n  split design <source>\n  split pick <source> <answer>...\n  split run <move list>",
     )
     .action(
       (
         first: string,
-        path: string | undefined,
+        [path, ...answers]: string[],
         flags: { verbose?: boolean },
       ) => {
-        if (first === "design" || first === "run") {
+        if (first === "pick") {
+          if (!path || answers.length === 0)
+            throw new InvalidArgumentError(
+              "Use split pick <source> <answer>...",
+            )
+          const numbers = answers.map((value) =>
+            positiveInteger(value.replace(/^0+(?=\d)/, ""), "answer"),
+          )
+          invocation = { kind: "split", mode: first, path, numbers, ...flags }
+        } else if (first === "design" || first === "run") {
           if (!path)
             throw new InvalidArgumentError(`split ${first} needs a path`)
+          if (answers.length > 0)
+            throw new InvalidArgumentError(`split ${first} takes one path`)
           invocation = { kind: "split", mode: first, path, ...flags }
         } else {
           if (path)
             throw new InvalidArgumentError(
-              "Use split <source>, split design <source> or split run <move list>",
+              "Use split <source>, split design <source>, split pick <source> <answer>... or split run <move list>",
             )
           invocation = { kind: "split", mode: "both", path: first, ...flags }
         }
@@ -1434,16 +1449,17 @@ export async function runCommand(
         { cacheRoot: options.cacheRoot },
       )
     if (invocation.kind === "split") {
-      const call =
-        invocation.mode === "run"
-          ? {
-              mode: invocation.mode,
-              named: await namedAnswer(context, runtime.cwd, invocation.path),
-            }
-          : {
-              mode: invocation.mode,
-              source: await splitSource(context.repoEduRoot, invocation.path),
-            }
+      const { mode, path } = invocation
+      let call: SplitCall
+      if (mode === "run") {
+        call = { mode, named: await namedAnswer(context, runtime.cwd, path) }
+      } else {
+        const source = await splitSource(context.repoEduRoot, path)
+        call =
+          mode === "pick"
+            ? { mode, source, numbers: invocation.numbers }
+            : { mode, source }
+      }
       const settings = options.settings ?? (await readSettings())
       const releases =
         call.mode === "run"

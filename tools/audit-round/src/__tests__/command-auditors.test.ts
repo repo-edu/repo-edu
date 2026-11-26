@@ -381,6 +381,8 @@ test("argument errors and help start no assistant processes", async (t) => {
     ["-v", "round", "example"],
     ["-v", "run", "example"],
     ["split"],
+    ["split", "pick", "packages/missing/src/missing.ts"],
+    ["split", "pick", "packages/missing/src/missing.ts", "0"],
     ["split", "../outside.ts"],
     ["split", "packages/missing/src/missing.ts"],
   ])
@@ -437,7 +439,10 @@ test("argument errors and help start no assistant processes", async (t) => {
     "audit-round ready [stem]",
     "audit-round implement [options] <stem> [scope]",
     "audit-round close [options] [stem]",
-    "audit-round split [options] [design | run] <path>",
+    "audit-round split [options] <source>",
+    "audit-round split [options] design <source>",
+    "audit-round split [options] pick <source> <answer>...",
+    "audit-round split [options] run <move list>",
     "audit-round plan",
   ]
   for (const forms of [rootForms, roundForms, commitForms]) {

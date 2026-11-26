@@ -1,8 +1,9 @@
 import { z } from "zod"
 
-/** The six results a split call ends with, in the order of the round grammar. */
+/** The results a split call ends with, in the order of the round grammar. */
 export const splitResults = [
   "made",
+  "answers-saved",
   "designed",
   "fine",
   "needs-plan",
@@ -33,7 +34,7 @@ const messageRefusal = "Split result needs a message"
 const splitResultSchema = z.strictObject(
   {
     result: z.enum(splitResults, {
-      error: `Split result must be ${splitResults.slice(0, -1).join(", ")} or ${splitResults.at(-1)}`,
+      error: `Expected ${splitResults.slice(0, -1).join(", ")} or ${splitResults.at(-1)}`,
     }),
     hash: z.string({ error: hashRefusal }).regex(blobHashPattern, {
       error: hashRefusal,

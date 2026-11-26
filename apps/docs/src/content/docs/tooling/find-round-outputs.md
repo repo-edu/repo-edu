@@ -106,7 +106,7 @@ name and the first five characters of a hash of its path.
 | --- | --- |
 | `<label>-split.log` | The log of split calls on this source file. |
 | `<label>-design-<n>.<tag>.md` | The numbered answer. To choose a designer's answer yourself, pass its path to `split run`. |
-| `<label>-pick-<first>.<tag>.md` | The picker's reasons for its choice and any repairs. The number is the first designer answer number in that call. |
+| `<label>-pick-<n>.<tag>.md` | The answers judged, the picker's reasons and any repairs. Report numbers count separately from answer numbers. |
 | `<label>-designs.json` | The writer of each numbered answer and each designer's position and density. |
 
 The next call on the same source brings the files back to `../plan-evidence/active/` before it

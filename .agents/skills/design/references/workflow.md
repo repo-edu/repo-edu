@@ -15,8 +15,8 @@ requirement to the whole session and skip its confirm-and-wait step.
 A design session reads one source file whole and gives one of three answers:
 the file is fine, the file needs a plan, or a move list. It changes no code and
 writes no file. Other listed designers read the same source independently. The
-runner saves each answer and tries its moves in memory. A fresh picker chooses
-among the answers when a choice remains.
+runner saves each answer. Move trials and any picker session belong to the
+pick stage.
 
 The phase arguments are exactly:
 

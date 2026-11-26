@@ -246,7 +246,7 @@ The runner writes the four reports from the results of their phases.
   division needs a plan.
 - **Designer list**: the ordered settings entries that each design the same
   split. Each has a selection and a density, normal or coarse.
-- **Pick**: the phase that judges all the answers and chooses one. It may
+- **Pick**: the phase that judges the answers named for the pick and chooses one. It may
   repair a factual fault in a chosen list or give a no-split answer of its own.
 - **Picker**: the selection for the pick and its fresh session, which wrote
   none of the designers' answers.
@@ -262,8 +262,8 @@ The runner writes the four reports from the results of their phases.
   that number in the plan repo, as in `splits/packages/domain/src/roster.01.mv.md`. A no-split
   answer keeps its reason in the evidence repo.
 - **Split result**: the outcome a completed split call prints with the source hash and a
-  message. The call made the split, committed a design, found the file fine, found it needs a plan,
-  skipped the split or reported failed checks.
+  message. The call made the split, saved answers (`answers-saved`), committed a design, found
+  the file fine, found it needs a plan, skipped the split or reported failed checks.
 
 ## What binds a round
 
