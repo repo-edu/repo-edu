@@ -390,9 +390,9 @@ complete replacement by temporary file rename.
 ### Step logs
 
 Each started step writes `<stem>-impl-<step>-implement.md` and a matching `.log` in the round
-folder. The transcript keeps the worker's commentary, ruling replies and final response. The log
-records prompts and tool calls. A worker that needs a ruling writes its question to
-`<stem>-impl-<step>-implement-ruling.<tag>.md`.
+folder. The transcript keeps the worker's commentary, ruling replies and closing note. The log
+records prompts, tool calls and the result object. A worker that needs a ruling writes its question
+to `<stem>-impl-<step>-implement-ruling.<tag>.md`.
 
 A fresh worker starts both the transcript and log empty. A recovery appends to both and opens with
 the session it resumes. Both filenames omit the tag so they stay the same if settings reclassify
