@@ -2,7 +2,6 @@
 reads:
   - ../../../../glossaries/audit-round.md
   - ../../../../../plan/home/claude/commands/simple.md
-  - ../../../references/round-grammar.md
   - ../../design/references/workflow.md
   - ../../../../tools/statement-move/CLAUDE.md
   - ../../../../tools/architecture-check/src/area-model.json
