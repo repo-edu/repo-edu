@@ -750,7 +750,7 @@ are the ruler's own:
    were right.
 3. **Keep to the limit of [Real choices](#real-choices).** Name the winner the evidence supports.
    When a real choice remains, do not choose: name the vetter that referred the finding, or
-   `neither`, and state the choice in the entry's open-choice line. The runner asks the user that
+   `neither`, and state the choice in the entry's open-choice field. The runner asks the user that
    choice before the fix, and the winner stays the ruler's. A change to a fixed input stays a
    premise error for the user.
 

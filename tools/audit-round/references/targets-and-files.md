@@ -345,9 +345,16 @@ the audit's tag. It claims nothing and reopens the transcript and log for append
 keeps the stored start time, because its kept audit report read the code then, and the series
 rules and the range a bare plan name starts at read that time.
 
-`continuedSetup` takes from the stored entry what no report holds: the audit's launched selection,
-the winners the user named, the commits the round landed and the deferral list of a chained or
-plan-scoped implementation round.
+The runner restores saved state from the round's entry. It checks that kept report files exist.
+
+1. `continuedSetup` restores the audit's launched selection, the stored deferral list and a commit
+   round's original and audited commit groups.
+2. `reviewRound` restores the findings. It reuses saved reviews, rebuttal answers and winners
+   when their reports and inputs still apply.
+3. `runRound` carries forward commits the round already landed. This includes a round that waits
+   for a ruling, starts a fresh fix or continues after its fix or clean completion ended.
+
+Which saved results still count depends on the phase and the target.
 
 - **Auditor.** The kept audit report fixes the auditor, so the audit and the rebuttal run on the
   selection the stored audit launched on.
