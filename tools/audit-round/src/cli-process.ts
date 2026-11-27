@@ -1,6 +1,12 @@
 import { execa } from "execa"
 import type { Assistant } from "./phase.js"
 
+export const assistantExecutables = {
+  claude: "claude",
+  codex: "codex",
+  gemini: "agy",
+} as const
+
 /**
  * The signals that stop a run: Ctrl-C, a closed terminal and a termination
  * request. Each ends a round as Ctrl-C does, so a closed terminal still
@@ -66,7 +72,7 @@ export function cliCommand(
 ) {
   const executable = runtime.executables?.[assistant]
   return {
-    file: executable?.file ?? assistant,
+    file: executable?.file ?? assistantExecutables[assistant],
     args: [...(executable?.args ?? []), ...args],
   }
 }

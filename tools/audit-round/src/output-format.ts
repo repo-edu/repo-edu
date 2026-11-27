@@ -298,15 +298,26 @@ export function toolText(
 export function toolInputText(input: Record<string, unknown>): string {
   for (const key of [
     "command",
+    "CommandLine",
     "file_path",
+    "AbsolutePath",
+    "TargetFile",
     "path",
+    "Path",
+    "DirectoryPath",
+    "SearchPath",
+    "SearchDirectory",
+    "Query",
     "pattern",
+    "Pattern",
     "skill",
     "description",
   ]) {
     const value = input[key]
     if (typeof value === "string")
-      return key === "command" ? commandText(value) : value
+      return key === "command" || key === "CommandLine"
+        ? commandText(value)
+        : value
   }
   return JSON.stringify(input)
 }
