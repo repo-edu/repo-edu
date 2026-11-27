@@ -1,6 +1,6 @@
 ---
 title: Yield
-description: Grade each plan decision by user benefit, maintenance burden and their ratio, then review the grades across both assistants
+description: Grade plan decisions by user benefit and maintenance burden, then review the ratings across Claude, Codex and Gemini
 ---
 
 The yield chain grades every numbered decision of a plan on what it gives the user against what it
@@ -8,7 +8,7 @@ costs to maintain, so you can see which decisions earn their machinery before yo
 
 | Fact | Detail |
 | --- | --- |
-| `/yield`, `/yield-vet`, `/yield-rebut` and `/yield-final` run in | Claude chat in the plan checkout; `$yield`, `$yield-vet`, `$yield-rebut` and `$yield-final` are the Codex counterparts |
+| Chat commands | Use `/yield`, `/yield-vet`, `/yield-rebut` and `/yield-final` in Claude or Antigravity. Use the same names with `$` in Codex. Start the initial report in the plan checkout. |
 | Owners | `../plan/home/agents/skills/yield/references/workflow.md` owns grading, reports and applying cuts; `review.md` beside it owns the vet and rebuttal and `final.md` the final report; the launchers live in `../plan/home/claude/commands/` and `../plan/home/agents/skills/` |
 
 ## Usage
@@ -23,7 +23,7 @@ costs to maintain, so you can see which decisions earn their machinery before yo
 /yield-rebut [yield-vet.md]     answer the vet in chat and a file
 /yield-rebut help               show this usage
 
-/yield-final [yield-rebut.md]   read the other rebuttal and write final ratings
+/yield-final [yield-rebut.md]   read a different vendor's rebuttal and write final ratings
 /yield-final help               show this usage
 ```
 
@@ -57,13 +57,14 @@ the three values.
 
 ## The chain
 
-The four commands alternate between the two assistants, so no assistant reviews its own grades.
+Use the first letter of each writer's tag to choose who can do the next review.
+Claude uses `a`, Codex uses `o` and Gemini in Antigravity uses `g`.
 
-1. **`/yield`** writes the initial report.
-2. **`/yield-vet`**, in the other assistant, checks every rating and proposes changes.
-3. **`/yield-rebut`**, in the first assistant, rechecks each disputed rating.
-4. **`/yield-final`**, in the other assistant again, reconciles all three into one complete rating
-   set.
+1. **`/yield`** writes the initial report in any of the three apps.
+2. **`/yield-vet`** runs with a different vendor and checks every rating.
+3. **`/yield-rebut`** runs with the initial report's vendor and answers the selected vet.
+4. **`/yield-final`** reconciles all three reports. Either of the other two vendors can finalise
+   a rebuttal. For example, if Claude rebuts a Codex vet, Codex or Gemini can write the final.
 
 Every step after the first is optional. Each command prints its tables and explanations in chat,
 links the saved report and stops for discussion. No command edits the plan or lands a commit until
@@ -75,14 +76,15 @@ All reports live in `../plan-evidence/active/` and are named
 `<stem>-yield-<order>-<style>.<tag>.md`. The order is fixed per style: `1-report`, `2-vet`,
 `3-rebut` and `4-final`, so a skipped step leaves a gap. Putting `yield` before the number keeps
 the reports together in a sorted list, apart from numbered audit rounds. The tag is the writer's
-own capability tag; its vendor letter, `a` for Claude or `o` for Codex, decides which assistant may
-run the next step.
+own capability tag.
 
 Each report opens with the plan, the plan repo's six-character HEAD, whether the plan had
 uncommitted changes and the writer's model and effort. Reviews link to the report they answer. The
-initial report, vet and rebuttal never change once written; when the output already exists, the
-command links to it instead. Only a writer's own final report may be rewritten. Loop-close moves
-all of them with the plan's other round files into `../plan-evidence/archive/<stem>/`.
+initial report, vet and rebuttal are saved once. When a vet or rebuttal already exists, the
+command links to it and names the input in its opening. For a vet that is the initial report.
+For a rebuttal it is the vet answered. From either checkout, a writer can create or revise its
+own `../plan-evidence/active/<stem>-yield-4-final.<tag>.md`. Loop-close moves all reports with
+the plan's other round files into `../plan-evidence/archive/<stem>/`.
 
 ## `/yield`
 
@@ -97,7 +99,7 @@ mechanism that gives you more work does not count as simpler.
 ### Your answers
 
 1. **Discuss a rating.** The assistant answers from its evidence and changes nothing.
-2. **Run `/yield-vet <report-file>`** in the other assistant for an independent check.
+2. **Run `/yield-vet <report-file>`** with a different vendor for an independent check.
 3. **Say which cuts to apply.** The assistant edits the plan and lands one `<stem>/plan-audit`
    commit with one bullet per cut, naming the superseded decision and your ruling with its date.
    It then writes the handoff for the next round.
@@ -119,15 +121,13 @@ report appears as a Change.
 ### Your answers
 
 1. **Discuss the review.** Nothing changes.
-2. **Ask the report's writer to run `/yield-rebut <yield-vet.md>`** or `$yield-rebut` when a rating
-   changed.
+2. **Run `/yield-rebut <yield-vet.md>`** or `$yield-rebut` with the initial report's vendor when a
+   rating changed.
 
 ### Early stops
 
-1. **Several eligible reports exist.** The vet lists them and asks which to use; it never picks by
-   recency. Reply with the report path.
-2. **No eligible report exists, or the named report is this assistant's.** Supply a report from the
-   other assistant.
+1. **Several eligible reports exist and you omitted the path.** Choose a report from the list.
+2. **No eligible report was found or selected.** Supply an initial report from a different vendor.
 
 ## `/yield-rebut`
 
@@ -142,13 +142,13 @@ follow below the table. When nothing needs an answer it says so and still saves 
 ### Your answers
 
 1. **Discuss the rebuttal.** Nothing changes.
-2. **Ask the other assistant to run `/yield-final <yield-rebut.md>`** or `$yield-final`.
+2. **Run `/yield-final <yield-rebut.md>`** or `$yield-final` with a different vendor.
 
 ### Early stops
 
-1. **Several eligible vets exist.** Reply with the vet path to answer.
-2. **No eligible vet exists, or the authorship is wrong.** Supply the other assistant's vet of this
-   assistant's report.
+1. **Several eligible vets exist and you omitted the path.** Choose a vet from the list.
+2. **No eligible vet was found or selected.** Supply a different vendor's vet of an initial
+   report by the vendor you are using.
 
 ## `/yield-final`
 
@@ -169,6 +169,5 @@ disputed or non-obvious ratings and changed conclusions, and adds the simplest m
 
 ### Early stops
 
-1. **Several eligible rebuttals exist.** Reply with the rebuttal path to use.
-2. **No eligible rebuttal exists, or the named rebuttal is this assistant's.** Supply the other
-   assistant's rebuttal.
+1. **Several eligible rebuttals exist and you omitted the path.** Choose a rebuttal from the list.
+2. **No eligible rebuttal was found or selected.** Supply a rebuttal from a different vendor.

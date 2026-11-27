@@ -9,7 +9,7 @@ does not close the plan by hand.
 
 | Fact | Detail |
 | --- | --- |
-| Runs in | Claude chat in the Repo Edu or plan checkout; `$close` is the Codex counterpart |
+| Runs in | `/close` in Claude or Antigravity and `$close` in Codex, from either checkout |
 | Owners | `../plan/.agents/skills/close/references/workflow.md` owns loop-close; `../plan/home/claude/commands/close.md` and `../plan/home/agents/skills/close/SKILL.md` launch the runner |
 
 ## Usage

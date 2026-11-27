@@ -8,7 +8,7 @@ session and `/rewrite` restates one reply in plain words.
 
 | Fact | Detail |
 | --- | --- |
-| `/simple` and `/rewrite` run in | Any Claude chat; `$simple` and `$rewrite` are the Codex counterparts |
+| Chat commands | `/simple` and `/rewrite` in Claude or Antigravity, `$simple` and `$rewrite` in Codex |
 | Owners | `../plan/home/claude/commands/simple.md` owns the `/simple` contract and `../plan/home/agents/skills/simple/SKILL.md` follows it; `../plan/home/agents/skills/rewrite/SKILL.md` owns the rewrite rules and `../plan/home/claude/commands/rewrite.md` launches them |
 
 ## Usage

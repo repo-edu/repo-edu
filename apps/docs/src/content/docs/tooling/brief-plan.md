@@ -8,7 +8,7 @@ and open points, when you want to understand it without reading its evidence tra
 
 | Fact | Detail |
 | --- | --- |
-| Runs in | Claude chat in the Repo Edu or plan checkout; `$brief-plan` is the Codex counterpart |
+| Runs in | `/brief-plan` in Claude or Antigravity and `$brief-plan` in Codex, from either checkout |
 | Owners | `../plan/.agents/skills/brief-plan/references/workflow.md` owns the brief; `../plan/home/claude/commands/brief-plan.md` and `../plan/home/agents/skills/brief-plan/SKILL.md` launch it |
 
 ## Usage

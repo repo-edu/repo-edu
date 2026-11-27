@@ -6,8 +6,8 @@ description: Choose the planning, audit or maintenance command that fits the wor
 Use this guide to choose the planning, audit or maintenance command for the work in front of you.
 
 Runner commands beginning with `pnpm audit-round` work from either the Repo Edu or plan checkout.
-Commands beginning with `/` run in Claude chat. Codex uses `$` for its counterparts.
-In Antigravity, use `/ruling` to answer a waiting run and `/watch` to read an episode.
+For shared chat tools, type `/<name>` in Claude or Antigravity and `$<name>` in Codex.
+The `/refactor` command is specific to Claude.
 
 ## What is the life of a plan?
 
@@ -89,6 +89,11 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | I want plain words throughout this chat | [`/simple [prompt]`](/repo-edu/tooling/chat-helpers/#simple) | The plain-language requirement applies to chat and files for that session |
 
 ## How do I check my chat setup?
+
+Antigravity reads the plan checkout's `home/agents/skills/` folder through
+`~/.gemini/config/skills.json`. Codex can load the same skills through links under
+`~/.agents/skills/`. In both apps, type the command explicitly to start `close`, `ruling`,
+`simple`, `sweep` or `watch`.
 
 For a hand-run commit, **Commit Model Record** in Repo Edu's `CLAUDE.md` links the model and
 effort lookup for each app. Antigravity finds the settings in the current conversation's latest

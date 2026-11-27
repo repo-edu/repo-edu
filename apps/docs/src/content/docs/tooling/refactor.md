@@ -9,7 +9,7 @@ your go.
 
 | Fact | Detail |
 | --- | --- |
-| Runs in | Claude chat in the Repo Edu checkout; there is no Codex counterpart |
+| Runs in | Claude only, in the Repo Edu checkout |
 | Owner | `../plan/home/claude/commands/refactor.md` |
 
 ## Usage

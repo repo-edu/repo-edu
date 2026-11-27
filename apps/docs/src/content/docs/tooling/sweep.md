@@ -8,7 +8,7 @@ you can decide whether it should be split.
 
 | Fact | Detail |
 | --- | --- |
-| `/sweep` runs in | Claude chat in the Repo Edu checkout; `$sweep` is the Codex counterpart |
+| Chat command | `/sweep` in Claude or Antigravity and `$sweep` in Codex, from the Repo Edu checkout |
 | `pnpm sweep` runs in | A terminal at the Repo Edu root |
 | Owners | `../plan/home/claude/commands/sweep.md` owns the chat command; `tools/sweep/CLAUDE.md` owns the tool and its state files |
 
@@ -52,9 +52,9 @@ The sweep is one half of a loop that ends when a refactor lands or a plan ships.
 2. **Record.** A fine file goes to the skip cache and stays quiet until it changes. A file worth
    refactoring goes to the refactor backlog with its reason. Planning it now opens a plan and flags
    the file with the reason `planned in <stem>`.
-3. **Drain.** [`/refactor`](/repo-edu/tooling/refactor/) takes the largest backlog file. It either
-   refactors it inline and runs `pnpm sweep done <path>`, or routes it to a new plan and re-flags
-   it as `planned in <stem>`.
+3. **Drain.** Claude's [`/refactor`](/repo-edu/tooling/refactor/) takes the largest backlog file. It
+   either refactors it inline and runs `pnpm sweep done <path>`, or routes it to a new plan and
+   re-flags it as `planned in <stem>`.
 4. **Close.** When a completed plan is archived, [loop-close](/repo-edu/tooling/close/) runs
    `pnpm sweep done --plan <stem>` and commits the staged backlog deletion. An aborted plan keeps
    its row.
