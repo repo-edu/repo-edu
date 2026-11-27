@@ -52,8 +52,8 @@ The last line begins with `SPLIT RESULT:` and gives the result, the source hash 
 The committed list is read from Git, so local edits to its working copy can stay in place. When
 publishing a design, the runner protects both the destination and the older list it would remove.
 
-Each completed call keeps its log and numbered answers in `../plan-evidence/splits/<label>/`, along
-with any pick reports and the writers' records. Pick report numbers count separately from answer
-numbers. A failed session leaves its files in `../plan-evidence/active/` and prints the reason,
-session ID and rerun command. A design retry starts fresh designers. A picker retry uses the same
-answer numbers with a fresh picker, including after a failed picker in a bare split.
+Every call keeps its log, numbered answers, pick reports and writers' records directly in
+`../plan-evidence/splits/<label>/`, whether it finishes or fails. Pick report numbers count
+separately from answer numbers. A failed session prints the reason, session ID and rerun command.
+A design retry starts fresh designers. A picker retry uses the same answer numbers with a fresh
+picker, including after a failed picker in a bare split.

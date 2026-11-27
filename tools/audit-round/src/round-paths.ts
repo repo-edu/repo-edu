@@ -179,16 +179,9 @@ export function planRoundFile(stem: string, name: string): boolean {
 }
 
 /**
- * Match a commit series' round files or a split's design evidence by its full label.
+ * Match a commit series' round files and round data by its full label.
  */
 export function seriesFile(label: string, name: string): boolean {
-  if (label.startsWith("split-"))
-    return (
-      name === splitLogFilename(label) ||
-      name === designsFilename(label) ||
-      readDesignFilename(name)?.label === label ||
-      readSplitFilename(name, "pick")?.label === label
-    )
   if (name === roundDataFilename(label, "series")) return true
   const prefix = escapedPattern(label)
   const phase = readPhaseFilename(name)
@@ -199,26 +192,19 @@ export function seriesFile(label: string, name: string): boolean {
   ).test(name)
 }
 
-/** The two kinds of labelled evidence archive. */
-export type ArchiveKind = "commit" | "split"
-
 /**
- * The evidence folder for completed commit series or split calls.
+ * The evidence folder for completed commit series.
  */
-export function seriesArchiveRoot(
-  evidenceRoot: string,
-  kind: ArchiveKind,
-): string {
-  return join(evidenceRoot, kind === "commit" ? "commits" : "splits")
+export function seriesArchiveRoot(evidenceRoot: string): string {
+  return join(evidenceRoot, "commits")
 }
 
-/** The folder that holds one finished series under its label. */
+/** The folder that holds one finished commit series under its label. */
 export function seriesArchiveFolder(
   evidenceRoot: string,
-  kind: ArchiveKind,
   label: string,
 ): string {
-  return join(seriesArchiveRoot(evidenceRoot, kind), label)
+  return join(seriesArchiveRoot(evidenceRoot), label)
 }
 
 /** The bounded label that owns one commit series and its retained evidence. */
@@ -242,6 +228,11 @@ export function commitTargetLabel(target: CommitTarget): string {
 export function splitLabel(source: string): string {
   const hash = createHash("sha256").update(source).digest("hex").slice(0, 5)
   return `split-${encodeURIComponent(basename(source))}-${hash}`
+}
+
+/** The folder in the evidence checkout that holds one source file's split files. */
+export function splitFolder(evidenceRoot: string, label: string): string {
+  return join(evidenceRoot, "splits", label)
 }
 
 /** The bounded label that owns one target's round files and round data. */

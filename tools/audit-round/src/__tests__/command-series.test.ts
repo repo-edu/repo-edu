@@ -768,11 +768,7 @@ test("a stopped commit round names its commits by ID and its rerun continues it 
   const stored = JSON.parse(
     await readFile(
       join(
-        seriesArchiveFolder(
-          f.evidenceRoot,
-          "commit",
-          `commit-${head.slice(0, 6)}`,
-        ),
+        seriesArchiveFolder(f.evidenceRoot, `commit-${head.slice(0, 6)}`),
         `commit-${head.slice(0, 6)}-rounds.json`,
       ),
       "utf8",
@@ -1791,10 +1787,7 @@ test("a commit series keeps its label while the next auditor reads the original 
 
   const data = JSON.parse(
     await readFile(
-      join(
-        seriesArchiveFolder(f.evidenceRoot, "commit", label),
-        `${label}-rounds.json`,
-      ),
+      join(seriesArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
       "utf8",
     ),
   ) as {
@@ -1840,10 +1833,7 @@ test("a commit series keeps its clean record out of the next round's audited set
 
   const data = JSON.parse(
     await readFile(
-      join(
-        seriesArchiveFolder(f.evidenceRoot, "commit", label),
-        `${label}-rounds.json`,
-      ),
+      join(seriesArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
       "utf8",
     ),
   ) as {
@@ -1923,10 +1913,7 @@ test("a rerun starts with fixes retained by the same commit-series label", async
 
   const data = JSON.parse(
     await readFile(
-      join(
-        seriesArchiveFolder(f.evidenceRoot, "commit", label),
-        `${label}-rounds.json`,
-      ),
+      join(seriesArchiveFolder(f.evidenceRoot, label), `${label}-rounds.json`),
       "utf8",
     ),
   ) as {

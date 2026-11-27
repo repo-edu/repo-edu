@@ -98,9 +98,9 @@ again moves the series back first, so it keeps its earlier fixes and continues i
 
 ## File split outputs
 
-After a [split command](/repo-edu/tooling/split/) returns a result, open
-`../plan-evidence/splits/<label>/`. The label begins with `split-` and includes the source file's
-name and the first five characters of a hash of its path.
+Every split command reads and writes directly in `../plan-evidence/splits/<label>/`, never in
+`../plan-evidence/active/`. The label begins with `split-` and includes the source file's name and
+the first five characters of a hash of its path.
 
 | File | What to open it for |
 | --- | --- |
@@ -109,8 +109,8 @@ name and the first five characters of a hash of its path.
 | `<label>-pick-<n>.<tag>.md` | The answers judged, the picker's reasons and any repairs. Report numbers count separately from answer numbers. |
 | `<label>-designs.json` | The writer of each numbered answer and each designer's position and density. |
 
-The next call on the same source brings the files back to `../plan-evidence/active/` before it
-starts. If a session fails, its files stay there.
+Files stay in `../plan-evidence/splits/<label>/` across `design`, `pick`, `run` and failed
+sessions.
 
 ## Commits
 

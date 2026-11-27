@@ -113,14 +113,13 @@ The runner writes the four reports from the results of their phases.
   report or follows the fix's closing note.
 - **Evidence repo**: the private checkout `plan-evidence` beside the plan and
   Repo Edu checkouts. It holds the round folder and each closed plan's round
-  files. It keeps completed commit series under `commits/` and the files from
-  completed split calls under `splits/`. Only the runner commits it.
+  files. It keeps completed commit series under `commits/` and each source
+  file's split files under `splits/`. Only the runner commits it.
 - **Round folder**: the `active/` folder of the evidence repo. It holds every
   round file of live work. The plan checkout's own `active/` folder holds plans
   and their briefs only.
-- **Round file**: any file that a round, a plan step, a close, a split call or
-  a yield review writes into the round folder, such as a report, a ruling, a
-  log or a handoff.
+- **Round file**: any file that a round, a plan step, a close or a yield review
+  writes into the round folder, such as a report, a ruling, a log or a handoff.
 - **Phase file**: a round file that one phase of a numbered round writes, named
   by its target, round number, order and kind.
 - **Claim**: the empty round file that reserves a round's number before any

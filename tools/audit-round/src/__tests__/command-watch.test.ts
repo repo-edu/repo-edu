@@ -281,7 +281,6 @@ for (const target of ["implementation", "planning", "commits"] as const) {
       target === "commits"
         ? seriesArchiveFolder(
             f.evidenceRoot,
-            "commit",
             basename(f.report).replace(/-\d{2,}-2-audit\..+$/, ""),
           )
         : f.roundRoot

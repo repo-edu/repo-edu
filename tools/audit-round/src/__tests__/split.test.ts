@@ -16,6 +16,7 @@ import { execa } from "execa"
 import { check } from "proper-lockfile"
 import { runAssistantPhase } from "../assistant.js"
 import { installationRoot } from "../context.js"
+import { splitFolder } from "../round-paths.js"
 import {
   runSplit,
   type SplitDependencies,
@@ -281,12 +282,14 @@ async function fixture(t: TestContext) {
       mode: "run",
       named: await namedAnswer(context, context.planRoot, path),
     })
+  const folder = splitFolder(context.evidenceRoot, label)
   const answer = (n: string, tag = writer.tag as string) =>
-    join(context.roundRoot, `${label}-design-${n}.${tag}.md`)
+    join(folder, `${label}-design-${n}.${tag}.md`)
   const planFile = (n: string) =>
     join(context.planRoot, `splits/packages/demo/src/source.${n}.mv.md`)
   return {
     context,
+    folder,
     hash,
     deps,
     trials,
@@ -370,10 +373,7 @@ test("a repair takes the next answer number even when newer designs were not nam
     listText(f.hash, "Holds b.", picker),
   )
   assert.match(
-    await readFile(
-      join(f.context.roundRoot, `${label}-pick-01.otx.md`),
-      "utf8",
-    ),
+    await readFile(join(f.folder, `${label}-pick-01.otx.md`), "utf8"),
     /Pick: 1\n\nReplacement answer: 3\n$/,
   )
   const secondPicker = {
@@ -416,6 +416,15 @@ test("unanimous no-split answers need no picker and choosing an earlier designer
     await git(f.context.planRoot, "log", "-1", "--format=%s"),
     /\/choose: choose answer 1 /,
   )
+  const activeAnswer = join(
+    f.context.roundRoot,
+    `${label}-design-01.${writer.tag}.md`,
+  )
+  await writeFile(activeAnswer, await readFile(f.answer("01"), "utf8"))
+  await assert.rejects(
+    namedAnswer(f.context, f.context.planRoot, activeAnswer),
+    /Name a designer's answer in the evidence checkout/,
+  )
 })
 
 test("refused lists reach the picker with reasons and an all-refused pick needs a plan", async (t) => {
@@ -451,10 +460,7 @@ test("refused lists reach the picker with reasons and an all-refused pick needs 
     noSplitText(f.hash, "needs-plan", "picker"),
   )
   assert.match(
-    await readFile(
-      join(f.context.roundRoot, `${label}-pick-01.otx.md`),
-      "utf8",
-    ),
+    await readFile(join(f.folder, `${label}-pick-01.otx.md`), "utf8"),
     /Pick: none\n\nReplacement answer: 4\n$/,
   )
 })
@@ -517,7 +523,7 @@ test("a reader of the previous writer record keeps its complete version during t
   const f = await fixture(t)
   const design = noSplitAnswer("fine")
   await f.design([design])
-  const path = join(f.context.roundRoot, `${label}-designs.json`)
+  const path = join(f.folder, `${label}-designs.json`)
   const before = await readFile(path, "utf8")
   const reader = await open(path)
   try {
@@ -705,8 +711,10 @@ test("split commands save numbered designs, retry only the picker and run a save
   )
   const path = join(folder, `${label}-design-01.${records[0].tag}.md`)
   assert.ok(f.visible.some((line) => line.includes(path)))
+  assert.deepEqual(await readdir(f.roundRoot), [])
   assert.ok(!(await readdir(folder)).some((name) => name.includes("-pick-")))
   assert.equal(await command(source), 1)
+  assert.deepEqual(await readdir(f.roundRoot), [])
   const retry = f.visible.find((line) =>
     line.includes("Session: failed-picker"),
   )
@@ -727,11 +735,14 @@ test("split commands save numbered designs, retry only the picker and run a save
     0,
     f.errors.join("\n"),
   )
+  assert.deepEqual(await readdir(f.roundRoot), [])
   const retryPrompts = (await prompts()).slice(beforeRetry)
   assert.equal(retryPrompts.length, 1)
   assert.ok(retryPrompts[0].startsWith("Run the pick phase"))
   for (const number of ["04", "05", "06"])
-    assert.ok(retryPrompts[0].includes(`${label}-design-${number}.`))
+    assert.ok(
+      retryPrompts[0].includes(join(folder, `${label}-design-${number}.`)),
+    )
   assert.match(f.visible.at(-1) ?? "", /"result":"fine"/)
   const reports = async () =>
     (await readdir(folder)).filter((name) => name.includes("-pick-")).sort()
@@ -780,6 +791,11 @@ test("split commands save numbered designs, retry only the picker and run a save
   assert.deepEqual(await f.calls(), calls)
   assert.equal(f.releaseLookup.mock.callCount(), lookups)
   assert.match(f.visible.at(-1) ?? "", /"result":"fine"/)
+  assert.deepEqual(await readdir(f.roundRoot), [])
+  assert.equal(
+    f.visible.some((line) => line.startsWith("Moved ")),
+    false,
+  )
 })
 
 test("a designer can send prose before its structured move list and the runner tries the saved moves", async (t) => {

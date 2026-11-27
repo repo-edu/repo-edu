@@ -185,21 +185,21 @@ ruling, a close log, a handoff or a yield report. Each form is read whole past t
 bare `<stem>-` prefix, so a plan whose stem extends this one never matches. The plan's round data is
 not among them, because the close archives it beside the plan.
 
-**Split answers.** Designers share one number sequence per source. The next number follows the
-highest saved answer filename. Each `<label>-design-<n>.<tag>.md` has at least two digits. A new
-answer from the picker takes the next number. An unchanged answer keeps its name and text.
-`<label>-pick-<n>.<tag>.md` holds a pick report. Its number is one higher than the
-highest saved report number for the source, or 1 for the first report.
-Report numbers and answer numbers count separately. Each report lists the answers it judged and
-gives the number of any new answer from the picker.
-`<label>-designs.json` records each writer and each designer's position and density. The runner
-replaces this record by rename so an interrupted write preserves earlier entries. The plan list
-keeps the selected number as `splits/<source stem>.<n>.mv.md`.
+**Split answers.** Each source file's split files live directly in `plan-evidence/splits/<label>/`,
+which `splitFolder` names, never in the round folder `active/`. That folder holds its numbered
+answers, pick reports, writer record and split log. Designers share one number sequence per source.
+The next number follows the highest saved answer filename. Each `<label>-design-<n>.<tag>.md` has at
+least two digits. A new answer from the picker takes the next number. An unchanged answer keeps its
+name and text. `<label>-pick-<n>.<tag>.md` holds a pick report. Its number is one higher than the
+highest saved report number for the source, or 1 for the first report. Report numbers and answer
+numbers count separately. Each report lists the answers it judged and gives the number of any new
+answer from the picker. `<label>-designs.json` records each writer and each designer's position and
+density. The runner replaces this record by rename so an interrupted write preserves earlier
+entries. The plan list keeps the selected number as `splits/<source stem>.<n>.mv.md`.
 
 **Files under a label.** `seriesFile` matches a commit series' claim, phase files, queue, handoff
-and round data. For a split it matches the numbered answers, pick reports, writer record and log.
-It reads each name past the full label so a neighbouring label never matches. `seriesArchiveFolder`
-names the folder under `commits/` or `splits/` of the evidence checkout.
+and round data. It reads each name past the full label so a neighbouring label never matches.
+`seriesArchiveFolder` names the folder under `commits/` of the evidence checkout.
 
 ### Numbers and claims
 
@@ -457,25 +457,21 @@ close that finishes an earlier one moves the same way.
 
 ### The series move
 
-A completed commit series or split call moves out of the round folder, so the folder lists live
-work only. `command.ts` moves commit series through `evidence.ts`. `split-output.ts` moves split
-files through the same owner.
+A completed commit series moves out of the round folder, so the folder lists live work only.
+`command.ts` moves commit series through `evidence.ts`.
 
 - **When.** A commit series completes when every requested round has run: an automatic `stop`
   answer or a manual queue that runs out after a finished round. A failure, an unanswered ruling and
   the round maximum with another auditor due leave it in the round folder. The series' ending keeps
   the maximum apart from completion, because both end the series without the user.
-- **When, for a split.** Every result archives the split's files. A failed session leaves them in
-  the round folder.
 - **What.** `archiveSeries` moves the [files under a label](#round-files) into
-  `commits/<label>/` for a commit series or `splits/<label>/` for a split. Each file keeps its name
-  and contents. Renaming an open log keeps its handle valid, so the move's own line lands in the
-  moved log. The command's evidence commit takes the move.
+  `commits/<label>/`. Each file keeps its name and contents. Renaming an open log keeps its handle
+  valid, so the move's own line lands in the moved log. The command's evidence commit takes the
+  move.
 - **Rerun.** Before a series reads its history, picks an auditor, writes a queue or claims a round,
   `restoreSeries` moves any archived file of that label back and removes the emptied folder. The
   series then keeps its earlier fixes and its next number, and every later write uses the round
-  folder. A split call restores before it opens its split log, because a log opened first would be
-  replaced by the archived one.
+  folder.
 - **A move cut short.** Each file moves by one rename, so it sits in exactly one folder at every
   moment. A rerun restores whatever the archive folder holds, so no file is lost and no number is
   claimed twice.

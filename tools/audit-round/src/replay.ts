@@ -266,10 +266,7 @@ export async function replayRows(
 ): Promise<readonly ReplayRow[]> {
   const [files, seriesFiles, plan, repoEdu] = await Promise.all([
     readAllPlanRoundData(roots),
-    readAllCommitRoundData(
-      roots,
-      seriesArchiveRoot(roots.evidenceRoot, "commit"),
-    ),
+    readAllCommitRoundData(roots, seriesArchiveRoot(roots.evidenceRoot)),
     readLog(roots.planRoot),
     readLog(roots.repoEduRoot),
   ])

@@ -2478,7 +2478,6 @@ export async function runCommand(
               await restoreSeries(
                 context.evidenceRoot,
                 context.roundRoot,
-                "commit",
                 label,
               ),
             ),
@@ -2494,7 +2493,6 @@ export async function runCommand(
               await archiveSeries(
                 context.evidenceRoot,
                 context.roundRoot,
-                "commit",
                 label,
               ),
             ),

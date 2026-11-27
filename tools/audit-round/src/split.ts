@@ -6,7 +6,7 @@ import type { CommitStamps } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
 import { commitOnly, type LifecycleCommit } from "./lifecycle.js"
 import type { PhaseFailure } from "./phase.js"
-import { splitLabel } from "./round-paths.js"
+import { splitFolder, splitLabel } from "./round-paths.js"
 import {
   type Answer,
   loadAnswers,
@@ -225,10 +225,11 @@ export async function runSplit(
   request: SplitRequest,
   dependencies: SplitDependencies,
 ): Promise<SplitOutcome> {
-  const { repoEduRoot, roundRoot } = context
+  const { repoEduRoot, evidenceRoot } = context
   const source =
     request.mode === "run" ? request.named.list.source : request.source
   const label = splitLabel(source)
+  const folder = splitFolder(evidenceRoot, label)
   const say = dependencies.message
   const snapshot = await sourceSnapshot(repoEduRoot, source)
   const hash = request.mode === "run" ? request.named.list.hash : snapshot.hash
@@ -249,14 +250,14 @@ export async function runSplit(
   let choice: Choice
   if (request.mode === "run") {
     if (snapshot.hash !== hash) return stale()
-    choice = { selected: await savedAnswer(roundRoot, label, request.named) }
+    choice = { selected: await savedAnswer(folder, label, request.named) }
   } else {
     const designed =
       request.mode === "pick"
-        ? { answers: await loadAnswers(roundRoot, source, request.numbers) }
+        ? { answers: await loadAnswers(folder, source, request.numbers) }
         : await designSplit(
             snapshot,
-            roundRoot,
+            folder,
             request.sessions.designers,
             dependencies.showReport,
           )
@@ -268,7 +269,7 @@ export async function runSplit(
     if (outdated) return stale(outdated.list.hash)
     const outcome = await pickSplit(
       snapshot,
-      roundRoot,
+      folder,
       answers,
       request.sessions.pick,
       (answers) =>

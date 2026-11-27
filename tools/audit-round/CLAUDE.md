@@ -52,7 +52,7 @@ data and step logs.
 ## Report lifecycle
 
 [Report lifecycle](references/targets-and-files.md#report-lifecycle) covers evidence commits and
-the moves after a close, completed commit series or split.
+the moves after a close or completed commit series.
 
 ## Phase routing
 

@@ -1,8 +1,8 @@
+import { mkdir } from "node:fs/promises"
 import { join } from "node:path"
 import { join as shellJoin } from "shellwords"
 import { type AssistantRuntime, runAssistantPhase } from "./assistant.js"
 import type { ExecutionContext } from "./context.js"
-import { archiveSeries, movedSeriesText, restoreSeries } from "./evidence.js"
 import { type ModelReleases, observedOutput } from "./feedback.js"
 import { readPreviousRoundModels } from "./model-change.js"
 import { type OutputOptions, RoundOutput } from "./output.js"
@@ -14,7 +14,12 @@ import {
   type PhaseInput,
   selectionTag,
 } from "./phase.js"
-import { designFilename, splitLabel, splitLogFilename } from "./round-paths.js"
+import {
+  designFilename,
+  splitFolder,
+  splitLabel,
+  splitLogFilename,
+} from "./round-paths.js"
 import type { RoundSettings } from "./settings.js"
 import { runChecks, runSplit, type SplitCall } from "./split.js"
 import type { Writer } from "./split-answers.js"
@@ -35,16 +40,8 @@ export async function splitStage(
 ): Promise<number> {
   const source = call.mode === "run" ? call.named.list.source : call.source
   const label = splitLabel(source)
-  const restored = movedSeriesText(
-    label,
-    await restoreSeries(
-      context.evidenceRoot,
-      context.roundRoot,
-      "split",
-      label,
-    ),
-  )
-  if (restored) options.terminal.write(restored)
+  const folder = splitFolder(context.evidenceRoot, label)
+  await mkdir(folder, { recursive: true })
   const session = { ...context, cwd: context.repoEduRoot }
   const designers = settings.split.designers.map((designer) =>
     implementationPhase(designer, "audit-round split designers"),
@@ -85,7 +82,7 @@ export async function splitStage(
       phases: entries,
       paths: {
         claim: null,
-        log: join(context.roundRoot, splitLogFilename(label)),
+        log: join(folder, splitLogFilename(label)),
         markdown: null,
         mode: "a",
       },
@@ -172,17 +169,9 @@ export async function splitStage(
       )
       return 1
     }
-    const archived = await archiveSeries(
-      context.evidenceRoot,
-      context.roundRoot,
-      "split",
-      label,
-    )
-    const moved = movedSeriesText(label, archived)
-    if (moved) await output.message(moved)
     if (outcome.status === "answers-saved") {
       const paths = outcome.answers.map(({ record }) =>
-        join(archived.folder, designFilename(label, record.number, record.tag)),
+        join(folder, designFilename(label, record.number, record.tag)),
       )
       const message = pickCommand(
         outcome.answers.map(({ record }) => record.number),

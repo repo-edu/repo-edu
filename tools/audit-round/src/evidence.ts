@@ -3,7 +3,6 @@ import { join } from "node:path"
 import { execa } from "execa"
 import { errorMessage } from "./feedback.js"
 import {
-  type ArchiveKind,
   planRoundFile,
   seriesArchiveFolder,
   seriesFile,
@@ -132,22 +131,20 @@ async function seriesFiles(
 }
 
 /**
- * Move every file of a finished commit series or split call from the round
- * folder into its own folder under its kind's archive root, `commits/` or
- * `splits/`, so the round folder lists live work only. The series' files are
- * found through the names `round-paths.ts` owns, so a neighbouring label
- * stays. Each file moves by one rename and so sits in exactly one of the two
- * folders at every moment: a move that stops partway loses nothing, and the
- * next rerun restores the rest. The last round's log may still be open, and a
- * rename keeps its open handle on the moved file.
+ * Move every file of a finished commit series from the round folder into its
+ * own folder under `commits/`, so the round folder lists live work only. The
+ * series' files are found through the names `round-paths.ts` owns, so a
+ * neighbouring label stays. Each file moves by one rename and so sits in
+ * exactly one of the two folders at every moment: a move that stops partway
+ * loses nothing, and the next rerun restores the rest. The last round's log
+ * may still be open, and a rename keeps its open handle on the moved file.
  */
 export async function archiveSeries(
   evidenceRoot: string,
   roundRoot: string,
-  kind: ArchiveKind,
   label: string,
 ): Promise<MovedSeriesFiles> {
-  const folder = seriesArchiveFolder(evidenceRoot, kind, label)
+  const folder = seriesArchiveFolder(evidenceRoot, label)
   const names = await seriesFiles(roundRoot, label)
   if (names.length > 0) await mkdir(folder, { recursive: true })
   for (const name of names)
@@ -164,10 +161,9 @@ export async function archiveSeries(
 export async function restoreSeries(
   evidenceRoot: string,
   roundRoot: string,
-  kind: ArchiveKind,
   label: string,
 ): Promise<MovedSeriesFiles> {
-  const archived = seriesArchiveFolder(evidenceRoot, kind, label)
+  const archived = seriesArchiveFolder(evidenceRoot, label)
   const names = await seriesFiles(archived, label)
   for (const name of names)
     await rename(join(archived, name), join(roundRoot, name))

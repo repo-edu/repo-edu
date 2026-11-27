@@ -1,4 +1,4 @@
-import { readdir, readFile, rename, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises"
 import { basename, dirname, join, relative, resolve } from "node:path"
 import { execa } from "execa"
 import { z } from "zod"
@@ -11,7 +11,7 @@ import {
   designsFilename,
   readDesignFilename,
   readSplitFilename,
-  seriesArchiveFolder,
+  splitFolder,
   splitLabel,
 } from "./round-paths.js"
 import { densitySchema } from "./settings.js"
@@ -38,8 +38,15 @@ export async function nextSplitNumber(
   label: string,
   kind: "design" | "pick",
 ) {
+  let names: string[]
+  try {
+    names = await readdir(folder)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 1
+    throw error
+  }
   let last = 0
-  for (const name of await readdir(folder)) {
+  for (const name of names) {
     const saved = readSplitFilename(name, kind)
     if (saved?.label === label) last = Math.max(last, saved.number)
   }
@@ -63,6 +70,7 @@ export async function saveAnswers(
   answers: readonly Answer[],
 ) {
   if (answers.length === 0) return
+  await mkdir(folder, { recursive: true })
   const records = await designRecords(folder, label)
   for (const { text, record } of answers) {
     await writeFile(
@@ -107,7 +115,7 @@ export type NamedAnswer = {
   tag?: string
 }
 
-/** Read the exact file the user named before its evidence folder is restored. */
+/** Read the exact file the user named. */
 export async function namedAnswer(
   context: ExecutionContext,
   cwd: string,
@@ -116,11 +124,7 @@ export async function namedAnswer(
   const path = resolve(cwd, value)
   const saved = readDesignFilename(basename(path))
   if (saved !== null) {
-    const folder = dirname(path)
-    if (
-      folder !== context.roundRoot &&
-      folder !== seriesArchiveFolder(context.evidenceRoot, "split", saved.label)
-    )
+    if (dirname(path) !== splitFolder(context.evidenceRoot, saved.label))
       throw new Error("Name a designer's answer in the evidence checkout")
     const text = await readFile(path, "utf8")
     const list = readMoveList(text)

@@ -250,7 +250,7 @@ for (const { name, args, judged, owner } of [
         message,
       )
     // The completed series waits in its archive folder.
-    const archived = seriesArchiveFolder(f.evidenceRoot, "commit", label)
+    const archived = seriesArchiveFolder(f.evidenceRoot, label)
     const data = JSON.parse(
       await readFile(join(archived, `${label}-rounds.json`), "utf8"),
     ) as { rounds: { commits: { repository: string; sha: string }[] }[] }
