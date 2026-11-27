@@ -257,7 +257,7 @@ test("Claude's empty closing result of no turns is not a turn", () => {
   )
 })
 
-test("a watch returns its document, grade and output-owned compaction count", async (t) => {
+test("a watch returns its document and grade", async (t) => {
   const f = await fixture(t)
   const final = {
     status: "finished",
@@ -278,18 +278,7 @@ test("a watch returns its document, grade and output-owned compaction count", as
       evidence: "{}",
       sessionId: null,
     },
-    {
-      start: async (input, prompt) => {
-        const recorder = await f.output.start(input, prompt)
-        return {
-          ...recorder,
-          finish: async (phaseResult) => {
-            await recorder.finish(phaseResult)
-            return { compactions: 2 }
-          },
-        }
-      },
-    },
+    f.output,
     f.runtime,
   )
   assert.deepEqual(result, {
@@ -297,7 +286,6 @@ test("a watch returns its document, grade and output-owned compaction count", as
     sessionId: "test-session",
     document: "# Example: trajectory watch\n\nGrounded evidence.",
     grade: "amber",
-    compactions: 2,
   })
 })
 

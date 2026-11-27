@@ -665,18 +665,6 @@ async function runWatch(
     })
     if (watch.status === "failed")
       return { ...watch, phase: "watch", ...phases.watch, ...context }
-    const startFresh = (reason: string): RoundFailure => ({
-      status: "failed",
-      sessionId: watch.sessionId,
-      phase: "watch",
-      ...phases.watch,
-      ...context,
-      reason: `${reason}${/[.!?]$/.test(reason) ? "" : "."} The next watch must start fresh.`,
-    })
-    if (watch.compactions > 0)
-      return startFresh(
-        `The watch compacted while reading ${evidence.length} characters of evidence; it needs one uncompacted session.`,
-      )
     try {
       await dependencies.writeWatchDocument(target.file, watch.document)
       await dependencies.writeWatchRecord({
@@ -687,7 +675,15 @@ async function runWatch(
       })
       return { grade: watch.grade }
     } catch (error) {
-      return startFresh(errorMessage(error))
+      const reason = errorMessage(error)
+      return {
+        status: "failed",
+        sessionId: watch.sessionId,
+        phase: "watch",
+        ...phases.watch,
+        ...context,
+        reason: `${reason}${/[.!?]$/.test(reason) ? "" : "."} The next watch must start fresh.`,
+      }
     }
   } catch (error) {
     return {

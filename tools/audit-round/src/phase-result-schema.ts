@@ -69,8 +69,6 @@ export function structuredPhaseResult(
   }
 }
 
-type AdmittedResult = PhaseResult | Omit<WatchResult, "compactions">
-
 type ResultContract = {
   readonly file?: string
   readonly schema: string
@@ -79,7 +77,7 @@ type ResultContract = {
     sessionId: string,
     value: unknown,
   ) => {
-    readonly result: AdmittedResult
+    readonly result: PhaseResult
     readonly text?: string
   }
 }

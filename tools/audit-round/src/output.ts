@@ -910,18 +910,8 @@ export class RoundOutput<R extends Run = Run> {
     this.status()
   }
 
-  private finishPhase(
-    slot: ActiveSlot,
-    result: PhaseControlResult,
-  ): {
-    readonly compactions: number
-  } {
-    const run = this.ran.get(slot.key)
-    if (
-      this.active.get(slot.key) !== slot ||
-      slot.ended !== null ||
-      run === undefined
-    )
+  private finishPhase(slot: ActiveSlot, result: PhaseControlResult): void {
+    if (this.active.get(slot.key) !== slot || slot.ended !== null)
       throw new Error("A phase finished without starting")
     this.flush(slot)
     this.say(this.end(slot))
@@ -929,7 +919,6 @@ export class RoundOutput<R extends Run = Run> {
     // The run's finish line owns the failure reason, session and resume command.
     this.say(`[${slot.key}] ${result.status}`)
     this.follow()
-    return { compactions: run.compactions }
   }
 
   /**

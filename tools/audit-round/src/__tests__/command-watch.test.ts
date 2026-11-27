@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import { readdir, readFile } from "node:fs/promises"
 import { basename, join } from "node:path"
 import { test } from "node:test"
+import { readPlanRoundData } from "../round-data.js"
 import { seriesArchiveFolder } from "../round-paths.js"
 import { namedModels, runCommand, testSettings } from "./configured-runner.js"
 import { recorded } from "./helpers.js"
@@ -149,9 +150,33 @@ test("a red watch stops the auditor sequence before the next queued round", asyn
   assert.equal(await readFile(queue, "utf8"), "claude\n")
 })
 
-test("a due glance admits and publishes the returned watch without round session files", async (t) => {
+test("a compacted watch publishes its final document and grade and records the compaction", async (t) => {
   const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
   await f.steps(3)
+  const watchPhase = f.phases.watch as {
+    assistants: { codex: { stream: string } }
+    usage: { text: string }
+  }
+  const progress = "The watch is checking the evidence."
+  const draft = {
+    status: "finished",
+    reason: null,
+    result: { document: "Draft watch text.", grade: "green" },
+  }
+  const [opening, ...events] = watchPhase.assistants.codex.stream
+    .replace("The session is working.", progress)
+    .split("\n")
+  watchPhase.assistants.codex.stream = [
+    opening,
+    JSON.stringify({
+      type: "item.completed",
+      item: { type: "agent_message", id: "draft", text: JSON.stringify(draft) },
+    }),
+    ...events,
+  ].join("\n")
+  watchPhase.usage.text = await recorded("codex-compacted.jsonl")
+  await f.configure({ phases: f.phases })
+
   assert.equal(
     await runCommand(["round", "example.md", "3"], f.runtime, f.options),
     0,
@@ -203,61 +228,17 @@ test("a due glance admits and publishes the returned watch without round session
   )
   assert.equal(record.grade, "red")
   assert.deepEqual(record.heads, suppliedHeads)
-  assert.match(f.visible.join("\n"), /Audit round finished\./)
-})
-
-test("a compacted watch logs its draft and publishes no watch document or cadence record", async (t) => {
-  const f = await roundFixture(t, "codex", "repo-edu", false, null, true)
-  await f.steps(3)
-  const watchPhase = f.phases.watch as {
-    assistants: { codex: { stream: string } }
-    usage: { path: string; text: string }
-  }
-  const progress = "The watch is checking the evidence."
-  const draft = {
-    status: "finished",
-    reason: null,
-    result: { document: "Draft watch text.", grade: "green" },
-  }
-  const [opening, ...events] = watchPhase.assistants.codex.stream
-    .replace("The session is working.", progress)
-    .split("\n")
-  watchPhase.assistants.codex.stream = [
-    opening,
-    JSON.stringify({
-      type: "item.completed",
-      item: { type: "agent_message", id: "draft", text: JSON.stringify(draft) },
-    }),
-    ...events,
-  ].join("\n")
-  watchPhase.usage.text = await recorded("codex-compacted.jsonl")
-  await f.configure({ phases: f.phases })
-  const before = await readFile(join(f.options.cacheRoot, "watch.json"), "utf8")
-
-  assert.equal(
-    await runCommand(["round", "example.md", "3"], f.runtime, f.options),
-    1,
+  assert.notDeepEqual(record.heads, f.recordHeads)
+  const { implementation } = await readPlanRoundData(f.roundRoot, "example")
+  const watchRun = implementation?.[0]?.phases.find(
+    ({ phase }) => phase === "watch",
   )
-
-  assert.match(
-    f.visible.join("\n"),
-    /The watch compacted while reading \d+ characters of evidence; it needs one uncompacted session\. The next watch must start fresh\./,
-  )
-  assert.match(f.visible.join("\n"), /Session: watch-session/)
-  assert.doesNotMatch(f.visible.join("\n"), /Resume:/)
-  assert.equal(
-    (await readdir(f.roundRoot)).some((name) => /-9-watch\./.test(name)),
-    false,
-  )
-  assert.equal(
-    await readFile(join(f.options.cacheRoot, "watch.json"), "utf8"),
-    before,
-  )
-  const { log, markdown } = await f.records()
+  assert.equal(watchRun?.compactions, 1)
   assert.ok(log.includes(`[watch] result: ${JSON.stringify(draft)}`))
-  assert.doesNotMatch(markdown, /## Watch|Draft watch text\./)
-  assert.doesNotMatch(f.visible.join("\n"), /(?:Complete|Draft) watch text\./)
   assert.ok(f.visible.includes(progress))
+  assert.doesNotMatch(markdown, /Draft watch text\./)
+  assert.doesNotMatch(f.visible.join("\n"), /Draft watch text\./)
+  assert.match(f.visible.join("\n"), /Audit round finished\./)
 })
 
 for (const target of ["implementation", "planning", "commits"] as const) {

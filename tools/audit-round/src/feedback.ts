@@ -98,17 +98,12 @@ export function observedOutput(
 /** One started invocation's events and ending. */
 export type PhaseRecorder = {
   readonly observe: (feedback: Feedback) => Promise<void>
-  readonly finish: (result: PhaseControlResult) => Promise<PhaseCompletion>
+  readonly finish: (result: PhaseControlResult) => Promise<void>
   /**
    * Ends the invocation's live output even after a required write fails. An
    * invocation that never finished keeps the time and tokens it spent.
    */
   readonly release: () => void
-}
-
-/** Measurements owned by the output recorder once one invocation settles. */
-export type PhaseCompletion = {
-  readonly compactions: number
 }
 
 export const eventSchema = z.looseObject({ type: z.string().min(1) })

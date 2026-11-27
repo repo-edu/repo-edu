@@ -776,7 +776,6 @@ type ReportResult = {
 export type WatchResult = ReportResult & {
   readonly document: string
   readonly grade: WatchGrade
-  readonly compactions: number
 }
 
 /**

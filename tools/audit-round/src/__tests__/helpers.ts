@@ -355,10 +355,6 @@ export async function fixture(
         },
         async finish(result) {
           finishes.push(result)
-          return {
-            compactions: feedback.filter((event) => event.type === "compaction")
-              .length,
-          }
         },
         release() {
           releases += 1

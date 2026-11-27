@@ -489,5 +489,4 @@ finished watch.
 ## Runner result
 
 For an automated watch, follow the shared
-[Runner result](../../../references/round-protocol.md#runner-result). The
-output recorder supplies the phase's final compaction count.
+[Runner result](../../../references/round-protocol.md#runner-result).

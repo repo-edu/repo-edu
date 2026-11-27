@@ -240,10 +240,8 @@ export async function runAssistantInvocation(
         if (answer.text) await observe({ type: "text", text: answer.text })
       }
       const { result } = answer
-      const completion = await recorder.finish(result)
-      return "grade" in result
-        ? { ...result, compactions: completion.compactions }
-        : result
+      await recorder.finish(result)
+      return result
     } finally {
       try {
         await usage?.close()

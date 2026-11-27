@@ -86,8 +86,8 @@ context and compaction count.
 - Both assistants' latest session totals replace the earlier reading, so a resumed fix counts each
   token once.
 - Each phase prints its per-model input, cached input and output totals beside its elapsed time.
-- The output warns once when audit, vet, rebuttal, ruler or fix first compacts. The watch returns
-  its final compaction count to `round.ts` instead, under [Watch](watch.md#watch).
+- Round data includes the compaction count for each round phase, including the watch.
+  It warns once when audit, vet, rebuttal, ruler or fix first compacts.
 
 ## Time readings
 

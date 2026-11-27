@@ -310,7 +310,6 @@ function controlledRound(
       sessionId: "watch-session",
       document: "# Example: trajectory watch",
       grade: "green",
-      compactions: 0,
     },
     close: {
       status: "finished",
@@ -2468,35 +2467,6 @@ test("a red watch reaches the round result for the sequence to stop on", async (
   )
 
   assert.equal(result.status === "finished" && result.watch, "red")
-})
-
-test("a compacted watch writes neither output and names the evidence size", async () => {
-  const round = controlledRound()
-  arrange(round, "watch")
-  const watch = round.results.watch
-  assert.equal(watch.status, "finished")
-  if (watch.status === "finished")
-    round.results.watch = { ...watch, compactions: 1 }
-
-  const result = await runRound(
-    { ...files, plan: "example.md", scope: "1" },
-    round.dependencies,
-  )
-
-  assert.deepEqual(result, {
-    status: "failed",
-    sessionId: "watch-session",
-    phase: "watch",
-    ...testWatch(),
-    ...testContext(repoRoot),
-    reason:
-      "The watch compacted while reading 21 characters of evidence; it needs one uncompacted session. The next watch must start fresh.",
-    commits: landedRecords("repo-edu", round.evidence.subjects).map(
-      ({ repository, sha }) => ({ repository, sha }),
-    ),
-  })
-  assert.deepEqual(round.watchDocuments, [])
-  assert.deepEqual(round.watchRecords, [])
 })
 
 test("a watch document failure skips the cadence record", async () => {
