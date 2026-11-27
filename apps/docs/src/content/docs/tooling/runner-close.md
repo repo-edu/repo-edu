@@ -49,9 +49,10 @@ skips the first three.
    staged work, so no closing commit carries other work.
 
 The session asks only when a check needs your word: to close without a whole-plan audit or with no
-step landed, to archive with open deferrals, or for the shared folder name when this plan is the
-first of its split peers to close. Nobody can answer during an unattended run, so the session fails
-with the question and the runner prints a `Resume:` command.
+step landed or to archive with open deferrals. The first split peer to close names the shared
+folder after the plan the split came from, and asks for a name only when the plan's decisions name
+no such plan. Nobody can answer during an unattended run, so the session fails with the question
+and the runner prints a `Resume:` command.
 
 Then the session clears the plan's refactor backlog rows through `pnpm sweep done --plan <stem>`,
 moves the plan, rewrites links to it and writes each repo's `<stem>/closed` commit. It deletes
@@ -86,7 +87,7 @@ too, because the round data then has no folder to join.
 
 ## Refuses when
 
-The runner prints `audit-round: <reason>` and starts no session. The empty abort reason in item 3 is
+The runner prints `audit-round: <reason>` and starts no session. The empty abort reason in item 4 is
 a refusal from the argument parser, which prints its own `error:` line without that prefix. An
 argument refusal exits with status 2 and any other with status 1.
 
@@ -96,7 +97,10 @@ argument refusal exits with status 2 and any other with status 1.
    `No active plan named <stem> at <active folder>. An archived plan is already closed.` When round
    data is left, the command instead moves and commits it without starting a session, which is how a
    close finishes after you answered in a resumed session.
-3. **The abort reason is empty**, or the stem is a path.
+3. **The plan's move into the archive has no commit yet.** `The move of <stem> to <archive path>
+   has no commit yet. Let its close session finish, then run the close again.` The resumed session
+   is still working, so the runner moves nothing.
+4. **The abort reason is empty**, or the stem is a path.
 
 ## Stop and recovery
 
@@ -104,8 +108,8 @@ argument refusal exits with status 2 and any other with status 1.
    archive with open deferrals. The session fails with the question and the runner prints a
    `Resume:` command. Run it and answer in that session. The resumed session moves the plan but the
    runner is no longer there to move the round data, so run `pnpm audit-round close <stem>` again
-   afterwards: it finds the archived plan and the leftover data, moves and commits the data and
-   starts no session.
+   once that session has committed the move: it finds the archived plan and the leftover data, moves
+   and commits the data and starts no session.
 2. **A close action fails.** Fix the outside problem it names, such as uncommitted plan changes or
    staged work, then run the printed `Resume:` command, or the same close command when none was
    printed. See [Recover a run](/repo-edu/tooling/recover-run/).

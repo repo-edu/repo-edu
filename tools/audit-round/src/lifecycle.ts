@@ -121,6 +121,15 @@ async function uncommittedStates(
   return [...states]
 }
 
+/** Whether HEAD holds a file at this path of the plan checkout. */
+async function heldAtHead(planRoot: string, path: string): Promise<boolean> {
+  const held = await execa("git", ["cat-file", "-e", `HEAD:${path}`], {
+    cwd: planRoot,
+    reject: false,
+  })
+  return held.exitCode === 0
+}
+
 /**
  * A new planning round reads a plan that HEAD holds. The audit report names the
  * judged commit and the fix lands the round's record after the plan's init, so
@@ -130,14 +139,26 @@ export async function requirePlanAtHead(
   planRoot: string,
   plan: string,
 ): Promise<void> {
-  const held = await execa(
-    "git",
-    ["cat-file", "-e", `HEAD:${relative(planRoot, plan)}`],
-    { cwd: planRoot, reject: false },
-  )
-  if (held.exitCode === 0) return
+  if (await heldAtHead(planRoot, relative(planRoot, plan))) return
   throw new Error(
     `${basename(plan)} has no commit, so a planning round cannot start. Commit it first as ${planStem(plan)}/init <tag>: <sentence>.`,
+  )
+}
+
+/**
+ * A rerun finishes a close whose plan move HEAD holds. A move still in the
+ * index or the working tree belongs to a close session in flight. That session
+ * may yet stop without its commit, and the round data would then sit in the
+ * archive beside a plan that never closed.
+ */
+export async function requireMoveAtHead(
+  planRoot: string,
+  archived: string,
+): Promise<void> {
+  const path = relative(planRoot, archived)
+  if (await heldAtHead(planRoot, path)) return
+  throw new Error(
+    `The move of ${planStem(archived)} to ${path} has no commit yet. Let its close session finish, then run the close again.`,
   )
 }
 

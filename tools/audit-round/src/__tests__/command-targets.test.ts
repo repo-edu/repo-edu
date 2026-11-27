@@ -4,7 +4,6 @@ import {
   mkdir,
   readdir,
   readFile,
-  rename,
   rm,
   writeFile,
 } from "node:fs/promises"
@@ -318,12 +317,48 @@ test("close refuses paths and plans without an active artifact before any assist
   })
 })
 
+/** A close session's move of the plan into its archive folder, staged as `git mv` leaves it. */
+async function stageArchiveMove(planRoot: string, activeRoot: string) {
+  await mkdir(join(planRoot, "archive/example"), { recursive: true })
+  await execa("git", ["mv", "active/example.md", "archive/example/plan.md"], {
+    cwd: planRoot,
+  })
+  await rm(join(activeRoot, "example-widen.md"))
+}
+
+test("close of a plan whose archive move has no commit refuses and moves nothing", async (t) => {
+  const f = await roundFixture(t)
+  await stageArchiveMove(f.planRoot, f.activeRoot)
+  const data = join(f.roundRoot, "example-plan-rounds.json")
+  await writeFile(data, `${JSON.stringify({ rounds: [], disproved: [] })}\n`)
+  await writeFile(join(f.roundRoot, "example-close.obh.log"), "close\n")
+  const head = (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot }))
+    .stdout
+
+  assert.equal(await runCommand(["close", "example"], f.runtime, f.options), 1)
+  assert.match(
+    f.errors.join("\n"),
+    /The move of example to archive\/example\/plan\.md has no commit yet\. Let its close session finish, then run the close again\./,
+  )
+  // The round data and the round files wait for the session's commit.
+  await access(data)
+  await access(join(f.roundRoot, "example-close.obh.log"))
+  assert.equal(
+    (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+    head,
+  )
+  await assert.rejects(readFile(join(f.root, "calls.jsonl")), {
+    code: "ENOENT",
+  })
+})
+
 test("close of an archived plan finishes its round-data and round-file moves without a session", async (t) => {
   const f = await roundFixture(t)
-  const archive = join(f.planRoot, "archive/example")
-  await mkdir(archive, { recursive: true })
-  await rename(join(f.activeRoot, "example.md"), join(archive, "plan.md"))
-  await rm(join(f.activeRoot, "example-widen.md"))
+  await stageArchiveMove(f.planRoot, f.activeRoot)
+  await commitFixture(
+    f.planRoot,
+    "example/closed obh: archive the completed plan",
+  )
   const dataFiles = ["example-plan-rounds.json", "example-impl-rounds.json"]
   for (const file of dataFiles)
     await writeFile(

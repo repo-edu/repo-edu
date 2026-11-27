@@ -295,7 +295,10 @@ runs the loop-close phase alone, on the `close` settings and with its own log.
 **Leftover files.** A close named for a plan already under `archive/` whose round data or round
 files still sit in the round folder does only those moves and starts no session. A resumed close
 session moved the plan without the runner there, so the rerun finishes the close. It stamps the
-round-data commit from the close selection alone.
+round-data commit from the close selection alone. The rerun requires the plan's move in `HEAD` and
+refuses otherwise, changing nothing. A move still in the index or the working tree belongs to a
+close session in flight. That session may yet stop without its commit, and the round data would
+then sit in the archive beside a plan that never closed.
 
 ## split
 

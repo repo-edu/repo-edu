@@ -57,6 +57,7 @@ import {
   markImplemented,
   readReadyCoder,
   readyPlan,
+  requireMoveAtHead,
   requirePlanAtHead,
   requireReadyMarker,
   type SettleCommit,
@@ -1196,7 +1197,8 @@ async function closePlan(
  * under `archive/` whose round data or round files still sit in the round
  * folder has one thing left to do: a resumed close session moved the plan
  * without the runner there to move them, so the rerun finishes those moves
- * and starts no session.
+ * and starts no session. The rerun waits for that session's commit of the
+ * move.
  */
 async function preparedClose(
   context: ExecutionContext,
@@ -1208,10 +1210,15 @@ async function preparedClose(
     if (
       (await activePlan(context.activeRoot, stem)) === null &&
       ((await activeRoundData(context, stem)).length > 0 ||
-        (await planRoundFiles(context.roundRoot, stem)).length > 0) &&
-      (await archivedPlans(context.planRoot, stem)).length > 0
-    )
-      return { ...invocation, leftover: stem }
+        (await planRoundFiles(context.roundRoot, stem)).length > 0)
+    ) {
+      const archived = await archivedPlans(context.planRoot, stem)
+      if (archived.length > 0) {
+        for (const plan of archived)
+          await requireMoveAtHead(context.planRoot, plan)
+        return { ...invocation, leftover: stem }
+      }
+    }
   }
   const plan = await closePlan(context, invocation)
   const { deferrals } = await deferralState(context, planStem(plan))
