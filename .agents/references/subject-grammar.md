@@ -152,12 +152,12 @@ planned step is one commit; `implemented` records completion, so there is no imp
 step role.
 
 A commit audit's record opens with its commit series' label where a plan form has its stem. The
-runner's [Names](../../tools/audit-round/CLAUDE.md#names) rules own the label, which also names the
-series' round files and round data. The `commit-audit` role marks the form, never the label's
-spelling: a series label is no plan stem, and a plan whose stem looks like a label keeps its plan
-forms. The parser holds the one test that tells the two forms apart, and every reader that groups
-commits by plan uses it. The same test reads a chat's form as no plan form, though it opens with a
-plan's stem. The plan repo's **Commit message convention** owns when a chat writes it.
+runner's [Names](../../tools/audit-round/references/targets-and-files.md#names) rules own the label,
+which also names the series' round files and round data. The `commit-audit` role marks the form,
+never the label's spelling: a series label is no plan stem, and a plan whose stem looks like a label
+keeps its plan forms. The parser holds the one test that tells the two forms apart, and every reader
+that groups commits by plan uses it. The same test reads a chat's form as no plan form, though it
+opens with a plan's stem. The plan repo's **Commit message convention** owns when a chat writes it.
 
 A split's commits open with the source file's label. The label is
 `split-`, the source file's name, a hyphen and the first five characters of the SHA-256 of the

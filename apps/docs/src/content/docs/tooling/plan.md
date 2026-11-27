@@ -9,7 +9,7 @@ the choice before `round`, `settle`, `ready` or `close` acts on it.
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root |
-| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/default-target.ts` |
+| Owners | `tools/audit-round/references/commands.md`, **No target** in `tools/audit-round/references/targets-and-files.md` and `tools/audit-round/src/default-target.ts` |
 
 ## Usage
 

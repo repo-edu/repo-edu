@@ -2,16 +2,14 @@
 
 This file describes one round: its phase sequence, its report results, the winner rule and a
 ruling's wait. Read [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the
-runner's [CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names
-the source files this file describes. It follows the runner documentation's
-[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+runner's [CLAUDE.md](../CLAUDE.md) first. See [Ownership](ownership.md) for the source files.
 
 ## Round sequence
 
 `round.ts` is the coordinator of one round. It runs a fixed sequence of phases: audit, vet,
 rebuttal, ruler and fix, and asks the user's questions before the fix. Each phase starts a fresh
 session. A round that continues a stopped one skips phases
-under [Stopped rounds](../CLAUDE.md#stopped-rounds).
+under [Stopped rounds](targets-and-files.md#stopped-rounds).
 
 1. **Audit.** The runner names every input and output path of the round before the audit starts:
    the audit report, the vet reports, the rebuttal report, the ruler report, the ruling and the
@@ -149,7 +147,7 @@ The questions follow one route:
 2. The runner stores each winner and reason on the finding with the user as its namer. It passes
    each choice to the fix in the user's words, in a choice object after the contest object.
 3. A choice is not stored, so a stopped round asks for it again. A stored winner stands under
-   [Stopped rounds](../CLAUDE.md#stopped-rounds) and is not asked again.
+   [Stopped rounds](targets-and-files.md#stopped-rounds) and is not asked again.
 4. Ending the wait with Ctrl-C stops the round with no fix session. The round files stay, and the
    rerun asks the open questions again.
 
@@ -208,7 +206,7 @@ Answer recording completes before the fix starts or resumes. The runner's signal
 unanswered. The assistant never inherits the terminal.
 
 **The carriers.** The hidden `ruling` and `answer` commands are only carriers, under
-[ruling and answer](../CLAUDE.md#ruling-and-answer). They find the waiting runs through the folder
+[ruling and answer](commands.md#ruling-and-answer). They find the waiting runs through the folder
 and count a socket that refuses the connection as no run.
 
 **The commands.** The module holds the one wording of the chat commands that answer the wait,

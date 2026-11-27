@@ -10,7 +10,7 @@ model calls.
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu root, with the selected command-line programs installed and signed in |
-| Owners | `tools/audit-round/CLAUDE.md`, `tools/audit-round/src/contract.ts` and `tools/audit-round/src/__tests__/fixtures/README.md` |
+| Owners | `tools/audit-round/references/commands.md`, `tools/audit-round/src/contract.ts` and `tools/audit-round/src/__tests__/fixtures/README.md` |
 
 ## Usage
 

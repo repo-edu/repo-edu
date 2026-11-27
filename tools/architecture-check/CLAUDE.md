@@ -45,8 +45,8 @@ implementation audits own that drift where the import graph cannot express it.
 
 ## Area model
 
-The committed model is `src/area-model.json` (schema version 1). The root
-`CLAUDE.md` **Vocabulary** defines its partition and cover areas. Here:
+The committed model is `src/area-model.json` (schema version 1). The
+[app glossary](../../glossaries/app.md) defines its partition and cover areas.
 
 - Partition areas feed the dependency-cruiser boundary rules. Members are
   patterns only; literal file members are rejected.

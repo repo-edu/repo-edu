@@ -3,9 +3,7 @@
 This file describes the watch that follows a round: the glance that decides whether it is due, the
 watch record and the episode evidence. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
-source files this file describes. It follows the runner documentation's
-[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+[CLAUDE.md](../CLAUDE.md) first. See [Ownership](ownership.md) for the source files.
 
 ## Watch
 
@@ -118,4 +116,4 @@ round data. `formatWatchEvidence` projects that into one indented view:
   repeated-growth commits use short `plan@` or `repo-edu@` SHAs.
 
 It returns that serialised view beside the two typed heads from the same projection. The runner
-uses both, while the hand-run [episode](../CLAUDE.md#episode) command pages only the view.
+uses both, while the hand-run [episode](commands.md#episode) command pages only the view.

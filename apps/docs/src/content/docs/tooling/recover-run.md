@@ -9,7 +9,7 @@ close keep their own recovery.
 
 | Fact | Detail |
 | --- | --- |
-| Owners | `tools/audit-round/CLAUDE.md` sections **Ownership**, **Stopped rounds** and **Invocation**; `roundRun` in `tools/audit-round/src/output.ts` owns which round a command continues |
+| Owners | `tools/audit-round/references/ownership.md` maps source files. **Stopped rounds** in `tools/audit-round/references/targets-and-files.md` and `roundRun` in `tools/audit-round/src/output.ts` own round continuation. **Invocation** in `tools/audit-round/CLAUDE.md` covers stopping the runner |
 
 ## A stopped round
 

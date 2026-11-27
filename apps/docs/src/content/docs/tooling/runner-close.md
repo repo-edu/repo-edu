@@ -11,7 +11,7 @@ commits the plan's round data and moves the plan's other round files itself. The
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root; the close session works in the plan checkout |
-| Owners | `tools/audit-round/CLAUDE.md` owns the command; `../plan/.agents/skills/close/references/workflow.md` owns loop-close and its closing records |
+| Owners | `tools/audit-round/references/commands.md` owns the command. `../plan/.agents/skills/close/references/workflow.md` owns loop-close and its closing records |
 
 ## Usage
 

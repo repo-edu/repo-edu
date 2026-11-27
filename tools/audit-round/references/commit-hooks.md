@@ -3,9 +3,7 @@
 This file describes the commit-message hook both repositories run: the subject reader, the record
 bullet reader, the stamps and the refusals. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
-source files this file describes. It follows the runner documentation's
-[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+[CLAUDE.md](../CLAUDE.md) first. See [Ownership](ownership.md) for the source files.
 
 ## Commit hooks
 

@@ -10,7 +10,7 @@ implementation-audit fix runs on. A planning round after `ready` still fixes on 
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root |
-| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/lifecycle.ts` own the command; the plan doctrine at `../plan/CLAUDE.md` owns the ready marker |
+| Owners | `tools/audit-round/references/commands.md` and `tools/audit-round/src/lifecycle.ts` own the command. The plan doctrine at `../plan/CLAUDE.md` owns the ready marker |
 
 ## Usage
 

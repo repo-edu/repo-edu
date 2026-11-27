@@ -10,7 +10,7 @@ and the close as the full run does.
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root; each worker works in the repos its step names |
-| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/implement.ts` own the command; `.agents/skills/implement/references/workflow.md` owns the worker |
+| Owners | `tools/audit-round/references/commands.md` and `tools/audit-round/src/implement.ts` own the command. `.agents/skills/implement/references/workflow.md` owns the worker |
 
 ## Usage
 

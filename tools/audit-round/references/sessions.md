@@ -2,20 +2,15 @@
 
 This file describes how the runner picks who runs a phase and how it starts and reads one assistant
 session. Read [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
-source files this file describes. It follows the runner documentation's
-[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+[CLAUDE.md](../CLAUDE.md) first. See [Ownership](ownership.md) for the source files.
 
 ## Selections
 
 `phase.ts` owns who runs each phase of a round and on what. `settings.ts` loads and validates
 `settings.json` once at command entry, independently of the working directory, and that
 configuration is passed through routing, output naming and commit stamps.
-[Model settings](../CLAUDE.md#model-settings) describes the file's fields and which target takes
+[Model settings](commands.md#model-settings) describes the file's fields and which target takes
 which fixer.
-
-Every phase names a model and an effort. A field that says `default` reads the assistant's default
-selection, so neither CLI's own configuration enters.
 
 **One owner each.**
 
@@ -128,7 +123,7 @@ object. The terminal still shows ordinary commentary and any closing note carrie
 **Saving.** After the process ends with at least one turn, the invocation saves audit, vet,
 rebuttal and ruler reports from the checked result. A failed write fails the phase before
 progression. The runner saves the results of the other document phases under
-[Watch](watch.md#watch) and [split](../CLAUDE.md#split).
+[Watch](watch.md#watch) and [split](commands.md#split).
 
 **Measurements.** Context and token measurements pass directly to the output observer. Both
 assistants replace the phase total with the session's newest running total. The Claude and Codex

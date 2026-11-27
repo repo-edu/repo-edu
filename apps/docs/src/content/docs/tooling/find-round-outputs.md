@@ -10,7 +10,7 @@ shows each plan's rounds in order.
 
 | Fact | Detail |
 | --- | --- |
-| Owners | `tools/audit-round/CLAUDE.md` sections **Round files** and **Report lifecycle**; `.agents/references/round-protocol.md` section **Handoff** owns handoffs; the plan repository's `CLAUDE.md` owns archival |
+| Owners | `tools/audit-round/references/targets-and-files.md` sections **Round files** and **Report lifecycle**. `.agents/references/round-protocol.md` section **Handoff** owns handoffs. The plan repository's `CLAUDE.md` owns archival |
 
 ## Naming
 

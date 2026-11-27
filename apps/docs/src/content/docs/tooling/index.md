@@ -89,5 +89,5 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 
 ## What owns this page?
 
-This page mirrors `tools/audit-round/CLAUDE.md` and the launchers under
-`../plan/home/claude/commands/` and `../plan/home/agents/skills/`.
+This page mirrors the runner's command reference in `tools/audit-round/references/commands.md` and
+the launchers under `../plan/home/claude/commands/` and `../plan/home/agents/skills/`.

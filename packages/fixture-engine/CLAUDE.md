@@ -15,8 +15,8 @@ postfix encoding, sweep mode, `_log.md`/`_trace.md` outputs).
 
 ## Vocabulary
 
-These terms belong to the fixture engine alone. The root `CLAUDE.md`
-**Vocabulary** entry for fixture owns the word's two senses.
+These terms belong to the fixture engine alone. The [app glossary](../../glossaries/app.md) defines
+both senses of fixture.
 
 - **fixture coder round**: one turn of the coder model that writes one planned
   commit of a fixture repo, as a build, review or refactor commit. A round that

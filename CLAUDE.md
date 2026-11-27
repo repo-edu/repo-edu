@@ -1,105 +1,64 @@
 # CLAUDE.md
 
-This file provides guidance to AI coding assistants when working in this
-repository.
+Read the [app glossary](glossaries/app.md) first for terms used across Repo Edu.
 
 ## Planning
 
-Plans and design documents live in the sibling `../plan` repository, never in
-this repo.
+Keep plans and design documents in the sibling `../plan` repository. The
+[tooling design document](../plan/notes/tooling-design.md) explains the planning and audit tools'
+structure and reasons. The [tooling user guide](apps/docs/src/content/docs/tooling/index.md)
+explains their commands, loops and user decisions. Keep both in sync under
+[Tooling mirrors](.agents/references/round-protocol.md#tooling-mirrors).
 
-The [tooling design document](../plan/notes/tooling-design.md) explains the planning and audit
-tooling's system-wide structure and reasons. The
-[tooling user guide](apps/docs/src/content/docs/tooling/index.md) explains each tool's purpose and
-loop, which commands to use and which decisions are the user's. The shared round protocol's
-[Tooling mirrors](.agents/references/round-protocol.md#tooling-mirrors) owns their mirror status
-and the duty to keep them in sync with changes to the tooling.
+Attribute each touched tracked source file to its primary area ID in
+`tools/architecture-check/src/area-model.json`. Cover IDs give cross-cutting context.
+Before adding a tracked file under `apps/*/src`, `packages/*/src` or `tools/*/src`, assign
+it to a primary area. Add one in the same change if none owns it. Before splitting a
+tracked source file, name its current primary area ID and the child area ID for each
+output. If the split creates a new primary concern, update the model and record `splitFrom`.
 
-Areas are stable IDs in
-`tools/architecture-check/src/area-model.json`. Attribute touched tracked source
-files to their primary area ID. Cover area IDs are context for cross-cutting
-concerns, not primary ownership.
+The user never reads or edits machine artifacts such as the area model, ledgers or generated
+files. Their upkeep or readability cannot justify a feature or proposal.
+Follow [History reads](.agents/references/round-protocol.md#history-reads) for audits and reviews.
+Rule text, including `CLAUDE.md`, states each decision and its reason. Its origin belongs in Git
+under [Mechanism cases](.agents/references/round-protocol.md#mechanism-cases).
 
-Follow the shared protocol's
-[History reads](.agents/references/round-protocol.md#history-reads) for audit
-and review history.
+Use the statement move tool for top-level statements so TypeScript's **Move to file**
+refactor repairs imports. See the [tool documentation](tools/statement-move/CLAUDE.md) for
+checks and refusals.
 
-The user never reads or edits machine artifacts such as the area model,
-ledgers or generated files. Do not justify a feature or proposal by their
-upkeep or readability.
-
-Rule text, `CLAUDE.md` files included, states each decision and its reason,
-never who directed it or when. The shared round protocol's
-[Mechanism cases](.agents/references/round-protocol.md#mechanism-cases) owns this rule.
-
-Before adding a tracked source file under `apps/*/src`, `packages/*/src` or
-`tools/*/src`, assign it to one primary area from the area model. If no existing
-primary area owns it, update the area model in the same change.
-
-Before splitting a tracked source file, name the source file's current primary
-area ID and the child area ID each output file will join. If the split creates
-a new primary concern, update the area model in the same change and record
-`splitFrom`.
-
-Move top-level statements during a split with the statement move tool, so
-TypeScript's own **Move to file** refactor moves the code and repairs its
-imports. The [tool documentation](tools/statement-move/CLAUDE.md) owns what the
-command checks and refuses.
-
-1. Move each range of complete top-level statements with
-   `pnpm move-statements <source> <start-line> <end-line> <target>`. Run one
-   command per target; line numbers refer to the file as the previous move
-   left it.
-2. In a test file, first move shared helpers to a module that holds no tests,
-   then move the tests. A test file that imports another test file runs that
-   file's tests again.
-3. Move nested code and any move the command refuses by hand. Repoint
-   importers in other packages by hand too, because the command loads only the
-   source package's project.
-4. Run `pnpm check` after the move batch. The command proves each move against
-   TypeScript 6 only, and `check` runs TypeScript 7 and the Biome fix that
-   restores the layout the refactor drops.
+1. Move complete top-level statements with
+   `pnpm move-statements <source> <start-line> <end-line> <target>`. Run one command per target
+   using the line numbers left by the previous move.
+2. In a test file, move shared helpers into a module with no tests first, then move the tests.
+   Importing a test file runs its tests again.
+3. Move nested code and refused moves by hand. Repoint other packages' imports by hand too.
+   The tool loads only the source package's project.
+4. Run `pnpm check` after the move batch. The move proves TypeScript 6 only. The check runs
+   TypeScript 7 and Biome restores the layout lost in the refactor.
 
 ## Build and Development Commands
 
-Use pnpm scripts only. All validation runs from the workspace root:
+Use pnpm scripts only. Run validation from the workspace root.
 
-```bash
-pnpm install
-pnpm fmt
-pnpm fix
-pnpm check
-pnpm test
-pnpm test tools/audit-round
-```
+| Command | Purpose |
+| --- | --- |
+| `pnpm fmt` | Format Markdown with rumdl |
+| `pnpm fix` | Apply Markdown and Biome fixes |
+| `pnpm check` | Run fix, typecheck, build:types, check:fixtures and check:architecture |
+| `pnpm test` | Run workspace tests. The default Windows run excludes the macOS and Linux audit runner |
+| `pnpm test tools/audit-round` | Run one package's tests by workspace-relative path |
+| `pnpm file-sizes` | Show options for tree-style line and file counts by subfolder |
 
-`pnpm audit-round round example 3` runs an implementation-audit round for
-the named plan and step from either checkout. The
-[runner documentation](tools/audit-round/CLAUDE.md#commands) owns command
-options, settings and outcomes. Its [Round files](tools/audit-round/CLAUDE.md#round-files)
-and [Phase routing](tools/audit-round/CLAUDE.md#phase-routing) sections own file
-names and phase argument order.
+Run `fix` to finish a small change or `check` for a large one. Run the tests yourself when the plan
+requires them or tested behaviour changes. The user runs `dev`, `preview` and `build`. After a
+dependency manifest changes, announce and run `pnpm install` yourself. A cold install can be
+silent for a long time. Let it finish and commit only lockfiles written by the package manager.
 
-- `fmt` — markdown formatting via rumdl
-- `fix` — markdown auto-fix + Biome auto-fix
-- `check` — fix + typecheck + build:types + check:fixtures +
-  check:architecture
-- `test` — runs workspace package tests, or one package given its workspace-relative path.
-  The default Windows run excludes the audit runner, which targets macOS and Linux.
-- `file-sizes` — tree-style line/file counts per subfolder for a given directory
-  (`pnpm file-sizes` for options)
-- `move-statements` — moves complete top-level TypeScript statements to another
-  file through TypeScript's **Move to file** refactor
-  (`pnpm move-statements <source> <start-line> <end-line> <target>`)
-
-Run `fix` after a small change and `check` after a large one; either one closes
-a piece of work. Run `test` yourself when a plan asks for it or the change
-touches tested behaviour, rather than leaving the run to the user. Never run
-`dev`, `preview` or `build`: the user runs those. After changing a dependency
-manifest run `pnpm install` yourself and say so when you start it, because a
-cold install can run long with no output and must not be aborted. Never edit
-`pnpm-lock.yaml` or any other lockfile by hand; the lockfile that lands in a
-commit is the one `pnpm install` wrote.
+From either checkout, `pnpm audit-round round example 3` audits a plan step. See
+[commands](tools/audit-round/references/commands.md) for options, settings and outcomes,
+[round files](tools/audit-round/references/targets-and-files.md#round-files) for filenames and
+[phase routing](tools/audit-round/CLAUDE.md#phase-routing) for argument order.
 
 ## Architecture
 
@@ -147,42 +106,8 @@ After adding, removing or moving a `CLAUDE.md`, run
 symlinks other assistants read. Content edits need no run; the symlinks serve
 current content by construction.
 
-Each app and package has its own `CLAUDE.md` with purpose, constraints, and
-non-obvious conventions:
-
-- [apps/cli/CLAUDE.md](apps/cli/CLAUDE.md)
-- [apps/desktop/CLAUDE.md](apps/desktop/CLAUDE.md)
-- [apps/docs/CLAUDE.md](apps/docs/CLAUDE.md)
-- [packages/application/CLAUDE.md](packages/application/CLAUDE.md)
-- [packages/application-contract/CLAUDE.md](packages/application-contract/CLAUDE.md)
-- [packages/claude-coder/CLAUDE.md](packages/claude-coder/CLAUDE.md)
-- [packages/domain/CLAUDE.md](packages/domain/CLAUDE.md)
-- [packages/fixture-engine/CLAUDE.md](packages/fixture-engine/CLAUDE.md)
-- [packages/host-node/CLAUDE.md](packages/host-node/CLAUDE.md)
-- [packages/host-runtime-contract/CLAUDE.md](packages/host-runtime-contract/CLAUDE.md)
-- [packages/integration-tests/CLAUDE.md](packages/integration-tests/CLAUDE.md)
-- [packages/integrations-git/CLAUDE.md](packages/integrations-git/CLAUDE.md)
-- [packages/integrations-git-contract/CLAUDE.md](packages/integrations-git-contract/CLAUDE.md)
-- [packages/integrations-llm/CLAUDE.md](packages/integrations-llm/CLAUDE.md)
-- [packages/integrations-llm-catalog/CLAUDE.md](packages/integrations-llm-catalog/CLAUDE.md)
-- [packages/integrations-llm-contract/CLAUDE.md](packages/integrations-llm-contract/CLAUDE.md)
-- [packages/integrations-lms/CLAUDE.md](packages/integrations-lms/CLAUDE.md)
-- [packages/integrations-lms-contract/CLAUDE.md](packages/integrations-lms-contract/CLAUDE.md)
-- [packages/renderer-app/CLAUDE.md](packages/renderer-app/CLAUDE.md)
-- [packages/renderer-host-contract/CLAUDE.md](packages/renderer-host-contract/CLAUDE.md)
-- [packages/test-fixtures/CLAUDE.md](packages/test-fixtures/CLAUDE.md)
-- [packages/tree-sitter-grammar-assets/CLAUDE.md](packages/tree-sitter-grammar-assets/CLAUDE.md)
-- [packages/ui/CLAUDE.md](packages/ui/CLAUDE.md)
-
-The audit-round, architecture-check, release, statement-move and sweep tools and
-the analysis-workflows sub-area carry their own `CLAUDE.md` too:
-
-- [tools/architecture-check/CLAUDE.md](tools/architecture-check/CLAUDE.md)
-- [tools/audit-round/CLAUDE.md](tools/audit-round/CLAUDE.md)
-- [tools/release/CLAUDE.md](tools/release/CLAUDE.md)
-- [tools/statement-move/CLAUDE.md](tools/statement-move/CLAUDE.md)
-- [tools/sweep/CLAUDE.md](tools/sweep/CLAUDE.md)
-- [packages/application/src/analysis-workflows/CLAUDE.md](packages/application/src/analysis-workflows/CLAUDE.md)
+Read the local `CLAUDE.md` before changing an app, package, tool or nested area, including
+[analysis workflows](packages/application/src/analysis-workflows/CLAUDE.md).
 
 Core flow:
 
@@ -196,117 +121,50 @@ Core flow:
 
 ## Critical Rules
 
-- Do not add ad hoc IPC for workflow execution. Only the desktop entry gateway
-  registers renderer IPC. It validates the current document and complete input
-  before host admission, ordinary tRPC dispatch or request-port execution.
-- The host admission reducer owns command preparation, execution, settlement,
-  close and terminal failure. The renderer session operation owner freezes all
-  semantic changes from command reservation through retirement.
-- `composeCourseCommandTransition` owns the complete next course for each
-  course-changing command. Durable save and renderer application consume that
-  value with its host stamp; features never merge partial command results.
-- One desktop process owns one renderer document. Normal shutdown asks the
-  child-process controller to end owned work; confirmation expiry warns and
-  exits without starting an updater. An uncaught main-process exception logs
-  synchronously and exits immediately. Only process exit releases the program gate.
-- Keep the desktop renderer runtime closure and independently browser-safe roots
-  (`renderer-host-contract`, `integrations-llm-contract`,
-  `host-runtime-contract`, `test-fixtures`) free of Node built-ins. The
-  application package is Node-hosted.
-- Keep side effects in adapters/ports (`host-node`, integration adapters), not
-  in domain logic.
-- The desktop and compiled CLI claim the same program gate at the resolved
-  app-data root before product work starts. Hold the claim until no
-  more product work can run. The gate and app-data-root resolution belong to
-  `host-node`.
-- Preserve the packaged Windows child-process lifetime proof: a fixed launcher entry,
-  explicit Electron `runAsNode`, job assignment before the target command may
-  be accepted, a saved same-turn process identity and a non-inherited job
-  handle.
-- The child-process lifetime controller owns the one terminal outcome for Git,
-  subscription Claude, app Codex and plan-step Codex runs. Callers report
-  result, proving-connection and cancellation facts. A reported-proof process
-  needs no separate work-start fact. Callers never rank or compose run
-  failures.
-- Every outside-program outcome except confirmation-expiry unknown leaves the
-  controller only after its whole owned tree is confirmed gone. Forced-stop
-  confirmation has a five-second deadline. An expiry sends one diagnostic and
-  one user warning, releases the run's local streams and returns unknown for an
-  active run. The session continues. At shutdown the same warning is followed
-  by exit. Windows keeps an unconfirmed tree's job handle open until process
-  exit.
-- Release validation must prove the program gate in the packaged desktop and
-  compiled CLI artifacts. Packaged Windows validation must also prove the
-  child-process lifetime contract.
-- Do not introduce legacy settings/profile migration logic.
-- Documents the user edits live canonically in one in-memory owner. The renderer
-  session owns preferences and credentials; the course Zustand store owns the
-  active course. Save workflows write to disk and report success or failure.
-  Only Load brings disk state into memory. Save handlers may return
-  server-stamped fields the owner cannot compute itself (e.g. a revision
-  counter), never the full persisted document.
+- Only the desktop entry gateway registers renderer IPC. It validates the current document and
+  complete input before host admission, ordinary tRPC dispatch or request-port execution.
+- The host admission reducer owns command preparation, execution, settlement, close and terminal
+  failure. The renderer session operation owner freezes semantic changes from reservation through
+  retirement.
+- `composeCourseCommandTransition` supplies the complete next course for each course-changing
+  command. Durable save and renderer application consume it with its host stamp. Features never
+  merge partial command results.
+- One desktop process owns one renderer document. Normal shutdown asks the child-process
+  controller to end owned work. Confirmation expiry warns and exits without starting an updater.
+  An uncaught main-process exception logs synchronously and exits immediately. Only process exit
+  releases the program gate.
+- Keep Node built-ins out of the desktop renderer runtime closure and the independently
+  browser-safe roots (`renderer-host-contract`, `integrations-llm-contract`,
+  `host-runtime-contract` and `test-fixtures`). The application package runs in Node.
+- Keep side effects in adapters and ports, including `host-node` and integration adapters. Domain
+  logic stays pure.
+- Before product work, the desktop and compiled CLI claim the same program gate at the resolved
+  app-data root. Hold it until no more product work can run. `host-node` owns the gate and root
+  resolution.
+- Packaged Windows child processes need a fixed launcher entry, explicit Electron `runAsNode`,
+  job assignment before target command acceptance, a saved same-turn process identity and a
+  non-inherited job handle.
+- The child-process lifetime controller alone decides the terminal outcome for Git, subscription
+  Claude, app Codex and plan-step Codex runs. Callers report result, proving-connection and
+  cancellation facts. They never rank or compose failures. A reported-proof process needs no
+  separate work-start fact.
+- Every outside-program outcome requires confirmation that the whole owned tree has gone, except
+  confirmation-expiry unknown. Forced-stop confirmation has a five-second deadline. On expiry,
+  send one diagnostic and one user warning. An active run releases its local streams, returns
+  unknown and leaves the session running. At shutdown, warn and exit. On Windows keep the
+  unconfirmed tree's job handle open until process exit.
+- Release validation proves the program gate in the packaged desktop and compiled CLI.
+  Packaged Windows validation also proves the child-process lifetime contract.
+- Never introduce legacy settings or profile migration.
+- Each editable document has one in-memory owner. The renderer session owns preferences and
+  credentials. The course Zustand store owns the active course. Only Load brings disk state
+  into memory. Save workflows write to disk and report success or failure. Save handlers may
+  return only server-stamped fields the owner cannot compute, such as a revision counter.
 
 ## Dependency Currency
 
-Keep the installed tree current. An obsolete package is a concern whether it
-arrived as a direct or a transitive dependency; the unit of concern is the
-resolved version lagging its latest published release, not how it got there.
-
-Renovate is the standing mechanism (`renovate.json`). It admits ordinary
-updates throughout Saturday and Sunday. It keeps at most three update branches
-open, which leaves room for the non-major batch beside two other updates. The
-limit is low because every open branch reruns CI each time `main` advances.
-Pull-request creation has no separate concurrency or hourly cap, so every
-failed branch becomes visible.
-
-Non-major updates land in one batch: a single branch for every minor, patch,
-pin and digest update. On a still `main` the batch needs one CI run and one
-landing. Several branches cost more, because Renovate lands one branch per run
-and each landing puts every other open branch behind `main`, which reruns its
-CI. One failing update holds the whole batch until it is fixed. The batch takes
-a new dependency without a config edit. Electron stays out of the batch,
-because its updates follow their own schedule and maturity window. Major
-updates stay out too, because each one can break on its own. The peer-coupled
-Anthropic and MCP SDKs must move in lockstep, so their major updates share one
-branch.
-
-Renovate holds each new release for a maturity window before adopting it so
-others hit the early bugs first, raises security fixes immediately and runs
-lock-file maintenance each Sunday to re-resolve transitives forward within
-range. A lock-file refresh gives Renovate no release date to check, so
-Renovate's maturity window would keep it pending forever. That window is
-therefore off for lock-file maintenance, and pnpm's own `minimumReleaseAge`
-default holds new transitive releases back instead. Green updates fast-forward
-onto `main` once CI passes on a `renovate/**` branch; a PR surfaces only when CI
-fails. So an upstream release produces a gated branch, never a direct build
-failure on `main`.
-
-Electron is a stricter runtime-carrier exception: patch/minor updates run weekly
-after a short maturity window, major updates run monthly, and CI must package and
-smoke-run the desktop app before those branches are trusted to fast-forward.
-
-For local or out-of-band catch-up run `pnpm deps:latest`
-(`pnpm up -r --latest && pnpm dedupe`): it moves direct deps to latest and
-re-resolves transitives forward. Never pin a transitive past what its parent
-allows. When a current direct dep still constrains a sub-package to an old
-version, that is the upstream maintainer's lag — accept it, do not add a
-`pnpm.overrides` entry forcing a version the parent was not tested against.
-
-Package license notices follow the good-faith evidence rules in
-`tools/release/CLAUDE.md`. A new package version alone must not require a
-license clarification or approval-list edit. Read its installed evidence and
-apply the existing license policy; tests assert that behaviour rather than a
-package's current notice layout.
-
-When adding, promoting or replacing a dependency, check the current published
-version first with `pnpm view <pkg> version` and adopt current unless a
-concrete repo constraint argues otherwise; record any deliberate pin in the
-plan or commit body.
-
-The default pnpm catalog owns the admitted version of a desktop runtime
-external when more than one workspace manifest declares it. A new consumer
-uses the catalog's existing version. Promoting a package across the desktop
-runtime boundary and upgrading that package are separate changes.
+Follow the [dependency currency rules](.agents/references/dependency-currency.md) for Renovate,
+local updates, dependency selection, license evidence and desktop runtime externals.
 
 ## Implementation Review Findings
 
@@ -320,248 +178,90 @@ for their substance.
 
 ## Commit Severity Prefix
 
-Omit routine test and check results from commit messages.
+Omit routine check and test results. Grade each concern in a file-changing commit under the
+[severity sequence](.agents/references/round-protocol.md#severity-sequence), except a plan step
+or a split commit carrying out a chosen move list. The
+[subject grammar](.agents/references/subject-grammar.md) owns the mark order and the closed list
+of conventional kinds. Where required, the kind and scope immediately precede the sentence.
 
-The [shared severity sequence](.agents/references/round-protocol.md#severity-sequence)
-owns the counts, reach marks and whole-commit burden marks, and how every concern
-is graded and recorded. Follow it for every file-changing commit except a plan
-step and a split commit. A split commit carries out the chosen list and has
-no findings to grade. The [subject grammar](.agents/references/subject-grammar.md)
-owns the placement of these marks.
-
-The conventional commit kind is the last tag before the sentence, from the
-closed list the subject grammar admits:
-`abx growth-none B3C8d4 fix(renderer-app): surface session command errors`.
-
-Plan-related commits use the shared `<stem>/` forms. Their meaning and keying
-are owned by the shared protocol's
 [Shared implementation forms](.agents/references/round-protocol.md#shared-implementation-forms)
-and their shape by the subject grammar. Use those owners for plan identity and step numbers. A
-commit audit's records open with its series label instead of a stem, under the commit scope's
-[Record](.agents/skills/audit/references/commit-scope.md#record). A file split's
-`design`, `choose` and `split` commits open with the source file's split label.
-Any other commit unattached to a plan keeps this repo's ordinary severity-prefixed conventional
-subject.
-
-For implementation-audit records, follow the shared protocol's
-[Shared implementation forms](.agents/references/round-protocol.md#shared-implementation-forms)
-for record placement, the
-[shared round protocol](.agents/references/round-protocol.md) for finding
-metadata and the [fix workflow](.agents/skills/fix/references/workflow.md#records)
-for record writing.
-
-Follow the same section for cross-repo deferrals and directed plan-file fixes.
+owns plan identity, step numbers, record placement, cross-repo deferrals and directed plan-file
+fixes. Follow the [finding metadata](.agents/references/round-protocol.md#finding-metadata) and
+the [fix workflow](.agents/skills/fix/references/workflow.md#records) for implementation-audit
+records. A [commit audit](.agents/skills/audit/references/commit-scope.md#record) opens with its
+series label. A file split's `design`, `choose` and `split` open with the source file's split label.
+Other off-plan work uses a severity-prefixed conventional subject.
 
 ## Commit Capability Tag
 
-Every commit subject except the runner-written `settle` and `ready` markers, the user's `choose` of
-a move list and the user's `disprove` ruling carries a three-character tag naming what produced it:
-the assistant, the strength and the effort, one letter each. Those forms record the user's call
-without running an assistant, so attributing them to one would be false.
+Every subject carries a three-letter tag except `settle`, `ready`, `choose` and `disprove`.
+Those forms record a user's call and run no assistant. The tag follows the plan, series or split
+form when present, and otherwise opens the subject. Its letters identify:
 
-- `a` for Claude and `o` for Codex, naming the vendor rather than the product,
-  because both products start with a C.
-- `b` for the base tier and `t` for the top one, matching how the work runs,
-  with the default model one tier below the highest. `u` says the model is
-  unlisted, on neither tier, and the body's model record says which it was.
-- `l`, `m`, `h` and `x` for the four reasoning efforts.
+1. Vendor. `a` names Claude and `o` Codex. Both product names start with C.
+2. Model tier. `b` names the base tier, the default one below the top. `t` names the top tier and
+   `u` a model listed on neither tier. The body names the release.
+3. Effort. `l`, `m`, `h` and `x` mean low, medium, high and xhigh.
 
-So `atx` is Claude at the top tier and xhigh effort, and `obm` is Codex at its
-default tier and medium effort. The three alphabets share no character, so every
-letter decodes without counting positions, and the tag holds no digit, which a
-subject already spends on the severity sequence's counts.
+The three alphabets share no letter, so each letter can be read alone and digits stay available
+for severity counts. For example, `otx` records Codex on the top tier at xhigh effort.
 
-The tag opens a tagged subject, after the plan form when the subject has one,
-as `abx growth-none c1d1 fix(audit-round): align the recorder result`. Its
-place in every subject class is fixed by
-[the subject grammar](.agents/references/subject-grammar.md).
-
-The tag names the assistant whose work the subject reports. On a
-planning or implementation-audit record that is the audit, not the session that wrote the
-commit: one setting picks the fixer whoever audited, so a writer's tag would
-repeat that setting on every record, while the auditor is what the trajectory
-reads off a clean one.
-The role token right before the tag says which kind of subject it is, and a
-reader needs that token anyway for the scope and the severity.
-
-The session writes its own tag for work outside a round. A session the runner
-starts cannot read its own effort, so the runner's standalone close receives
-its tag in its phase arguments. A round's fix writes
-the full auditor tag from the audit report filename. The commit hook, this repo's
-`.husky/commit-msg` or the plan repo's `hooks/commit-msg`, replaces it with
-`COMMIT_AUDITOR` when the runner supplies that value.
+Attribute each tag to the assistant whose work the subject reports. A planning or implementation
+audit credits the auditor even when another model fixes it. The auditor varies across the
+trajectory while the fixer comes from one setting. A fix uses the full auditor tag from the
+audit report filename. Outside a round the session supplies its own tag. The runner supplies a
+standalone close its tag because that session cannot read its own effort.
 
 ## Commit Model Record
 
-Every commit body except the tag-free `settle`, `ready`, `choose` and `disprove` forms opens with
-the model the work ran on, so the log says what produced a change without
-spending subject width on it. Those commits run no model and carry no model
-record. The [subject grammar](.agents/references/subject-grammar.md#commit-model-record)
-owns both record forms and their examples.
+Every tagged commit body opens with the CLI-reported model release and effort, so the log records
+the run without widening the subject. An alias can resolve to another release later.
+The [model record grammar](.agents/references/subject-grammar.md#commit-model-record) gives the
+single-model, step and round forms.
 
-The watch phase stays out because it writes a document rather than landing
-work. A later implementation audit uses the recorded audit, vet and
-rebuttal time as the cost of the round on the same scope.
+The runner supplies the committing phase with the round record because only the runner observed
+every phase. A later implementation audit treats audit, vet and rebuttal time as the round's cost
+on that scope. The watch writes a document and contributes no commit record. A standalone close
+receives its one-line record. An implement worker receives its reported release and launched
+effort and adds `Implementation took <n> min.` under the implementation workflow's active-time
+and two-repo split rules. A hand-run session writes its model line using the model it was told
+to run and the effort from its environment.
 
-The model is the one the CLI reported running, never the one the round asked
-for: `claude-opus-5`, not `opus`. An alias names whichever release is current,
-so it would stop being true of the commit it sits in. The effort is one of
-`low`, `medium`, `high` and `xhigh`.
-
-`audit-round` passes a round record to the phase that commits, because it holds
-every phase's reported model and that session does not. The standalone close is
-no round, so it receives its one-line record in its phase arguments and writes
-it itself. An implement worker receives its reported model release and launched
-effort in its phase arguments. Its step record adds `Implementation took <n>
-min.`, where the implementation workflow owns the active-time measurement and
-the split across a step hosted in both repos. A hand-run session committing on
-its own writes its own line: it knows the model it was told to run and reads its
-effort from the environment.
-
-Repo Edu's `.husky/commit-msg` and the plan repo's `hooks/commit-msg` write the record when a round
-supplies it. Each hook refuses any non-merge commit whose body does not open with a model record,
-except the tag-free forms above. It checks the line's shape rather than a list of model names, so a
-new model family needs no edit here. It also refuses a single-model record whose effort disagrees
-with the subject's tag. A step commit without its active-time line is refused. A `ready` marker has
-no model record, but its body must carry the assigned coder.
-
-Each hook also refuses a non-merge commit that changes a listed file of its
-repo unless the subject is a step or implementation-audit form. It admits one
-other commit: an off-plan commit with at least one graded bullet and every
-graded bullet at tier D, which claims a wording change. The plan repo's
-[Doctrine changes](../plan/.agents/references/planning-rules.md#doctrine-changes)
-rule owns that route, and the refusal names it and `FAILURES.md`.
+See the [commit hooks](tools/audit-round/references/commit-hooks.md) for the stamps and refusals
+both repos apply, and
+[Doctrine changes](../plan/.agents/references/planning-rules.md#doctrine-changes) for the route a
+listed-file change takes.
 
 ## Vocabulary
 
-Every project term has exactly one defining entry, in one of three tiers. A term
-used across the app is defined in this section. A term shared by a few packages
-is defined in one file under `glossaries/`, named after a subject the code
-already carries: a package family or a domain name. A term used in one package
-only is defined in a **Vocabulary** section of that package's `CLAUDE.md`. A
-term the home planning vocabulary defines keeps that entry as its only owner.
-Plans, audit rounds and other instruction files use a term by reference and
-never copy its definition, because a copy drifts from its owner.
+Define each project term once, at the scope that owns it:
 
-The glossary files are `glossaries/child-process-lifetime.md`,
-`glossaries/program-gate.md`, `glossaries/analysis.md` and
-`glossaries/audit-round.md`. A package `CLAUDE.md` that one of them governs
-names it in its opening sentence. A glossary file may also govern doctrine
-outside the package layout. `glossaries/audit-round.md` defines the round and
-runner words of the shared references, the phase workflows of both repos and
-the plan doctrine, and every workflow with a `reads` header lists it. Before
-working on a rule in this file, or on a root-level file, that uses a glossary
-file's terms, read that file. The renderer session's own terms, such as
-bootstrap and hydrate, are in `packages/renderer-app/CLAUDE.md`.
+1. App-wide terms belong in [glossaries/app.md](glossaries/app.md).
+2. Terms shared by several packages belong in a subject glossary named for a package family or
+   domain the code already carries. These files are `glossaries/child-process-lifetime.md`,
+   `glossaries/program-gate.md`, `glossaries/analysis.md` and `glossaries/audit-round.md`.
+3. Package-only terms belong in **Vocabulary** in the package's `CLAUDE.md`, as bootstrap and
+   hydrate do in `packages/renderer-app/CLAUDE.md`.
 
-Two tests answer two different questions:
+The home planning vocabulary keeps ownership of its terms. Plans, rounds and instructions
+refer to definitions at their owner because copies drift. A package's opening sentence names
+only the subject glossaries that govern it. Subject glossaries can govern doctrine outside a
+package. `glossaries/audit-round.md` covers the shared references, both repos' phase workflows
+and the plan doctrine. Every workflow with a `reads` header lists it. Before changing a rule
+here or another root-level file that uses a glossary's terms, read that glossary.
 
-1. The entry test decides whether a term gets an entry. It does when a fresh
-   session could plausibly coin a different name for the concept or misread
-   the word. Ordinary domain nouns such as course, roster or assignment stay
-   out.
-2. The reading test decides whether a defined term may be used bare in chat.
-   It is the home policy's pair of tests: the plain expansion reads worse at
-   every use, and the user meets the term often enough to learn it. A term
-   that fails it is expanded where it is used, wherever its entry lives.
+Apply the two tests separately:
 
-One test cannot do both jobs. The reading test would keep a rarely met name
-out, and the entry test would license a bare word the user has never met.
+1. Give a term an entry when a fresh session could plausibly give the concept a different name
+   or misread the word. Ordinary nouns such as course and roster need no entry. Add a qualifying
+   term in the same change that introduces it. A name without a definition spreads through code
+   and doctrine and takes a rename plan to repair. Audits follow
+   [Coined names](.agents/references/round-protocol.md#coined-names).
+2. Use a term bare in chat only if its plain expansion reads worse at every use and the user
+   meets it often enough to learn it. Expand it otherwise, wherever it is defined.
 
-A change that introduces a project term passing the entry test adds its entry
-in the same change, in the tier above. The rule exists because a name coined
-without an entry spreads silently through code, tests, instructions and plans,
-and its only repair is a rename plan. An audit treats such a name as a finding,
-under the shared protocol's
-[Coined names](.agents/references/round-protocol.md#coined-names).
-
-Each entry is a bold term followed by a short plain explanation that teaches the
-concept to a reader who does not know the source ecosystem's jargon, without
-pointing at an outside reference. Entries name concepts and roles, never code
-identifiers, because identifier lists go stale with every rename.
-
-- **adapter**: an implementation that maps one contract onto something outside
-  it. Name the sense wherever the bare word could mislead. A provider adapter
-  talks to one outside service, such as an LMS, a Git host or an LLM provider.
-  A platform adapter is the operating-system sense that
-  `glossaries/child-process-lifetime.md` defines. A coding adapter is the plan
-  runner's driver for one Claude or Codex coding session, kept apart from the
-  product's LLM provider adapters. Other adapters, such as the desktop's
-  workflow transport adapter, take only the general meaning.
-- **admission**: the check run at the moment a result or record arrives that
-  decides whether it is allowed to land, into session state or into the archive.
-- **area model**: the committed `tools/architecture-check/src/area-model.json`
-  that gives every source file in the source inventory one primary owner and
-  records cross-cutting concerns. It is made of partition areas and cover areas,
-  each with a stable ID.
-- **body**: the function a queued session command runs when its turn comes; it
-  awaits its host work and commits its result before the next body starts.
-- **browser-safe**: free of Node built-ins across the whole runtime import
-  closure, so the sandboxed renderer can load it. The architecture check proves
-  it for the renderer and for each independently browser-safe root.
-- **commit**: the final step that makes a result count by writing it into the
-  session's official state; only queued bodies may commit.
-- **contract package**: a package, named with a `-contract` suffix, that
-  declares the types, schemas and interfaces one side implements and the other
-  calls, without the implementation itself.
-- **course backing**: where a course's people come from, chosen when the course
-  is set up. An LMS-backed course keeps a student roster and may link to a
-  course in the school's LMS. A RepoBee-backed course has no LMS link and works
-  from teams of Git usernames instead of a roster.
-- **course data**: the content of one course: its name, student and team roster,
-  LMS link, repository template and clone settings, analysis settings and
-  revision number. Saved and loaded only as one whole course, never in parts.
-- **course database**: the one shared file holding every course at rest; the
-  only saved home of course data. Settings, window state and the examination
-  archive live elsewhere.
-- **cover area**: an area-model area that may overlap others and marks a
-  cross-cutting concern, used as audit and drift context. It never owns a file
-  and never creates an import boundary.
-- **fixture**: generated stand-in data. Two senses share the word, so name the
-  sense. Deterministic fixture data is the seeded course, settings and file
-  data that tests across the monorepo share. A generated fixture repository is
-  a realistic student Git repository that the fixture engine, a developer-only
-  AI-driven tool, writes for the analysis features; its own terms live in
-  `packages/fixture-engine/CLAUDE.md`.
-- **group-set naming mode**: whether a group set is named or unnamed. A named
-  group set holds named groups of roster members. An unnamed group set holds
-  teams listed only by their members' Git usernames, as a RepoBee student list
-  does, so a repository name cannot use a group name.
-- **host**: four senses share the word, so name the sense. The host process
-  and the Codex SDK host process are the process senses that
-  `glossaries/child-process-lifetime.md` defines; the second is never a host
-  process itself. A host package is one of the packages
-  named for the host side: `host-node`, `host-runtime-contract` and
-  `renderer-host-contract`. The renderer host bridge is the interface the
-  desktop gives the sandboxed renderer for native actions such as file pickers
-  and clean close.
-- **partition area**: an area-model area that owns source files. The partition
-  areas together cover every file in the source inventory exactly once, and
-  their import boundaries are enforced. The partition area that owns a file is
-  its primary area.
-- **port**: an interface for one outside capability that the application
-  depends on, such as HTTP, processes, the file system or an LLM. The
-  `host-runtime-contract` package declares the ports and `host-node` implements
-  them for Node.
-- **reducer**: a function that takes the current state and one event and returns
-  the next state; the only place session state is allowed to change.
-- **row**: one entry in a database, like one line in a table. In the course
-  database each row is one complete course: all its course data in one entry,
-  replaced whole on every save.
-- **session**: the renderer's live working context from startup to teardown:
-  loaded settings, courses, the active surface, the stores and the workers
-  persisting them.
-- **source inventory**: the list of current TypeScript source files under
-  `apps/*/src`, `packages/*/src` and `tools/*/src`, untracked ones included,
-  that the area model must cover and every architecture check reads.
-- **surface**: the main content view the session has active, a course view or
-  home; changing it is a surface transition.
-- **worker**: a long-lived background helper that writes changes to disk on its
-  own schedule; it reports status but may not commit session state.
-- **workflow**: one named unit of application work with a fixed input and
-  result shape, listed in the application contract's catalogue. The desktop
-  runs it through its entry gateway and the command-line program runs it
-  in-process.
+Write each entry as a bold term and a short, plain explanation. Teach the concept or role without
+relying on outside references or ecosystem jargon. Code identifiers go stale on a rename.
 
 ## Testing Strategy
 

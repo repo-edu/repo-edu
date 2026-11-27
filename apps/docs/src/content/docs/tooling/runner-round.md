@@ -10,7 +10,7 @@ series rules or your auditor queue decide whether another auditor follows.
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root; arguments mean the same from either |
-| Owners | `tools/audit-round/CLAUDE.md` and `tools/audit-round/src/command.ts` own both commands. The workflows under `.agents/skills/` and `../plan/.agents/skills/` own each phase |
+| Owners | `tools/audit-round/references/commands.md` and `tools/audit-round/src/command.ts` own both commands. The workflows under `.agents/skills/` and `../plan/.agents/skills/` own each phase |
 
 ## Usage
 

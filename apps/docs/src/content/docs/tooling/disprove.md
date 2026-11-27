@@ -10,7 +10,7 @@ were right. See [`pnpm audit-round models`](/repo-edu/tooling/models/).
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root |
-| Owners | `tools/audit-round/CLAUDE.md`, `tools/audit-round/src/command.ts` and `tools/audit-round/src/round-data.ts` |
+| Owners | `tools/audit-round/references/commands.md`, `tools/audit-round/src/command.ts` and `tools/audit-round/src/round-data.ts` |
 
 ## Usage
 

@@ -16,9 +16,8 @@ It consumes:
 
 ## Vocabulary
 
-These terms belong to the renderer session alone. The root `CLAUDE.md`
-**Vocabulary** owns the app-wide terms they build on, such as body, session,
-surface and worker.
+These terms belong to the renderer session alone. The [app glossary](../../glossaries/app.md)
+defines body, session, surface and worker.
 
 - **bootstrap**: the session's startup sequence: load settings, fill the stores,
   start the workers, show the first surface. It can fail and be retried.

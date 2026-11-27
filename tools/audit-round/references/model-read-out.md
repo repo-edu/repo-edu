@@ -2,9 +2,7 @@
 
 This file describes the `models` command of the audit-round runner and its full-screen view. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
-source files this file describes. It follows the runner documentation's
-[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+[CLAUDE.md](../CLAUDE.md) first. See [Ownership](ownership.md) for the source files.
 
 ## The command
 

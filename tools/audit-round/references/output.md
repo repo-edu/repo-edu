@@ -3,13 +3,11 @@
 This file describes what the audit-round runner prints and records while a run is in progress: the
 settings header, the status line, the log, the transcript and the notices. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
-source files this file describes. It follows the runner documentation's
-[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+[CLAUDE.md](../CLAUDE.md) first. See [Ownership](ownership.md) for the source files.
 
 The runner documentation owns the neighbouring subjects: file names and round data under
-[Round files](../CLAUDE.md#round-files), the continued round under
-[Stopped rounds](../CLAUDE.md#stopped-rounds) and the token readings of each assistant under
+[Round files](targets-and-files.md#round-files), the continued round under
+[Stopped rounds](targets-and-files.md#stopped-rounds) and the token readings of each assistant under
 [Assistant sessions](sessions.md#assistant-sessions).
 
 ## Owners

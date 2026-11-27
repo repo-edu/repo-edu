@@ -9,7 +9,7 @@ by running the same stages the single runner commands run, in lifecycle order.
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root; arguments mean the same from either |
-| Owners | `tools/audit-round/CLAUDE.md` owns the run and its output paths; the workflows under `.agents/skills/` and `../plan/.agents/skills/` own each stage |
+| Owners | `tools/audit-round/references/commands.md` describes the run. `tools/audit-round/references/targets-and-files.md` gives its output paths. The workflows under `.agents/skills/` and `../plan/.agents/skills/` own each stage |
 
 ## Usage
 

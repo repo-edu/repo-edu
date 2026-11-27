@@ -3,9 +3,7 @@
 This file describes the rounds that follow one another on a target: the automatic series and its
 fixed rules, scope lists, open deferrals and the manual queue. Read
 [`glossaries/audit-round.md`](../../../glossaries/audit-round.md) and the runner's
-[CLAUDE.md](../CLAUDE.md) first. The [Ownership](../CLAUDE.md#ownership) table there names the
-source files this file describes. It follows the runner documentation's
-[Document layout](../CLAUDE.md#document-layout) rule: each fact is stated once.
+[CLAUDE.md](../CLAUDE.md) first. See [Ownership](ownership.md) for the source files.
 
 ## Series
 
@@ -25,7 +23,7 @@ plan or commit target runs an [automatic series](#automatic-series). With `--aud
 - The series returns its ending as a value, so a reader never parses the printed lines: `settle` or
   `ready` for the runner's lifecycle answer, `complete` for a runner stop or an emptied manual
   queue, `limit` for the maximum and `stopped` for an ending that needs the user. A complete
-  commit series moves under [The series move](../CLAUDE.md#the-series-move).
+  commit series moves under [The series move](targets-and-files.md#the-series-move).
 
 ### Auditor options
 
@@ -51,7 +49,7 @@ target's retained data:
   where the series stood.
 - With no current read at all, or one for every listed auditor, the configured default opens,
   because the rules give that round no reader and the user asked for one. `defaultAuditor` under
-  [Model settings](../CLAUDE.md#model-settings) names that default.
+  [Model settings](commands.md#model-settings) names that default.
 
 **Decision.** After each round that is not red and did not change the plan's phase, the runner
 applies the three fixed rules in `judge.ts`, which the plan repo's `STOP-CONDITIONS.md` states. A
@@ -96,7 +94,7 @@ unanswered ruling, a red watch or a phase change.
   unchanged, for the user to settle or keep widening. Its reason stays in the round.
 - A detailing ready answer ends the series with the ready command to run and leaves the settled
   plan unchanged, for the user to mark ready or keep detailing.
-- Under [the run](../CLAUDE.md#the-run) both lines still print and the run records the call itself.
+- Under [the run](commands.md#the-run) both lines still print and the run records the call itself.
 - Every automatic series ending on a plan prints the remaining open deferrals or says there are
   none.
 
@@ -106,7 +104,7 @@ Commit targets use the same fixed rules and maximum. A commit series has no life
 watch: the runner stops it or chooses another listed auditor. The series decision reads one active
 commit series. The series runner reads the commit data file before reruns, after restoring an
 archived series, and the runner reads it after automatic rounds.
-[Commit targets](../CLAUDE.md#commit-targets) says how each later round's commit set grows.
+[Commit targets](targets-and-files.md#commit-targets) says how each later round's commit set grows.
 
 ### Scope lists
 
