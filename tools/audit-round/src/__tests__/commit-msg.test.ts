@@ -226,7 +226,7 @@ test("the hook accepts plan-repo lifecycle subjects without attribution", () => 
   for (const role of ["settle", "ready"] as const) {
     const input =
       role === "ready"
-        ? "example/ready: record the marker\n\nCoder: codex gpt-6.1-sol high\n"
+        ? "example/ready: record the marker\n\nCoder: gemini gemini-4-neon high\n"
         : "example/settle: record the marker\n"
     assert.equal(stamp(input, "plan"), input)
     assert.throws(

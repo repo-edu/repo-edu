@@ -12,6 +12,7 @@ import {
 } from "../model-comparison.js"
 import { modelKey, readModelEvidence } from "../model-evidence.js"
 import { modelsReport } from "../models.js"
+import type { Assistant } from "../phase.js"
 import type { RoundData, RoundFinding, TierRange } from "../round-data.js"
 import { writeDisprovedFinding, writeRoundData } from "../round-data.js"
 import { runCommand, testSettings } from "./configured-runner.js"
@@ -50,7 +51,7 @@ const fixtureVetTag = "aul"
 
 const phase = (
   phaseName: RoundData["phases"][number]["phase"],
-  assistant: "claude" | "codex",
+  assistant: Assistant,
   model: string,
   milliseconds: number,
   effort = "low",
@@ -859,7 +860,7 @@ test("--all prints measured rows that rebuild the per-round figures and wrong-cl
     target: string,
     roundNumber: number,
     started: string,
-    assistant: "claude" | "codex",
+    assistant: Assistant,
     model: string,
     milliseconds: number,
     roundFindings: RoundFinding[],
@@ -2558,8 +2559,27 @@ test("coder admission matches the ready assignment on assistant and effort, not 
     "obh",
     "2026-10-02",
   )
+  await addPlan(
+    "neon",
+    "gemini gemini-4-neon high",
+    "gemini-4-neon high",
+    "gbh",
+    "2026-10-03",
+  )
 
   const evidence = await readModelEvidence(f.runtime)
+  assert.deepEqual(
+    evidence.coders
+      .get(
+        modelKey({
+          assistant: "gemini",
+          model: "gemini-4-neon",
+          effort: "high",
+        }),
+      )
+      ?.samples.map((sample) => sample.stem),
+    ["neon"],
+  )
   const alias = evidence.coders.get(
     modelKey({
       assistant: "claude",

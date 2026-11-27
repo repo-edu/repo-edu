@@ -14,7 +14,6 @@ import { execa } from "execa"
 import type { AssistantRuntime } from "../assistant.js"
 import {
   type Feedback,
-  type ModelSelection,
   type PhaseOutput,
   type PhaseRecorder,
   selectionSchema,
@@ -124,7 +123,7 @@ const recordedEvents = async (name: string) =>
  * keeps every expectation true after the contract is re-recorded under
  * another CLI configuration.
  */
-export const recordedSelections: Record<Assistant, ModelSelection> = {
+export const recordedSelections = {
   claude: selectionSchema.parse(
     (await recordedEvents("claude.jsonl")).find(
       (event) => event.type === "control_response",
@@ -137,14 +136,19 @@ export const recordedSelections: Record<Assistant, ModelSelection> = {
   ),
 }
 
+type RecordedAssistant = keyof typeof recordedSelections
+
 /** The model line a record carries for the phases a recorded session ran. */
-export function recordedText(assistant: Assistant): string {
+export function recordedText(assistant: RecordedAssistant): string {
   const { model, effort } = recordedSelections[assistant]
   return `${model} ${effort}`
 }
 
 /** The round fixture's stamp before the Codex fix starts. */
-export function recordedFixStamp(auditor: Assistant, rebuttal = true): string {
+export function recordedFixStamp(
+  auditor: RecordedAssistant,
+  rebuttal = true,
+): string {
   const fix = "gpt-5.6-sol high"
   const audit = recordedText(auditor)
   const vet = recordedText("claude")
@@ -173,7 +177,7 @@ export const resolved = (assistant: Assistant) =>
   phaseSelection(pinned(assistant), releases[assistant])
 
 /** The capability tag the recorded session's audit stamps under the test settings. */
-export function recordedTag(assistant: Assistant): string {
+export function recordedTag(assistant: RecordedAssistant): string {
   const { model, effort } = recordedSelections[assistant]
   if (effort === null) throw new Error(`${assistant} recording names no effort`)
   const source = "recording"
@@ -229,6 +233,17 @@ export async function phaseStream(
   )
   const lines = events
     .map((event) => {
+      if (assistant === "gemini") {
+        if (["init", "step_update", "result"].includes(event.event))
+          event.conversation_id = sessionId
+        if (event.event === "result") {
+          if (typeof final === "string") {
+            delete event.result.structured_output
+            event.result.response = final
+          } else event.result.structured_output = final
+        }
+        return JSON.stringify(event)
+      }
       if (event.session_id !== undefined) event.session_id = sessionId
       if (event.type === "thread.started") event.thread_id = sessionId
       if (event.type === "result") {
@@ -340,7 +355,11 @@ export async function fixture(
   const runtime: AssistantRuntime & RoundContext = {
     ...testContext(root),
     sessionsRoot: root,
-    executables: { claude: executable("claude"), codex: executable("codex") },
+    executables: {
+      claude: executable("claude"),
+      codex: executable("codex"),
+      gemini: executable("gemini"),
+    },
   }
   const feedback: Feedback[] = []
   const starts: { input: AssistantTurnInput; prompt: string }[] = []

@@ -11,10 +11,11 @@ import {
   reachValues,
 } from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
+import { assistants } from "./phase.js"
 import { fullTagPattern, parseSubject, type Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
-const assistant = z.enum(["claude", "codex"])
+const assistant = z.enum(assistants)
 const tier = z.enum(["A", "B", "C", "D"])
 /** A capability tag, which names a round's auditor and each of its vetters. */
 export const capabilityTag = z.string().regex(fullTagPattern)

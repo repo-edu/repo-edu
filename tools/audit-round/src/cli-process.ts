@@ -1,11 +1,11 @@
 import { execa } from "execa"
 import type { Assistant } from "./phase.js"
 
-export const assistantExecutables = {
+export const assistantExecutables: Record<Assistant, string> = {
   claude: "claude",
   codex: "codex",
   gemini: "agy",
-} as const
+}
 
 /**
  * The signals that stop a run: Ctrl-C, a closed terminal and a termination

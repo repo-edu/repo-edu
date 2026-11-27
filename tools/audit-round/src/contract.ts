@@ -22,9 +22,10 @@ import {
 } from "./codex-session.js"
 import type { ExecutionContext } from "./context.js"
 import { eventSchema, type Feedback, observedOutput } from "./feedback.js"
+import { geminiEvent, geminiStep } from "./gemini.js"
 import { RoundOutput } from "./output.js"
 import { phaseSelection } from "./output-format.js"
-import { type Assistant, defaultModel } from "./phase.js"
+import { type Assistant, assistants, defaultModel } from "./phase.js"
 import { claudeSettingsRequest } from "./requests.js"
 import { RunClock } from "./run-clock.js"
 import { defaultSettings } from "./settings.js"
@@ -34,12 +35,16 @@ const contractEnding = `Do not read or edit repository files. Return the supplie
 const contractProbes = `This is a CLI contract recording, not a repository task. Use your shell tool twice, sequentially: first run printf audit-round-probe, then run sh -c "echo audit-round-probe-error >&2; exit 7". The deliberate command failure is the probe, so do not repair anything.`
 /**
  * The Claude probe also ends a turn on a background command, so the recording
- * holds one result per turn as the CLI's print mode emits them. Codex runs one
- * turn per invocation and has no background wake-up to record.
+ * holds one result per turn as the CLI's print mode emits them.
  */
 export function contractPrompt(assistant: Assistant): string {
-  if (assistant === "codex") return `${contractProbes} ${contractEnding}`
-  return `${contractProbes} Then run sleep 2 with your shell tool's background option and end your turn at once with the single sentence: Waiting for the probe sleep. If asked for structured output before the task notification arrives, keep waiting in text. Return the object only after the notification. ${contractEnding}`
+  switch (assistant) {
+    case "codex":
+    case "gemini":
+      return `${contractProbes} ${contractEnding}`
+    case "claude":
+      return `${contractProbes} Then run sleep 2 with your shell tool's background option and end your turn at once with the single sentence: Waiting for the probe sleep. If asked for structured output before the task notification arrives, keep waiting in text. Return the object only after the notification. ${contractEnding}`
+  }
 }
 export const contractResumePrompt = `This is the resumed half of a CLI contract recording, not a repository task. Use your shell tool once to run printf audit-round-resume-probe. ${contractEnding}`
 
@@ -48,53 +53,124 @@ function selectRecord(
   assistant: Assistant,
   value: unknown,
 ): unknown | undefined {
-  const event = eventSchema.parse(value)
-  if (assistant === "codex") {
-    if (
-      ["thread.started", "turn.completed", "turn.failed", "error"].includes(
-        event.type,
-      )
-    )
-      return event
-    if (["item.started", "item.completed"].includes(event.type)) {
-      const item = eventSchema.parse(event.item)
+  switch (assistant) {
+    case "gemini": {
+      const { event, conversation_id, init, step_update, result } =
+        geminiEvent.parse(value)
+      switch (event) {
+        case "init":
+          return {
+            event,
+            conversation_id,
+            init: z.object({ model: z.string() }).parse(init),
+          }
+        case "step_update": {
+          const step = geminiStep.parse(step_update)
+          return step.step_type === "agent_response" ||
+            step.step_type === "tool"
+            ? { event, conversation_id, step_update: step }
+            : undefined
+        }
+        case "result": {
+          const { json_schema: _, ...kept } = z
+            .record(z.string(), z.unknown())
+            .parse(result)
+          return { event, conversation_id, result: kept }
+        }
+        default:
+          return undefined
+      }
+    }
+    case "codex": {
+      const event = eventSchema.parse(value)
       if (
-        [
-          "agent_message",
-          "command_execution",
-          "mcp_tool_call",
-          "web_search",
-          "file_change",
-        ].includes(item.type)
+        ["thread.started", "turn.completed", "turn.failed", "error"].includes(
+          event.type,
+        )
       )
         return event
+      if (["item.started", "item.completed"].includes(event.type)) {
+        const item = eventSchema.parse(event.item)
+        if (
+          [
+            "agent_message",
+            "command_execution",
+            "mcp_tool_call",
+            "web_search",
+            "file_change",
+          ].includes(item.type)
+        )
+          return event
+      }
+      return undefined
     }
-    return undefined
+    case "claude": {
+      const event = eventSchema.parse(value)
+      if (event.parent_tool_use_id != null) return undefined
+      if (["assistant", "user", "result"].includes(event.type)) return event
+      if (event.type === "system" && event.subtype === "init")
+        return {
+          type: event.type,
+          subtype: event.subtype,
+          session_id: event.session_id,
+        }
+      if (event.type === "control_response") {
+        const { request_id } = z
+          .object({ request_id: z.string() })
+          .parse(event.response)
+        if (request_id === claudeSettingsRequest.request_id) {
+          const response = z
+            .object({
+              request_id: z.string(),
+              subtype: z.string(),
+              response: z.object({ applied: z.unknown() }),
+            })
+            .parse(event.response)
+          return { type: event.type, response }
+        }
+      }
+      return undefined
+    }
   }
-  if (event.parent_tool_use_id != null) return undefined
-  if (["assistant", "user", "result"].includes(event.type)) return event
-  if (event.type === "system" && event.subtype === "init")
-    return {
-      type: event.type,
-      subtype: event.subtype,
-      session_id: event.session_id,
+}
+
+function shellProbe(
+  assistant: Assistant,
+  detail: Record<string, unknown>,
+): "success" | "failure" | undefined {
+  switch (assistant) {
+    case "claude":
+    case "codex": {
+      const text = JSON.stringify(detail)
+      if (
+        (detail.is_error === true || detail.exit_code === 7) &&
+        text.includes("audit-round-probe-error")
+      )
+        return "failure"
+      if (
+        detail.is_error !== true &&
+        (assistant === "claude" || detail.exit_code === 0) &&
+        text.includes("audit-round-probe")
+      )
+        return "success"
+      return undefined
     }
-  if (event.type === "control_response") {
-    const { request_id } = z
-      .object({ request_id: z.string() })
-      .parse(event.response)
-    if (request_id === claudeSettingsRequest.request_id) {
-      const response = z
-        .object({
-          request_id: z.string(),
-          subtype: z.string(),
-          response: z.object({ applied: z.unknown() }),
-        })
-        .parse(event.response)
-      return { type: event.type, response }
+    case "gemini": {
+      const { output } = detail
+      if (typeof output !== "string") return undefined
+      if (
+        output.includes("Command exited with code 7.") &&
+        output.includes("audit-round-probe-error")
+      )
+        return "failure"
+      if (
+        output.includes("Command exited with code 0.") &&
+        /\baudit-round-probe\b(?!-)/.test(output)
+      )
+        return "success"
+      return undefined
     }
   }
-  return undefined
 }
 
 async function recordUsage(
@@ -153,7 +229,7 @@ async function recordUsage(
 }
 
 export async function recordContracts(
-  selected: Assistant | "both",
+  selected: Assistant | "all",
   runtime: AssistantRuntime & ExecutionContext,
   fixturesRoot: string,
   terminal: Terminal,
@@ -170,11 +246,9 @@ export async function recordContracts(
     roundKind: "implementation" as const,
   }
   const scratch = await mkdtemp(join(tmpdir(), "audit-round-ts-contract-"))
-  const assistants: readonly Assistant[] =
-    selected === "both" ? ["claude", "codex"] : [selected]
   try {
     const files: string[] = []
-    for (const assistant of assistants) {
+    for (const assistant of selected === "all" ? assistants : [selected]) {
       terminal.write(`Recording ${assistant} contract...`)
       // The probe runs on the built-in default selection, as written.
       const model = defaultModel(assistant, defaultSettings)
@@ -187,7 +261,7 @@ export async function recordContracts(
           // The probe never waits for a ruling; the target only names it.
           target: `cli-contract-${assistant}`,
           phases: [{ phase: "fix", assistant, model }],
-          releases: { claude: new Map(), codex: new Map() },
+          releases: { claude: new Map(), codex: new Map(), gemini: new Map() },
           paths: {
             claim: null,
             log: join(scratch, `${assistant}.log`),
@@ -211,9 +285,9 @@ export async function recordContracts(
           tool: false,
           failure: false,
           success: false,
-          // Codex runs one turn; the Claude probe must record its second.
-          turns: assistant === "codex",
-          turnWithoutResult: assistant === "codex",
+          // Only the Claude probe must record a second turn.
+          turns: assistant !== "claude",
+          turnWithoutResult: assistant !== "claude",
         }
         let turnResults = 0
         const observe = async (event: Feedback) => {
@@ -227,18 +301,8 @@ export async function recordContracts(
               const detail = z
                 .record(z.string(), z.unknown())
                 .parse(event.detail)
-              const text = JSON.stringify(detail)
-              if (
-                (detail.is_error === true || detail.exit_code === 7) &&
-                text.includes("audit-round-probe-error")
-              )
-                seen.failure = true
-              if (
-                detail.is_error !== true &&
-                (assistant === "claude" || detail.exit_code === 0) &&
-                text.includes("audit-round-probe")
-              )
-                seen.success = true
+              const probe = shellProbe(assistant, detail)
+              if (probe !== undefined) seen[probe] = true
             }
           }
         }
@@ -262,22 +326,20 @@ export async function recordContracts(
           async (record) => {
             const event = selectRecord(assistant, record)
             if (event === undefined) return
-            const kept = z
-              .object({
-                type: z.string(),
-                num_turns: z.number().optional(),
-                structured_output: z.unknown().optional(),
-              })
-              .parse(event)
-            if (
-              assistant === "claude" &&
-              kept.type === "result" &&
-              (kept.num_turns ?? 0) > 0
-            ) {
-              turnResults += 1
-              if (turnResults >= 2) seen.turns = true
-              if (kept.structured_output === undefined)
-                seen.turnWithoutResult = true
+            if (assistant === "claude") {
+              const kept = z
+                .object({
+                  type: z.string(),
+                  num_turns: z.number().optional(),
+                  structured_output: z.unknown().optional(),
+                })
+                .parse(event)
+              if (kept.type === "result" && (kept.num_turns ?? 0) > 0) {
+                turnResults += 1
+                if (turnResults >= 2) seen.turns = true
+                if (kept.structured_output === undefined)
+                  seen.turnWithoutResult = true
+              }
             }
             await appendFile(
               join(scratch, `${assistant}.jsonl`),

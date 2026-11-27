@@ -8,6 +8,10 @@
     "codex": {
       "model": "gpt-5.6-sol",
       "effort": "high"
+    },
+    "gemini": {
+      "model": "gemini-4-neon",
+      "effort": "high"
     }
   },
   "planningAudit": {
@@ -119,6 +123,9 @@
     "codex": {
       "base": "gpt-5.6-sol",
       "top": "gpt-6-astra"
+    },
+    "gemini": {
+      "base": "gemini-4-neon"
     }
   }
 }

@@ -18,6 +18,7 @@ async function updateFixture(
   const cacheRoot = join(f.root, "cache")
   await mkdir(cacheRoot)
   await writeFile(join(cacheRoot, "claude"), "2026-09-14\n")
+  await writeFile(join(cacheRoot, "gemini"), "2026-09-14\n")
   const messages: string[] = []
   const warnings: string[] = []
   const output = {

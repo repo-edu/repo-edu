@@ -52,7 +52,7 @@ export function parseAuditors(
     const seat = parseAuditor(entry, option)
     if (seat === null)
       throw new Error(
-        `Auditor entry ${index + 1} (${entry}): expected claude, codex or a capability tag, such as o, at or otx.`,
+        `Auditor entry ${index + 1} (${entry}): expected claude, codex, gemini or a capability tag, such as o, at or gbx.`,
       )
     return { ...seat, text: entry }
   })

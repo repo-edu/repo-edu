@@ -31,7 +31,7 @@ import type {
   PickAnswer,
   PickCandidate,
 } from "./split-result-schema.js"
-import type { Repository } from "./subject.js"
+import type { Repository, Tag } from "./subject.js"
 import type {
   AuditTarget,
   CommitAuditGroup,
@@ -39,12 +39,18 @@ import type {
   RoundKind,
 } from "./target.js"
 
-export type Assistant = "claude" | "codex"
+export const assistants = ["claude", "codex", "gemini"] as const
+export type Assistant = (typeof assistants)[number]
 
 /** The letter a commit subject's capability tag opens with, naming the vendor. */
-export const assistantLetters: Record<Assistant, "a" | "o"> = {
+export const assistantLetters: Record<Assistant, Tag["vendor"]> = {
   claude: "a",
   codex: "o",
+  gemini: "g",
+}
+
+export function assistantForLetter(letter: string): Assistant | null {
+  return named(assistantLetters, letter)
 }
 
 /**
@@ -111,7 +117,7 @@ export function phaseWorkflow(
 export const strengths = ["base", "top"] as const
 export type Strength = (typeof strengths)[number]
 
-/** The reasoning efforts a round may ask for. Both CLIs answer to these four words. */
+/** The reasoning efforts a round may ask for. */
 export const efforts = ["low", "medium", "high", "xhigh"] as const
 export type Effort = (typeof efforts)[number]
 
@@ -196,11 +202,12 @@ export function parseAuditor(
   value: string,
   option: AuditorOption,
 ): AuditorSeat | null {
-  if (value === "claude" || value === "codex")
-    return { assistant: value, override: { option, defaults: true } }
-  const match = /^([ao])([bt])?([lmhx])?$/.exec(value)
+  const fullName = assistants.find((assistant) => assistant === value)
+  if (fullName !== undefined)
+    return { assistant: fullName, override: { option, defaults: true } }
+  const match = /^([a-z])([bt])?([lmhx])?$/.exec(value)
   if (match === null) return null
-  const assistant = named(assistantLetters, match[1])
+  const assistant = assistantForLetter(match[1])
   if (assistant === null) return null
   return {
     assistant,
@@ -223,9 +230,10 @@ export function modelStrength(
   config: Pick<RoundSettings, "strengthModels">,
 ): Strength | null {
   return (
-    strengths.find((strength) =>
-      model.includes(config.strengthModels[assistant][strength]),
-    ) ?? null
+    strengths.find((strength) => {
+      const name = config.strengthModels[assistant][strength]
+      return name !== undefined && model.includes(name)
+    }) ?? null
   )
 }
 
@@ -295,14 +303,17 @@ function auditModel(seat: AuditorSeat, config: RoundSettings): PinnedModel {
   if ("defaults" in override)
     return defaultModel(assistant, config, override.option)
   const defaults = defaultModel(assistant, config)
+  let model = defaults.model
+  if (override.strength !== null) {
+    const value = config.strengthModels[assistant][override.strength]
+    if (value === undefined)
+      throw new Error(
+        `No model configured for strengthModels.${assistant}.${override.strength}`,
+      )
+    model = { value, source: override.option }
+  }
   return {
-    model:
-      override.strength !== null
-        ? {
-            value: config.strengthModels[assistant][override.strength],
-            source: override.option,
-          }
-        : defaults.model,
+    model,
     effort:
       override.effort !== null
         ? { value: override.effort, source: override.option }
@@ -520,21 +531,13 @@ export function namedModels(
       ...config.split.designers,
       config.split.picker,
     ].map((entry) => implementationPhase(entry)),
-    ...(["claude", "codex"] as const).flatMap((auditor) =>
-      [null, ...strengths].map((strength) =>
-        auditPhase(
-          {
-            assistant: auditor,
-            override: { option: "--auditor", strength, effort: null },
-          },
-          config,
-        ),
-      ),
-    ),
     closePhase(config),
   ]
   return new Set([
     config.defaults[assistant].model,
+    ...Object.values(config.strengthModels[assistant]).filter(
+      (name) => name !== undefined,
+    ),
     ...runs
       .filter((run) => run.assistant === assistant)
       .map((run) => run.model.model.value),

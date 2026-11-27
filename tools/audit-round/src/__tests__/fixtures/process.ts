@@ -60,7 +60,7 @@ process.on("SIGTERM", () => {
   void writeFile(join(root, "stopped"), "SIGTERM").then(() => process.exit(0))
 })
 
-if (assistant === "claude") {
+if (assistant === "claude" || assistant === "gemini") {
   const requests = []
   for await (const line of createInterface({ input: process.stdin }))
     requests.push(JSON.parse(line))
@@ -68,8 +68,11 @@ if (assistant === "claude") {
     join(root, "requests.jsonl"),
     `${JSON.stringify(requests)}\n`,
   )
-  prompt = requests.find((request) => request.type === "user")?.message.content
-  if (args.includes("--no-session-persistence")) {
+  prompt = requests.find(
+    (request) =>
+      (assistant === "gemini" ? request.event : request.type) === "user",
+  )?.message.content
+  if (assistant === "claude" && args.includes("--no-session-persistence")) {
     if (scenario.settingsMode === "exit") process.exit(3)
     if (scenario.settingsMode === "missing") process.exit(0)
     // A named model applies as the release the scenario resolves it to.
@@ -158,12 +161,14 @@ if (scenario.phases !== undefined) {
     // around it, including session, usage and tool events.
     const lines: string[] = scenario.stream.trimEnd().split("\n")
     const events = lines.map((line) => JSON.parse(line))
-    const final = events.findLast((event) =>
-      assistant === "claude"
-        ? event.type === "result" && event.num_turns > 0
-        : event.type === "item.completed" &&
-          event.item.type === "agent_message",
-    )
+    const final = events.findLast((event) => {
+      if (assistant === "gemini") return event.event === "result"
+      if (assistant === "claude")
+        return event.type === "result" && event.num_turns > 0
+      return (
+        event.type === "item.completed" && event.item.type === "agent_message"
+      )
+    })
     const payload = structuredClone(result)
     if (phase === "audit" && payload.report !== null) {
       const scope = JSON.parse(
@@ -189,6 +194,7 @@ if (scenario.phases !== undefined) {
     }
     if (final !== undefined) {
       if (assistant === "claude") final.structured_output = payload
+      else if (assistant === "gemini") final.result.structured_output = payload
       else final.item.text = JSON.stringify(payload)
     }
     scenario.stream = events.map((event) => JSON.stringify(event)).join("\n")

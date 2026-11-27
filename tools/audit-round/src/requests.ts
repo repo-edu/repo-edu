@@ -4,6 +4,7 @@ import { join as shellJoin } from "shellwords"
 import { VFile } from "vfile"
 import { matter } from "vfile-matter"
 import { z } from "zod"
+import { assistantExecutables } from "./cli-process.js"
 import { additionalDirectories } from "./context.js"
 import type {
   AssistantTurnInput,
@@ -87,11 +88,53 @@ export function codexArguments(
     : ["exec", "--approve-for-me", ...pin, "resume", ...options, sessionId, "-"]
 }
 
+function geminiPin(model: ModelRequest): string[] {
+  return [
+    "--model",
+    model.effort === null
+      ? model.model.value
+      : `${model.model.value}-${model.effort.value}`,
+  ]
+}
+
+function geminiDirectories(directories: readonly string[]): string[] {
+  return directories.flatMap((directory) => ["--add-dir", directory])
+}
+
+export function geminiArguments(
+  directories: readonly string[],
+  sessionId: string | null,
+  model: ModelRequest,
+  schemaArgument?: string,
+): string[] {
+  return [
+    "--input-format",
+    "stream-json",
+    "--output-format",
+    "stream-json",
+    ...geminiPin(model),
+    "--dangerously-skip-permissions",
+    "--disable-slash-commands",
+    ...geminiDirectories(directories),
+    ...(sessionId === null ? [] : ["--conversation", sessionId]),
+    ...(schemaArgument === undefined ? [] : ["--json-schema", schemaArgument]),
+    "-p",
+    "",
+  ]
+}
+
 export function interactiveArguments(session: InteractiveSession): string[] {
   const { model } = session
-  return session.assistant === "codex"
-    ? [...codexPin(model), "resume", "--approve-for-me", session.sessionId]
-    : [
+  switch (session.assistant) {
+    case "codex":
+      return [
+        ...codexPin(model),
+        "resume",
+        "--approve-for-me",
+        session.sessionId,
+      ]
+    case "claude":
+      return [
         "--resume",
         session.sessionId,
         ...claudePin(model),
@@ -100,10 +143,18 @@ export function interactiveArguments(session: InteractiveSession): string[] {
         "--add-dir",
         ...additionalDirectories(session),
       ]
+    case "gemini":
+      return [
+        "--conversation",
+        session.sessionId,
+        ...geminiPin(model),
+        ...geminiDirectories(additionalDirectories(session)),
+      ]
+  }
 }
 
 export function recoveryCommand(session: InteractiveSession): string {
-  return `${shellJoin(["cd", session.cwd])} && ${shellJoin([session.assistant, ...interactiveArguments(session)])}`
+  return `${shellJoin(["cd", session.cwd])} && ${shellJoin([assistantExecutables[session.assistant], ...interactiveArguments(session)])}`
 }
 
 const workflowHeader = z.strictObject({
@@ -239,12 +290,14 @@ export function phaseRequest(
   schemaArgument?: string,
 ) {
   const { assistant, model } = input
-  return assistant === "codex"
-    ? {
+  switch (assistant) {
+    case "codex":
+      return {
         args: codexArguments(sessionId, model, schemaArgument),
         input: prompt,
       }
-    : {
+    case "claude":
+      return {
         args: [
           ...claudeArguments(additionalDirectories(input), sessionId, model),
           ...(schemaArgument === undefined
@@ -253,4 +306,15 @@ export function phaseRequest(
         ],
         input: `${JSON.stringify(claudeSettingsRequest)}\n${JSON.stringify({ type: "user", message: { role: "user", content: prompt } })}\n`,
       }
+    case "gemini":
+      return {
+        args: geminiArguments(
+          additionalDirectories(input),
+          sessionId,
+          model,
+          schemaArgument,
+        ),
+        input: `${JSON.stringify({ event: "user", message: { content: prompt } })}\n`,
+      }
+  }
 }

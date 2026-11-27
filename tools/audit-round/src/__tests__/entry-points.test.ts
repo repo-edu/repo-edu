@@ -95,7 +95,7 @@ for (const working of ["repo-edu", "plan"] as const) {
     const bin = join(f.root, "bin")
     await mkdir(bin)
     // Even a regression into startup must never reach a real assistant.
-    for (const assistant of ["claude", "codex"]) {
+    for (const assistant of ["claude", "codex", "agy"]) {
       await writeFile(
         join(bin, assistant),
         '#!/bin/sh\nprintf "unexpected assistant invocation" >> "$AUDIT_TEST_CALLS"\nexit 97\n',

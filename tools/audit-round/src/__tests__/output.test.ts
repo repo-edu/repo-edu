@@ -188,7 +188,7 @@ for (const [side, line] of [
     // The notice gives the target's command for each app.
     assert.ok(
       text.includes(
-        "In a chat on the Repo Edu or plan checkout, type:\nClaude: /ruling example\nCodex: $ruling example\n",
+        "In a chat on the Repo Edu or plan checkout, type:\nClaude: /ruling example\nCodex: $ruling example\nAntigravity: /ruling example\n",
       ),
     )
   })
@@ -875,6 +875,7 @@ test("the settings header lists phases in round order in aligned columns", async
     output.models({
       claude: new Map([["opus", "claude-opus-5[1m]"]]),
       codex: new Map(),
+      gemini: new Map(),
     })
     return visible.at(-1)
   }
@@ -949,6 +950,7 @@ test("the settings header names what set each phase's model and effort", async (
     output.models({
       claude: new Map([["opus", "claude-opus-5-5"]]),
       codex: new Map(),
+      gemini: new Map(),
     })
     return (visible.at(-1) as string).split("\n")
   }

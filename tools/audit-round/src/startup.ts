@@ -7,7 +7,7 @@ import { z } from "zod"
 import { resolveClaudeModel } from "./claude.js"
 import { type CliRuntime, readCliLines, withCliProcess } from "./cli-process.js"
 import { errorMessage, type ModelReleases } from "./feedback.js"
-import { type Assistant, namedModels } from "./phase.js"
+import { type Assistant, assistants, namedModels } from "./phase.js"
 import type { RoundSettings } from "./settings.js"
 
 export type StartupOutput = {
@@ -148,7 +148,7 @@ export async function updateClis(
     )
     return
   }
-  for (const assistant of ["claude", "codex"] as const) {
+  for (const assistant of assistants) {
     const stamp = join(cacheRoot, assistant)
     try {
       if ((await readFile(stamp, "utf8")).split("\n")[0] === localDate(now()))
@@ -215,9 +215,9 @@ export function resolveCacheRoot(
 }
 
 /**
- * Update both CLIs, then resolve each Claude model name the settings may pin
+ * Update the CLIs, then resolve each Claude model name the settings may pin
  * to its current release, so the settings header can name what each phase
- * runs on before it starts. No request starts an LLM turn, and neither CLI's
+ * runs on before it starts. No request starts an LLM turn, and no CLI's
  * own configuration is read: the settings file names every phase's selection.
  */
 export async function prepareAssistants(
@@ -231,6 +231,5 @@ export async function prepareAssistants(
   const claude = new Map<string, string>()
   for (const model of namedModels("claude", settings))
     claude.set(model, await resolveClaudeModel(runtime, output.message, model))
-  // Codex runs a named model under the name it was given.
-  return { claude, codex: new Map() }
+  return { claude, codex: new Map(), gemini: new Map() }
 }

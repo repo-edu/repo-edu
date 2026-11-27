@@ -2,12 +2,12 @@ import { readFile, writeFile } from "node:fs/promises"
 import { type ParseError, parse, printParseErrorCode } from "jsonc-parser"
 import { z } from "zod"
 import defaults from "../default-settings.json" with { type: "json" }
-import { auditLevels, efforts, selectionTag } from "./phase.js"
+import { assistants, auditLevels, efforts, selectionTag } from "./phase.js"
 
 export const densitySchema = z.enum(["normal", "coarse"])
 export type Density = z.infer<typeof densitySchema>
 
-const assistant = z.enum(["claude", "codex"])
+const assistant = z.enum(assistants)
 const model = z
   .string()
   .trim()
@@ -31,10 +31,7 @@ const defaultSelection = z.strictObject({
   }),
   effort,
 })
-const assistantDefaults = z.strictObject({
-  claude: defaultSelection,
-  codex: defaultSelection,
-})
+const assistantDefaults = z.record(assistant, defaultSelection)
 export type PhaseSelection = z.infer<typeof selection>
 const assignedSelection = selection.extend({ assistant })
 type AssignedSelection = z.infer<typeof assignedSelection>
@@ -42,7 +39,7 @@ export const coderSchema = z.strictObject({ assistant, model, effort })
 export type Coder = z.infer<typeof coderSchema>
 /** One auditor the series may run, in the coder's resolved shape. */
 export type Auditor = Coder
-const strengths = z.strictObject({ base: model, top: model })
+const strengths = z.strictObject({ base: model, top: model.optional() })
 
 /**
  * A listed entry's `default` resolves once, when the file loads, so every reader
@@ -120,7 +117,7 @@ export const settingsSchema = z
       picker: assignedSelection,
     }),
     maximumAutomaticRounds: z.number().int().positive(),
-    strengthModels: z.strictObject({ claude: strengths, codex: strengths }),
+    strengthModels: z.record(assistant, strengths),
   })
   .transform((settings) => {
     const resolve = (entry: AssignedSelection): Coder =>
@@ -186,15 +183,15 @@ export function parseCoderRecord(body: string): Coder | null {
     .split("\n")
     .filter((line) => line !== "" && !line.startsWith("#"))
   if (lines.length !== 1) return null
-  const match = /^Coder: (claude|codex) (\S+) (low|medium|high|xhigh)$/.exec(
-    lines[0],
-  )
+  const match = /^Coder: (\S+) (\S+) (\S+)$/.exec(lines[0])
   if (match === null) return null
-  return coderSchema.parse({
-    assistant: match[1],
-    model: match[2],
-    effort: match[3],
-  })
+  return (
+    coderSchema.safeParse({
+      assistant: match[1],
+      model: match[2],
+      effort: match[3],
+    }).data ?? null
+  )
 }
 
 /**

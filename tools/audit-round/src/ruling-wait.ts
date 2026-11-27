@@ -530,14 +530,14 @@ export type RulingDialog = (
 ) => Promise<string | null>
 
 /**
- * The two chat commands that answer a waiting ruling, one for each app, shared
- * by the notice and the dialog. Either reaches the same wait.
+ * The notice and dialog share the chat command for each app.
  */
 export function rulingCommandsText(target: string): string {
   return [
     "In a chat on the Repo Edu or plan checkout, type:",
     `Claude: /ruling ${target}`,
     `Codex: $ruling ${target}`,
+    `Antigravity: /ruling ${target}`,
   ].join("\n")
 }
 

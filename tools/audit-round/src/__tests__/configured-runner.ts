@@ -40,6 +40,7 @@ export const closeRun = (
 export const releases = {
   claude: new Map([["opus", "claude-opus-5"]]),
   codex: new Map<string, string>(),
+  gemini: new Map<string, string>(),
 }
 
 export const runRound = (

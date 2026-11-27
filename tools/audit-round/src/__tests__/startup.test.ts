@@ -33,6 +33,7 @@ test("startup finishes daily updates before resolving Claude's model names", asy
       ["claude-fable-5-1", "claude-fable-5-1"],
     ]),
     codex: new Map(),
+    gemini: new Map(),
   })
   assert.deepEqual(
     (await f.calls()).map((call) => [
@@ -45,6 +46,7 @@ test("startup finishes daily updates before resolving Claude's model names", asy
     [
       ["claude", "update", null],
       ["codex", "--version", null],
+      ["gemini", "update", null],
       ["claude", "-p", "opus"],
       ["claude", "-p", "claude-fable-5-1"],
     ],
@@ -57,7 +59,7 @@ test("startup finishes daily updates before resolving Claude's model names", asy
   await prepareAssistants(f.runtime, output, testSettings, { cacheRoot, now })
   assert.equal(
     (await f.calls()).filter((call) => call.args[0] === "update").length,
-    1,
+    2,
   )
   assert.ok(messages.includes("Codex is up to date (1.0.0)"))
   assert.equal(f.releaseLookup.mock.callCount(), 1)
@@ -93,6 +95,34 @@ test("startup finishes daily updates before resolving Claude's model names", asy
   )
 })
 
+test("a missing agy warns and its daily update remains due", async (t) => {
+  const f = await fixture(t)
+  const warnings: string[] = []
+  const output = {
+    message: async () => {},
+    warning: async (text: string) => {
+      warnings.push(text)
+    },
+  }
+  const cache = join(f.root, "cache")
+  const unavailable = {
+    ...f.runtime,
+    executables: {
+      ...f.runtime.executables,
+      gemini: { file: join(f.root, "missing-agy"), args: [] },
+    },
+  }
+  await updateClis(unavailable, output, cache, now)
+  assert.match(warnings.join("\n"), /gemini update failed/)
+  await assert.rejects(readFile(join(cache, "gemini")), { code: "ENOENT" })
+  await updateClis(f.runtime, output, cache, now)
+  assert.deepEqual(
+    (await f.calls()).map((call) => call.assistant),
+    ["claude", "codex", "gemini"],
+  )
+  assert.equal(await readFile(join(cache, "gemini"), "utf8"), "2026-09-11\n")
+})
+
 test("only failed updates repeat and an unavailable cache warns", async (t) => {
   const f = await fixture(t, { version: "0.9.0", updateFail: "codex" })
   const warnings: string[] = []
@@ -110,7 +140,7 @@ test("only failed updates repeat and an unavailable cache warns", async (t) => {
     (await f.calls())
       .filter((call) => call.args[0] === "update")
       .map((call) => call.assistant),
-    ["claude", "codex", "codex"],
+    ["claude", "codex", "gemini", "codex"],
   )
   assert.ok(warnings.some((warning) => warning.includes("codex update failed")))
   const blocked = join(f.root, "blocked")

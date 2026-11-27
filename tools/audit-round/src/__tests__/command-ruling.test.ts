@@ -183,7 +183,7 @@ test("the chat reads the waiting ruling, is refused an incomplete answer and res
   // The notice and the dialog give the same command for each app, with the
   // waiting run's target.
   const commands =
-    "In a chat on the Repo Edu or plan checkout, type:\nClaude: /ruling example\nCodex: $ruling example"
+    "In a chat on the Repo Edu or plan checkout, type:\nClaude: /ruling example\nCodex: $ruling example\nAntigravity: /ruling example"
   assert.ok(visible.includes(`${commands}\n`))
   assert.match(visible, /Applied the ruling/)
   // The dialog names the round and the commands to type, and the answer closed it.

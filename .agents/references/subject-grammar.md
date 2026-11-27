@@ -70,7 +70,7 @@ the coder that owns the plan. A `disprove` body carries the user's full reason.
 <implementation-time-line> ::= "Implementation took "<n>" min."
 
 <ready-coder-record> ::= "Coder: "<assistant>" "<model>" "<effort-name>
-<assistant>          ::= claude | codex
+<assistant>          ::= claude | codex | gemini
 ```
 
 A hand-run commit uses the single-model record. An implementation step uses the

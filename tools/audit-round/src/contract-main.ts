@@ -3,7 +3,7 @@ import { Argument, Command, CommanderError } from "commander"
 import { executionContext } from "./context.js"
 import { recordContracts } from "./contract.js"
 import { errorMessage } from "./feedback.js"
-import type { Assistant } from "./phase.js"
+import { type Assistant, assistants } from "./phase.js"
 import { createTerminal } from "./terminal.js"
 
 const command = new Command("audit-round:contract")
@@ -12,15 +12,15 @@ const command = new Command("audit-round:contract")
   )
   .addArgument(
     new Argument("[assistant]", "assistant to record")
-      .choices(["claude", "codex", "both"])
-      .default("both"),
+      .choices([...assistants, "all"])
+      .default("all"),
   )
   .exitOverride()
 const terminal = createTerminal()
 try {
   command.parse()
   await recordContracts(
-    (command.args[0] as Assistant | "both") ?? "both",
+    (command.args[0] as Assistant | "all") ?? "all",
     { ...(await executionContext()), cwd: process.cwd() },
     fileURLToPath(new URL("./__tests__/fixtures/", import.meta.url)),
     terminal,

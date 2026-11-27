@@ -124,6 +124,29 @@ test("ready coder records parse exactly and assignment advances through the list
     assert.equal(parseCoderRecord(body), null)
 })
 
+test("Gemini resolves its base and default selections and refuses an unconfigured top tier", () => {
+  for (const value of ["gemini", "g", "gbx"]) {
+    const seat = parseAuditor(value, "--auditor")
+    assert.ok(seat)
+    assert.equal(seat.assistant, "gemini")
+    const { model, effort } = roundPhases(seat.assistant, seat.override).audit
+      .model
+    assert.equal(model.value, "gemini-4-neon")
+    assert.equal(effort.value, value === "gbx" ? "xhigh" : "high")
+  }
+  assert.equal(modelStrength("gemini", "gemini-4-carbon"), null)
+  assert.equal(modelStrength("gemini", "gemini-4-neon"), "base")
+  const top = parseAuditor("gt", "--first")
+  assert.ok(top)
+  assert.throws(
+    () => roundPhases(top.assistant, top.override),
+    /strengthModels\.gemini\.top/,
+  )
+  const config = structuredClone(settings)
+  delete config.strengthModels.claude.top
+  assert.deepEqual([...namedModels("claude", config)], ["opus"])
+})
+
 test("phase fields read the assistant's defaults and apply partial auditor overrides", () => {
   const config = structuredClone(settings)
   config.strengthModels.codex.top = "custom-top-model"
@@ -196,7 +219,7 @@ test("each class's auditor list names whole selections and replaces the audit pi
   ]
   assert.equal(settingsSchema.safeParse(config).success, true)
   // Full names resolve to themselves, so each entry runs as written.
-  const releases = { claude: new Map(), codex: new Map() }
+  const releases = { claude: new Map(), codex: new Map(), gemini: new Map() }
   for (const auditor of config.implementationAudit.auditors) {
     const seat = listedSeat(auditor)
     const phases = roundPhases(seat.assistant, seat.override, config)
@@ -265,6 +288,7 @@ test("list entries that say default read the assistant's defaults when the file 
   const config = settingsSchema.parse({
     ...settings,
     defaults: {
+      ...settings.defaults,
       claude: { model: "claude-default", effort: "xhigh" },
       codex: { model: "codex-default", effort: "medium" },
     },
@@ -474,6 +498,7 @@ test("the planning fixer resolves its defaults and the old shape is refused", as
   const config = settingsSchema.parse({
     ...settings,
     defaults: {
+      ...settings.defaults,
       claude: { model: "claude-default", effort: "xhigh" },
       codex: { model: "codex-default", effort: "medium" },
     },

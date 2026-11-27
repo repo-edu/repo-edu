@@ -776,6 +776,54 @@ for (const assistant of ["claude", "codex"] as const) {
   })
 }
 
+test("Gemini sends the prompt on stdin and resumes interactively with normal permissions", () => {
+  const context = input("gemini", "/workspace/repo edu")
+  const prompt = "Read the plan.\nThen return the result."
+  const schema = '{"type":"object"}'
+  const pin = ["--model", "gemini-4-neon-high"]
+  const directories = [
+    "--add-dir",
+    context.planRoot,
+    "--add-dir",
+    context.evidenceRoot,
+  ]
+  for (const sessionId of [null, "gemini-session"]) {
+    const request = phaseRequest(context, sessionId, prompt, schema)
+    assert.equal(
+      request.input,
+      `${JSON.stringify({ event: "user", message: { content: prompt } })}\n`,
+    )
+    assert.deepEqual(request.args, [
+      "--input-format",
+      "stream-json",
+      "--output-format",
+      "stream-json",
+      ...pin,
+      "--dangerously-skip-permissions",
+      "--disable-slash-commands",
+      ...directories,
+      ...(sessionId === null ? [] : ["--conversation", sessionId]),
+      "--json-schema",
+      schema,
+      "-p",
+      "",
+    ])
+  }
+  assert.deepEqual(
+    split(recoveryCommand({ ...context, sessionId: "gemini-session" })),
+    [
+      "cd",
+      context.cwd,
+      "&&",
+      "agy",
+      "--conversation",
+      "gemini-session",
+      ...pin,
+      ...directories,
+    ],
+  )
+})
+
 test("fresh and resumed Codex fix requests carry the schema by path and large prompts on stdin", () => {
   const prompt = "Evidence: é\n".repeat(30_000)
   const pin = ["-m", "gpt-5.6-sol", "-c", "model_reasoning_effort=high"]

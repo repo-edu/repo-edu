@@ -2,8 +2,8 @@ import { z } from "zod"
 import { type AssistantEvent, tokenSchema } from "./feedback.js"
 import { toolInputText } from "./output-format.js"
 
-const envelope = z.looseObject({ event: z.string().min(1) })
-const stepUpdate = z.looseObject({ step_type: z.string().min(1) })
+export const geminiEvent = z.looseObject({ event: z.string().min(1) })
+export const geminiStep = z.looseObject({ step_type: z.string().min(1) })
 const inputUsage = z.object({
   input_tokens: tokenSchema,
   cache_read_tokens: tokenSchema,
@@ -11,7 +11,7 @@ const inputUsage = z.object({
 const fields = z.record(z.string(), z.unknown())
 
 export function decodeGemini(record: unknown): AssistantEvent[] {
-  const event = envelope.parse(record)
+  const event = geminiEvent.parse(record)
   switch (event.event) {
     case "init": {
       const { conversation_id, init } = z
@@ -33,7 +33,7 @@ export function decodeGemini(record: unknown): AssistantEvent[] {
       ]
     }
     case "step_update": {
-      const step = stepUpdate.parse(event.step_update)
+      const step = geminiStep.parse(event.step_update)
       switch (step.step_type) {
         case "agent_response":
           return decodeResponse(step)

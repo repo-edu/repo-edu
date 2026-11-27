@@ -11,7 +11,9 @@ import {
   type PhaseOutput,
   type PhaseRecorder,
 } from "./feedback.js"
+import { decodeGemini } from "./gemini.js"
 import type {
+  Assistant,
   AssistantTurnInput,
   ContestScope,
   Phase,
@@ -42,6 +44,17 @@ const fiveMinuteCachePhases: ReadonlySet<Phase> = new Set([
   "rule",
   "watch",
 ])
+
+function decoder(assistant: Assistant) {
+  switch (assistant) {
+    case "claude":
+      return decodeClaude
+    case "codex":
+      return decodeCodex
+    case "gemini":
+      return decodeGemini
+  }
+}
 
 /** The child's environment: the caller's, with the selected phases' cache lifetime. */
 function childEnvironment(
@@ -112,7 +125,7 @@ export async function runAssistantInvocation(
     input.assistant === "codex"
       ? new CodexSessionReader(codexSessionsRoot(runtime))
       : undefined
-  const decode = input.assistant === "claude" ? decodeClaude : decodeCodex
+  const decode = decoder(input.assistant)
   const env = childEnvironment(input, runtime.env)
   const codex = input.assistant === "codex"
   let schemaDirectory: string | undefined

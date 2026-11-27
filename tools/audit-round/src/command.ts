@@ -599,12 +599,12 @@ const auditorSelectionHelp = `Auditor selection (--auditor <selections>):
   Each entry runs one round, from left to right: --auditor a,o runs a round
   audited by Claude, then a round audited by Codex. Each entry is one of:
 
-    claude | codex
+    claude | codex | gemini
       Use that assistant's default selection in settings.json.
 
     <assistant>[<tier>][<effort>]
       A capability tag, written without spaces. Brackets mark optional fields.
-      <assistant>  a = Claude, o = Codex
+      <assistant>  a = Claude, o = Codex, g = Gemini
       <tier>       b = base model, t = top model
       <effort>     l = low, m = medium, h = high, x = xhigh
       Omitted fields use the assistant's default selection in settings.json.
@@ -1488,6 +1488,7 @@ export async function runCommand(
           ? {
               claude: new Map<string, string>(),
               codex: new Map<string, string>(),
+              gemini: new Map<string, string>(),
             }
           : await prepare(context.repoEduRoot, settings)
       runtime.signal?.throwIfAborted()

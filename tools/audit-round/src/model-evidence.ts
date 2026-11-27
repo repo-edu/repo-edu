@@ -4,7 +4,7 @@ import { readModelRecord, readStepModelRecord } from "./commit-msg.js"
 import type { ExecutionContext } from "./context.js"
 import { readImplementationLogs } from "./default-target.js"
 import type { LogCommit } from "./episode-log.js"
-import type { Assistant } from "./phase.js"
+import { type Assistant, assistantForLetter } from "./phase.js"
 import { type PlanStep, readPlanSteps } from "./plan-steps.js"
 import {
   type DisprovedFinding,
@@ -922,7 +922,7 @@ function historyCommits(
 
 function subjectAssistant(subject: string): Assistant | null {
   const vendor = readTag(subject.split(" ")[1])?.vendor
-  return vendor === "a" ? "claude" : vendor === "o" ? "codex" : null
+  return vendor === undefined ? null : assistantForLetter(vendor)
 }
 
 function stepRecord(commit: HistoryCommit): StepRecord | null {
