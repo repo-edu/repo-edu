@@ -13,6 +13,15 @@ State each fact once in the section for the behaviour it describes. Link to that
 else it is needed. Keeping detail in references means only sessions working on that subject
 need to load it.
 
+Keep the following headings in this file. Listed files in both repos link to them by name.
+A change to a listed file that alters what a session does must land inside a plan.
+
+1. **Plan targets**
+2. **Round files**
+3. **Report lifecycle**
+4. **Phase routing**
+5. **Invocation**
+
 Before changing a file directly under `src/`, read the sections its row in the
 [ownership table](references/ownership.md) names. Keep this as the only source-file map. Update
 the section for the behaviour that changes and add a row only for a new file.
