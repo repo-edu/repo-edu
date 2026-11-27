@@ -48,8 +48,9 @@ the moves after a close, completed commit series or split.
 ## Phase routing
 
 Planning sessions work in the plan checkout. Implementation and commit sessions work in Repo Edu.
-Claude receives the peer and evidence checkouts as additional directories. Recovery commands
-restore the working directory. For workflow headers and the files `requests.ts` supplies whole,
+Claude and Gemini receive the peer and evidence checkouts as additional directories. Gemini
+receives one `--add-dir` per checkout. Recovery commands restore the working directory.
+For workflow headers and the files `requests.ts` supplies whole,
 see [Arguments and prompts](references/sessions.md#arguments-and-prompts).
 
 `round-paths.ts` supplies the following arguments in order. File paths are absolute except for
@@ -93,7 +94,9 @@ supplies a time value.
 
 ## Invocation
 
-Run from either checkout with authenticated `claude` and `codex` commands.
+Run from either checkout. The runner invokes `claude` for Claude, `codex` for Codex and
+`agy` for Gemini. Authenticate the CLIs your selections use. The tracked roles use Claude
+and Codex.
 `context.ts` resolves the installed Repo Edu checkout and its siblings, independently of the
 invoking directory or round kind. The plan checkout's `active/` holds plans and briefs.
 Every command requires the sibling `plan-evidence` Git checkout and its `active/` round folder.

@@ -83,7 +83,7 @@ context and compaction count.
 
 - A phase starts with its launch selection, then its CLI's model feedback replaces it.
 - Each finished invocation adds its elapsed time to the phase's time.
-- Both assistants' latest session totals replace the earlier reading, so a resumed fix counts each
+- Each assistant's latest session totals replace the earlier reading, so a resumed fix counts each
   token once.
 - Each phase prints its per-model input, cached input and output totals beside its elapsed time.
 - Round data includes the compaction count for each round phase, including the watch.
@@ -157,8 +157,8 @@ ruling's text. The notice names:
 - the round's reports, when the runner asks before the fix;
 - the findings that need a winner and the findings that need a choice;
 - whose model runs the fix;
-- the two chat commands, Claude's `/ruling <target>` and Codex's `$ruling <target>`, in the
-  wording the dialog shares under [Ruling wait](rounds.md#ruling-wait).
+- the command for each of Claude, Codex and Antigravity, using the wording shared with the
+  dialog under [Ruling wait](rounds.md#ruling-wait).
 
 `endRuling` excludes the user's waiting time and records an accepted answer's winners, choices and
 reply in the log and the transcript before any fix process starts or resumes.

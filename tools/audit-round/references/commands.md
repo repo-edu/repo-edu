@@ -43,15 +43,17 @@ The file presents `defaultAuditor` and `defaults` first, then the plan's stages 
 select designers and a picker. `maximumAutomaticRounds` and `strengthModels` come last.
 Field order does not affect loading.
 
-**Defaults and overrides.** `defaults` gives an explicit model and effort for each assistant.
+**Defaults and overrides.** `defaults` gives an explicit model and effort for Claude, Codex and
+Gemini. The tracked Gemini default is `gemini-4-neon` at `high`.
 Model and effort fields that accept `default` resolve independently at load time, including
 list entries, rulers, the planning fixer, watch writers and split roles. The auditor list,
 `models` read-out, fixes and ready markers therefore receive resolved selections. A ready
-marker retains its coder when defaults change. Neither CLI's model configuration enters the
-selection.
+marker retains its coder when defaults change. The runner gets its model selections from this file.
 
-`strengthModels` maps each assistant's base and top tiers to model names. The same names classify
-reported models for capability tags. A family alias such as `opus` follows the CLI's current
+`strengthModels` requires a base model for each assistant and accepts an optional top model.
+The same names classify reported models for capability tags. Gemini's vendor letter is `g`.
+Its tracked base is `gemini-4-neon`, so `gbx` selects Neon at extra high effort. A tag requesting
+`t` requires a configured top model. A family alias such as `opus` follows the CLI's current
 release, while a full model name pins it. The settings header shows the resolved release.
 For `--first` and `--auditor`, an assistant name selects its defaults. A letter tag selects
 the fields it names and takes omitted fields from those defaults. Each entry resolves
@@ -417,18 +419,17 @@ read no settings and write no file.
 - `answer` carries one JSON answer document to the waiting run, prints the waiting run's response
   and exits 1 on a refusal.
 - With no target they take the one run that waits and refuse when none or several wait.
-- The chat follows [Answering a ruling](../../../.agents/skills/fix/references/answer.md). Its
-  launchers live in the plan checkout: Claude's `/ruling` at `home/claude/commands/ruling.md` and
-  Codex's `$ruling` at `home/agents/skills/ruling/SKILL.md`. The waiting run's notice and dialog
-  name both, so the user picks the app whatever model runs the fix or worker.
-- [Invocation](../CLAUDE.md#invocation) says how each app runs both commands outside a chat's
-  sandbox.
+- The chat follows [Answering a ruling](../../../.agents/skills/fix/references/answer.md).
+  The notice lists the command for Claude, Codex and Antigravity. The same target identifies
+  the wait in each app. See [Ruling wait](rounds.md#ruling-wait).
+- [Invocation](../CLAUDE.md#invocation) describes the socket permissions for Claude and Codex.
 
 ## Contract recorder
 
-`pnpm audit-round:contract` runs `contract-main.ts`, which calls the recorder in `contract.ts`.
-The recorder invokes the same assistant and output boundaries as a round, with a probe prompt on
-the built-in default selection.
+`pnpm audit-round:contract [claude|codex|gemini|all]` records all three CLIs by default.
+To refresh Gemini alone, run `pnpm audit-round:contract gemini` from the Repo Edu root in
+your shell. The recorder uses the same invocation and output code as a round, with a probe
+prompt on the built-in default selection.
 
 - It requires successful and deliberately failed shell calls before replacing any selected
   fixtures.
@@ -437,4 +438,7 @@ the built-in default selection.
 - A second probe resumes the first session and requires token usage from both invocations.
 - Both probes use the fix schema and require a valid structured result. The Claude recording also
   keeps a finished turn without the object before its final turn.
+- For Gemini the recorder keeps the session ID and model, tool and response events and the
+  final result with usage. It saves the fresh and resumed streams, the CLI version and the
+  shared recording date.
 - It invokes no workflow and refreshes only this package's recordings.

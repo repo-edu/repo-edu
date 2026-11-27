@@ -209,13 +209,12 @@ unanswered. The assistant never inherits the terminal.
 [ruling and answer](commands.md#ruling-and-answer). They find the waiting runs through the folder
 and count a socket that refuses the connection as no run.
 
-**The commands.** The module holds the one wording of the chat commands that answer the wait,
-which the notice and the dialog share: Claude's `/ruling <target>` and Codex's `$ruling <target>`,
-each labelled with its app and holding the waiting run's target. Both reach the same wait, so the
-user picks the app whatever model runs the fix or worker.
+**The commands.** The notice and the dialog use the same wording. They show `/ruling <target>`
+for Claude and Antigravity and `$ruling <target>` for Codex. Each line names its app and the
+waiting target so the user can choose a chat independently of the model running the phase.
 
-**The dialog.** The module also holds the ruling dialog: a window that names the round and the two
-commands, with one OK button. A window that needs a click is hard to miss, while a notice in a busy
+**The dialog.** The ruling dialog names the round and shows the command for each app, with
+one OK button. A window that needs a click is hard to miss, while a notice in a busy
 terminal is easy to miss.
 
 - On macOS it is AppleScript's `display dialog`, because `display alert` draws a narrow window

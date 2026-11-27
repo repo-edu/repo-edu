@@ -11,7 +11,12 @@ import {
   phaseRequest,
   recoveryCommand,
 } from "../requests.js"
-import { type Assistant, type PhaseInput, pinned } from "./configured-runner.js"
+import {
+  type Assistant,
+  assistants,
+  type PhaseInput,
+  pinned,
+} from "./configured-runner.js"
 import {
   finishedFix,
   fixture,
@@ -352,6 +357,23 @@ async function recordedTokenUpdate(assistant: Assistant, recording: string) {
       }),
     }
   }
+  if (assistant === "gemini") {
+    const result = (await recorded(`${recording}.jsonl`))
+      .trimEnd()
+      .split("\n")
+      .map((line) => JSON.parse(line))
+      .findLast((event) => event.event === "result")
+    const usage = result?.result.usage
+    assert.ok(usage)
+    return {
+      kind: "selected-model" as const,
+      tokens: {
+        input: usage.input_tokens + usage.cache_read_tokens,
+        cached: usage.cache_read_tokens,
+        output: usage.output_tokens,
+      },
+    }
+  }
   const rollout = recording.endsWith("-resume")
     ? "codex-rollout-resume.jsonl"
     : "codex-rollout.jsonl"
@@ -560,7 +582,9 @@ for (const assistant of ["claude", "codex"] as const) {
       assert.equal(call.args.includes("--resume"), false)
     }
   })
+}
 
+for (const assistant of assistants) {
   test(`${assistant} reads fresh and resumed session totals from the contract recordings`, async (t) => {
     const f = await fixture(t)
     const usagePath = join(f.root, "rollout-test-session.jsonl")
@@ -634,7 +658,9 @@ for (const assistant of ["claude", "codex"] as const) {
       update: await recordedTokenUpdate(assistant, `${assistant}-resume`),
     })
   })
+}
 
+for (const assistant of ["claude", "codex"] as const) {
   for (const problem of [
     "process",
     "malformed",

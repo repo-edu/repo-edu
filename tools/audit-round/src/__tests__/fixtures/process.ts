@@ -104,6 +104,12 @@ await appendFile(
 )
 
 scenario = { ...scenario, ...scenario.assistants?.[assistant] }
+if (
+  assistant === "gemini" &&
+  args.includes("--conversation") &&
+  scenario.resumeStream !== undefined
+)
+  scenario.stream = scenario.resumeStream
 if (scenario.phases !== undefined) {
   const phase =
     /^Run the (design|pick|audit|vet|rebut|rule|fix|implement|watch|close) phase\b/.exec(
@@ -111,7 +117,7 @@ if (scenario.phases !== undefined) {
     )?.[1]
   if (phase === undefined) throw new Error("Fixture received no phase prompt")
   const selected = scenario.phases[phase]
-  // A chained round changes who audits, so a phase may answer as either CLI.
+  // A chained round can change which assistant runs the phase.
   scenario = { ...scenario, ...selected, ...selected?.assistants?.[assistant] }
   // A fix may answer differently when resumed in detailing and then started
   // fresh in widening.

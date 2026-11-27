@@ -5,6 +5,7 @@ import { basename, join } from "node:path"
 import type { TestContext } from "node:test"
 import { execa } from "execa"
 import type { Assistant } from "../phase.js"
+import { tagPatternSource } from "../subject.js"
 import {
   evidenceRepository,
   finishedPhase,
@@ -336,10 +337,11 @@ Audit ranges: ${steps === 1 ? "1" : `1-${steps}`}.
             ]
           : [],
       stream: await phaseStream(assistant, final, sessionId),
-      // Either CLI may run a phase when the next auditor changes, so both answer.
+      // The next round may select any of the recorded assistants.
       assistants: {
         claude: { stream: await phaseStream("claude", final, sessionId) },
         codex: { stream: await phaseStream("codex", final, sessionId) },
+        gemini: { stream: await phaseStream("gemini", final, sessionId) },
       },
       usage: {
         path: join(f.root, `rollout-${sessionId}.jsonl`),
@@ -390,10 +392,13 @@ Audit ranges: ${steps === 1 ? "1" : `1-${steps}`}.
         .find((candidate) => existsSync(candidate)) ?? path
     )
   }
+  const roundFilePattern = new RegExp(
+    `-1-round\\.${tagPatternSource}\\.(md|log)$`,
+  )
   const roundFiles = async () =>
     (await Promise.all(outputRoots().map((root) => readdir(root))))
       .flat()
-      .filter((name) => /-1-round\.[ao][btu][lmhx]\.(md|log)$/.test(name))
+      .filter((name) => roundFilePattern.test(name))
   const records = async () => {
     const names = await roundFiles()
     assert.equal(names.length, 2)

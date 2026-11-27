@@ -18,6 +18,7 @@ import {
   type PhaseRecorder,
   selectionSchema,
 } from "../feedback.js"
+import { decodeGemini } from "../gemini.js"
 import {
   type Assistant,
   type AssistantTurnInput,
@@ -134,6 +135,13 @@ export const recordedSelections = {
       (event) => event.type === "turn_context",
     )?.payload,
   ),
+  gemini: selectionSchema.parse(
+    decodeGemini(
+      (await recordedEvents("gemini.jsonl")).find(
+        (event) => event.event === "init",
+      ),
+    ).find((event) => event.type === "model")?.selection,
+  ),
 }
 
 type RecordedAssistant = keyof typeof recordedSelections
@@ -234,8 +242,9 @@ export async function phaseStream(
   const lines = events
     .map((event) => {
       if (assistant === "gemini") {
-        if (["init", "step_update", "result"].includes(event.event))
-          event.conversation_id = sessionId
+        if (event.event === "init") event.conversation_id = sessionId
+        else if (event.event === "step_update" || event.event === "result")
+          event[event.event].conversation_id = sessionId
         if (event.event === "result") {
           if (typeof final === "string") {
             delete event.result.structured_output

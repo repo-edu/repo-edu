@@ -38,7 +38,7 @@ table for its model, and a field nothing names reads the assistant's defaults. A
 selects the assistant's default selection. Listed auditors and command-line overrides bind the
 audit and the rebuttal together, because the rebuttal answers for the audit report. Each named
 field carries what named it, including which of the two options a tag came from, so the settings
-header never guesses, and either CLI accepts one.
+header shows the source of each field.
 
 **Transcript.** `transcribed` in `phase.ts` includes audit, vet, rebuttal, ruler and fix text in
 the round transcript and implement text in the step transcript. The fix writes its ruling and
@@ -62,18 +62,21 @@ reported no identity.
 ### Startup
 
 `startup.ts` owns where the `audit-round` cache lives, through `resolveCacheRoot`, and holds its
-update dates. Both update checks precede release resolution.
+update dates. The first startup each day checks all three CLIs before resolving releases,
+even when a role uses only one assistant.
 
 - Codex compares its installed version with the standalone installer's release channel before
   running its updater. A current or newer installation is kept.
-- An update is successful only when a fresh version read reaches the checked release or a newer
+- A Codex update succeeds only when a fresh version read reaches the checked release or a newer
   one. Installer output is retained for failure diagnostics, since its success banner does not
   prove a version change.
-- Failed checks and unverified updates leave the date unstamped, so the next run retries.
+- Claude and Gemini run `claude update` and `agy update` respectively. A failed update,
+  including a missing executable, prints a warning and leaves that CLI due on the next run.
 
 Release resolution asks Claude for the release of each model a round's phases may pin, as
 `namedModels` derives them from `roundPhases`, because a family alias names whichever release is
-current. Codex runs a named model under that name. Claude control requests start no LLM turn.
+current. Codex and Gemini run the configured model names directly. Claude control requests
+start no LLM turn.
 
 ### Arguments and prompts
 
@@ -83,6 +86,9 @@ current. Codex runs a named model under that name. Claude control requests start
 - Every phase carries its model and reasoning effort. Codex takes them before any subcommand, so a
   resumed phase keeps them, and Claude takes `--model` and `--effort`.
 - Claude uses `--permission-mode auto` in release resolution and every session entry.
+- Gemini puts the effort in the model name, for example `--model gemini-4-neon-high`.
+  Unattended invocations use `--dangerously-skip-permissions` and disable slash commands.
+  A resume uses `--conversation <id>`. Interactive recovery uses normal permission prompts.
 - A fix awaiting a ruling and a failure both carry their phase, so continuation and recovery use
   the model the round ran that phase on.
 
@@ -98,7 +104,8 @@ workflow's `reads` header.
 - Root instructions are not listed.
 - Resumed sessions receive no files again.
 
-Both assistants receive their phase prompts on standard input. Codex command-line arguments
+All three assistants receive their phase prompts on standard input. Gemini reads one
+`stream-json` user message and writes events in the same format. Codex command-line arguments
 contain no prompt text, including on resume, so joined evidence is not limited by the operating
 system's per-argument size. The same collected file list produces a separate log prompt, which
 holds source paths with an omission notice in place of file contents.
@@ -113,10 +120,12 @@ pending the CLI defers the results and flushes them at exit behind an empty resu
 The phase's response comes from the last completed turn.
 
 **Structured results.** Every phase uses Zod to
-send a JSON Schema and validate the result. Claude takes it through `--json-schema`. Codex takes
-it through `--output-schema`, which points at a file that lives until the invocation ends. On
-resume both programs receive the schema again. Claude supplies `structured_output` in its last
-turn's result. Codex supplies JSON in its last message. A missing or invalid object fails the phase.
+send a JSON Schema and validate the result. Claude and Gemini take it inline through
+`--json-schema`. Codex takes it through `--output-schema`, which points at a file that lives
+until the invocation ends. Each CLI receives the schema again on resume. Claude and Gemini
+supply `structured_output` in the final result. Gemini can emit several attempts as text before
+that result arrives. The decoder keeps those JSON objects out of the live prose.
+Codex supplies JSON in its last message. A missing or invalid object fails the phase.
 Codex can also send a message that fits the schema before its last message. The runner logs that
 object. The terminal still shows ordinary commentary and any closing note carried by the message.
 
@@ -125,16 +134,15 @@ rebuttal and ruler reports from the checked result. A failed write fails the pha
 progression. The runner saves the results of the other document phases under
 [Watch](watch.md#watch) and [split](commands.md#split).
 
-**Measurements.** Context and token measurements pass directly to the output observer. Both
-assistants replace the phase total with the session's newest running total. The Claude and Codex
-decoders validate the fields they consume.
+**Measurements.** Each decoder validates the fields it consumes and passes context and token
+measurements to the output observer. The newest session total replaces the earlier reading.
 
 ### Cache lifetime
 
 A Claude child of the audit, vet, rebuttal, ruler or watch receives
 `CLAUDE_CODE_PROMPT_CACHE_TTL=5m`, on a fresh run and on each automatic continuation of the same
-phase. Every other launch, and every Codex child, inherits the caller's environment unchanged,
-including any explicit setting of its own. `assistant.ts` sets the value per invocation, so
+phase. Every other launch inherits the caller's cache setting, including Codex and Gemini
+invocations. `assistant.ts` sets the value per invocation, so
 concurrent vetters and the parent environment never share it.
 
 - **Why five minutes.** Claude's print mode otherwise writes a one-hour cache on a subscription's
@@ -148,7 +156,7 @@ concurrent vetters and the parent environment never share it.
   minutes or more, so a shorter cache would lose hits inside the session. They keep the caller's
   setting.
 
-### Claude and Codex readings
+### CLI readings
 
 - `claude.ts` reads `modelUsage` from each turn's result. Its input is
   `inputTokens + cacheReadInputTokens + cacheCreationInputTokens`, its cached input is
@@ -162,6 +170,11 @@ concurrent vetters and the parent environment never share it.
   final incomplete record fails the invocation.
 - The Codex token reading uses `total_token_usage`: input already includes cached input, cached
   remains separate and output already includes reasoning.
+- `gemini.ts` reads the conversation ID and the model with its effort suffix from the
+  `init` event. Each agent response with usage reports the current context as input plus cache
+  reads. The final `result.usage` gives the cumulative session totals, including after resume.
+  Input is `input_tokens + cache_read_tokens`, cached input is `cache_read_tokens` and output
+  is `output_tokens`. The current decoder reports no context window or compaction event.
 
 ### Child process
 

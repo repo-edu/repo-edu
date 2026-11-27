@@ -4,72 +4,9 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { decodeCodexUsage } from "../codex-session.js"
 import { recordContracts } from "../contract.js"
-import { finishedFix, fixture, recorded } from "./helpers.js"
+import { fixture, recorded } from "./helpers.js"
 
 const terminal = { write: () => {}, status: () => {}, clear: () => {} }
-
-function geminiStream() {
-  const usage = { input_tokens: 300, cache_read_tokens: 100, output_tokens: 20 }
-  const tool = (command: string, output: string) =>
-    ["ACTIVE", "DONE"].map((state) => ({
-      event: "step_update",
-      step_update: {
-        step_type: "tool",
-        tool_name: "run_command",
-        state,
-        tool_info: {
-          parameters: { CommandLine: command },
-          ...(state === "DONE" ? { output } : {}),
-        },
-      },
-    }))
-  const events = [
-    {
-      event: "init",
-      init: {
-        model: "gemini-4-neon-high",
-        cwd: "/machine",
-        tools: [],
-        json_schema: {},
-      },
-    },
-    ...tool(
-      "printf audit-round-probe",
-      "audit-round-probe\nCommand exited with code 0.",
-    ),
-    ...tool(
-      'sh -c "echo audit-round-probe-error >&2; exit 7"',
-      "audit-round-probe-error\nCommand exited with code 7.",
-    ),
-    {
-      event: "step_update",
-      step_update: {
-        step_type: "agent_response",
-        text_delta: JSON.stringify(finishedFix),
-        usage,
-      },
-    },
-    {
-      event: "step_update",
-      step_update: { step_type: "finish", state: "DONE" },
-    },
-    {
-      event: "result",
-      result: {
-        status: "SUCCESS",
-        structured_output: finishedFix,
-        usage,
-        json_schema: {},
-      },
-    },
-  ]
-  return events
-    .map(
-      (event) =>
-        `${JSON.stringify({ ...event, conversation_id: "gemini-session" })}\n`,
-    )
-    .join("")
-}
 
 test("contract recorder validates all three assistants before replacing its fixtures", async (t) => {
   const f = await fixture(t)
@@ -91,10 +28,31 @@ test("contract recorder validates all three assistants before replacing its fixt
     .join("\n")
   const stream = await recorded("codex.jsonl")
   const threadId = JSON.parse(stream.split("\n")[0]).thread_id
+  const gemini = await recorded("gemini.jsonl")
+  const geminiResume = await recorded("gemini-resume.jsonl")
+  const events = gemini
+    .trimEnd()
+    .split("\n")
+    .map((line) => JSON.parse(line))
+  const init = events[0]
+  assert.equal(init.event, "init")
+  const result = events.at(-1)
+  assert.equal(result.event, "result")
+  // Restore fields and a finish step that the live recorder drops.
+  Object.assign(init.init, { cwd: "/machine", tools: [], json_schema: {} })
+  result.result.json_schema = {}
+  events.splice(-1, 0, {
+    event: "step_update",
+    conversation_id: init.conversation_id,
+    step_update: { step_type: "finish", state: "DONE" },
+  })
   await f.configure({
     assistants: {
       claude: { stream: await recorded("claude.jsonl") },
-      gemini: { stream: geminiStream() },
+      gemini: {
+        stream: events.map((event) => JSON.stringify(event)).join("\n"),
+        resumeStream: geminiResume,
+      },
       codex: {
         stream,
         usage: {
@@ -150,30 +108,23 @@ test("contract recorder validates all three assistants before replacing its fixt
     usage.split("\n").flatMap((line) => decodeCodexUsage(JSON.parse(line))),
   )
   const calls = await f.calls()
-  for (const name of ["gemini.jsonl", "gemini-resume.jsonl"]) {
-    const stream = await readFile(join(destination, name), "utf8")
-    assert.doesNotMatch(stream, /json_schema|"cwd"|"tools"|"finish"/)
-    const events = stream
-      .trimEnd()
-      .split("\n")
-      .map((line) => JSON.parse(line))
-    assert.deepEqual(events[0], {
-      event: "init",
-      conversation_id: "gemini-session",
-      init: { model: "gemini-4-neon-high" },
-    })
-    assert.deepEqual(events.at(-1).result.structured_output, finishedFix)
-    assert.match(stream, /Command exited with code 7\./)
-  }
-  const gemini = (await f.prompts()).filter(
+  assert.equal(
+    await readFile(join(destination, "gemini.jsonl"), "utf8"),
+    gemini,
+  )
+  assert.equal(
+    await readFile(join(destination, "gemini-resume.jsonl"), "utf8"),
+    geminiResume,
+  )
+  const prompts = (await f.prompts()).filter(
     (call) => call.assistant === "gemini",
   )
-  assert.equal(gemini.length, 2)
-  assert.match(gemini[0].prompt, /Use your shell tool twice/)
-  assert.match(gemini[1].prompt, /audit-round-resume-probe/)
+  assert.equal(prompts.length, 2)
+  assert.match(prompts[0].prompt, /Use your shell tool twice/)
+  assert.match(prompts[1].prompt, /audit-round-resume-probe/)
   assert.equal(
-    gemini[1].args[gemini[1].args.indexOf("--conversation") + 1],
-    "gemini-session",
+    prompts[1].args[prompts[1].args.indexOf("--conversation") + 1],
+    init.conversation_id,
   )
   assert.equal(calls.filter((call) => call.args[0] === "exec").length, 2)
   assert.ok(
@@ -198,9 +149,9 @@ test("contract recorder validates all three assistants before replacing its fixt
 })
 
 test("Gemini needs the success probe's own output as well as a zero exit", async (t) => {
-  const stream = geminiStream().replace(
-    "audit-round-probe\\nCommand exited with code 0.",
-    "audit-round-probe-error\\nCommand exited with code 0.",
+  const stream = (await recorded("gemini.jsonl")).replace(
+    /audit-round-probe(?!-)/g,
+    "audit-round-probe-error",
   )
   const f = await fixture(t, { stream })
   await assert.rejects(

@@ -91,7 +91,26 @@ test("startup writes only to the terminal before the models table opens the run 
   )
 })
 
-for (const auditor of ["codex", "claude"] as const) {
+for (const { auditor, tag, model, pin } of [
+  {
+    auditor: "codex",
+    tag: "otx",
+    model: "gpt-6-astra",
+    pin: ["-m", "gpt-6-astra", "-c", "model_reasoning_effort=xhigh"],
+  },
+  {
+    auditor: "claude",
+    tag: "atx",
+    model: "claude-fable-5-1",
+    pin: ["--model", "claude-fable-5-1", "--effort", "xhigh"],
+  },
+  {
+    auditor: "gemini",
+    tag: "gbx",
+    model: "gemini-4-neon",
+    pin: ["--model", "gemini-4-neon-xhigh"],
+  },
+] as const) {
   test(`a full --auditor tag reaches the ${auditor} audit and its rebuttal alone`, async (t) => {
     const f = await roundFixture(t, auditor)
     await f.steps(3)
@@ -101,29 +120,18 @@ for (const auditor of ["codex", "claude"] as const) {
     ]
     assert.equal(
       await runCommand(
-        [
-          "round",
-          "example.md",
-          "3",
-          "--auditor",
-          auditor === "codex" ? "otx" : "atx",
-        ],
+        ["round", "example.md", "3", "--auditor", tag],
         f.runtime,
         { ...f.options, settings },
       ),
       0,
       f.errors.join("\n"),
     )
-    const invocations = (await f.calls()).filter(
-      (call) =>
-        call.args[0] === "exec" ||
-        (call.args[0] === "-p" &&
-          !call.args.includes("--no-session-persistence")),
+    const invocations = await f.prompts()
+    assert.deepEqual(
+      invocations.map((call) => call.assistant),
+      [auditor, "claude", auditor, "codex"],
     )
-    const pin =
-      auditor === "codex"
-        ? ["-m", "gpt-6-astra", "-c", "model_reasoning_effort=xhigh"]
-        : ["--model", "claude-fable-5-1", "--effort", "xhigh"]
     // The audit and its fresh rebuttal both carry the override.
     for (const index of [0, 2])
       assert.ok(
@@ -132,9 +140,10 @@ for (const auditor of ["codex", "claude"] as const) {
       )
     assert.equal(invocations[2].args.includes("resume"), false)
     assert.equal(invocations[2].args.includes("--resume"), false)
+    assert.equal(invocations[2].args.includes("--conversation"), false)
     // The vet and the fix keep their own selections.
     for (const index of [1, 3])
-      for (const value of ["gpt-6-astra", "claude-fable-5-1", "xhigh"])
+      for (const value of [model, "xhigh"])
         assert.equal(
           invocations[index].args.some((arg: string) => arg.includes(value)),
           false,
@@ -143,9 +152,7 @@ for (const auditor of ["codex", "claude"] as const) {
     const { log } = await f.records()
     assert.match(
       log,
-      auditor === "codex"
-        ? /audit +codex +gpt-6-astra +extra high +--auditor/
-        : /audit +claude +claude-fable-5-1 +extra high +--auditor/,
+      new RegExp(`audit +${auditor} +${model} +extra high +--auditor`),
     )
     assert.match(log, /fix +codex +gpt-5\.6-sol +high +audit-round coders/)
     // The requested model and effort stay in the arguments above.
