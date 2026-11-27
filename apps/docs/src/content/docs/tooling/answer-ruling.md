@@ -1,9 +1,9 @@
 ---
 title: /ruling
-description: Answer a waiting run's questions in a Claude or Codex chat, which explains them and sends your confirmed decision
+description: Answer a waiting run in Claude, Codex or Antigravity and send your confirmed decision
 ---
 
-`/ruling` answers what a waiting run asks you; `$ruling` does the same in Codex. Before an audit fix
+`/ruling` in Claude or Antigravity and `$ruling` in Codex answer a waiting run. Before an audit fix
 starts, the runner asks for every decision the round's reviews leave to you. During a fix or a plan
 step, the fix or implementation worker may write a ruling: its saved explanation of a decision it
 cannot make for you. The chat reads the evidence itself, explains each open item and what its
@@ -12,7 +12,7 @@ run in the terminal.
 
 | Fact | Detail |
 | --- | --- |
-| Runs in | Claude chat in the Repo Edu or plan checkout; `$ruling` is the Codex counterpart |
+| Runs in | A Claude, Codex or Antigravity chat in the Repo Edu or plan checkout |
 | Owners | `../plan/home/claude/commands/ruling.md` and `../plan/home/agents/skills/ruling/SKILL.md` launch it; `.agents/skills/fix/references/answer.md` owns the answer; `.agents/skills/fix/references/ruling.md` owns the ruling's contents; `tools/audit-round/references/rounds.md` owns the wait and resumption |
 
 ## Usage
@@ -43,12 +43,17 @@ have been checked.
 
 The terminal prints a notice. It names the round or step, the ruling file when there is one, the
 round's reports before a fix, the findings that need a winner or a choice, the winner words with the
-round's vetter tags, whose model runs the fix and the two lines to type, `Claude: /ruling <stem>`
-and `Codex: $ruling <stem>`. On macOS the run also shows a dialog window with the round and those
-two lines. The window stays until you click OK, and it closes by itself once the wait ends. Open a
-Claude or Codex chat on the Repo Edu or plan folder and type that app's line there. Either app
-answers the same wait, whichever model runs the fix. On Linux no window shows; the notice alone
-asks for your answer.
+round's vetter tags and whose model runs the fix. It gives one command per app.
+
+```text
+Claude: /ruling <target>
+Codex: $ruling <target>
+Antigravity: /ruling <target>
+```
+
+Open a chat on the Repo Edu or plan folder and type the command shown for your app. All three
+apps answer the same wait. On macOS a dialog shows the same commands until you click OK or the
+wait ends. On Linux the terminal notice asks for your answer.
 
 ## What it shows you
 
@@ -106,12 +111,13 @@ runner's work timing.
 
 1. **No run waits.** The chat says so and stops. Check the terminal; a run that ended no longer
    takes an answer.
-2. **The chat's command is refused by the sandbox.** Both hidden commands open a local socket, which
-   the chat's sandbox refuses. In Claude, add these three entries to `sandbox.excludedCommands` in
-   your Claude Code settings once: `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
-   `pnpm audit-round answer *`. In Codex, the chat asks your permission to run the blocked command
-   outside the sandbox; when you refuse, it reports the permission error and stops. That permission
-   is not your yes to the proposed record.
+2. **The sandbox blocks the chat's command.** Both hidden commands open a local socket. Claude
+   Code needs three entries in `sandbox.excludedCommands` for that socket to work.
+   Add `pnpm audit-round ruling`, `pnpm audit-round ruling *` and `pnpm audit-round answer *`.
+   Codex asks permission to run the blocked command outside its sandbox. Antigravity requests
+   `BypassSandbox: true` for the blocked command. Its sandbox can also hide the Repo Edu checkout,
+   which appears as a missing `tsx` loader when the chat runs in the plan checkout. If you refuse
+   permission, the chat reports the error and stops. You confirm the proposed answer separately.
 3. **You leave without an answer.** Ctrl-C in the terminal stops the run. The round or step files
    stay, and the runner prints a recovery command. Use that exact command to return to the retained
    work.

@@ -57,16 +57,16 @@ independence, evidence and judgement rules below apply to both routes.
 
 ## Watch step
 
-The two hand-run launchers, Claude's `/watch` and Codex's `$watch`, share the
-watch name with the runner's `watch` phase. The user invokes the launchers by hand.
+For a hand-run watch, use `/watch` in Claude or Antigravity or `$watch` in Codex.
+These launchers share the watch name with the runner's `watch` phase.
 An automated planning or plan-scoped implementation-audit round runs the watch
 after a round with audit findings finishes. A clean audit skips the watch even
 when historical corrections or a red grade would make it due. An explicit
 hand-run watch remains available.
 No watch is a serial gate in front of a round: a round never waits on a watch.
-The `/watch` command runs in the background and its output is consumed when it
-arrives, so the iteration in flight is not blocked. A green grade lets that
-iteration complete untouched; a red one lets the user terminate or pause it.
+Claude's `/watch` starts a fresh background worker, so the iteration in flight
+can continue while the watch reads. A green grade lets that iteration finish.
+A red grade lets the user terminate or pause it.
 The runner's watch phase runs after the round's own work is done, so there is
 nothing in flight to block. A red grade from that phase ends the auditor
 sequence, so no queued round starts before the user decides.

@@ -1,11 +1,11 @@
 ---
 title: pnpm audit-round:contract
-description: Refresh the runner's recorded Claude and Codex command-line contracts
+description: Refresh the runner's recorded Claude, Codex and Gemini command-line contracts
 ---
 
-`pnpm audit-round:contract` records what the installed Claude and Codex command-line programs
-actually stream, so the runner's tests check its readers against real output without making live
-model calls.
+`pnpm audit-round:contract` records what the installed Claude, Codex and Gemini command-line
+programs actually stream, so the runner's tests check its readers against real output without making
+live model calls.
 
 | Fact | Detail |
 | --- | --- |
@@ -15,10 +15,11 @@ model calls.
 ## Usage
 
 ```text
-pnpm audit-round:contract                record Claude and Codex
+pnpm audit-round:contract                record all three assistants
 pnpm audit-round:contract claude         record Claude only
 pnpm audit-round:contract codex          record Codex only
-pnpm audit-round:contract both           record both, the same as no argument
+pnpm audit-round:contract gemini         record Gemini only, using agy
+pnpm audit-round:contract all            record all three, the same as no argument
 pnpm audit-round:contract -h | --help    show the recorder's help
 ```
 
@@ -33,7 +34,8 @@ workflow.
 
 1. **The first probe** needs one successful and one deliberately failed shell call. The Claude probe
    also keeps a turn that waits for a background command and a final turn with its structured
-   result. Codex returns the result in its final message.
+   result. Codex returns the result in its final message. Gemini returns it in the final
+   `structured_output` field.
 2. **The second probe** resumes the first session and checks that both invocations return a
    structured result and report token usage.
 
@@ -49,8 +51,8 @@ generated only through this command, never by hand.
 
 ## Refuses when
 
-The assistant argument is not `claude`, `codex` or `both`. The argument parser prints its own
-`error:` line and the recorder starts nothing.
+The recorder accepts `claude`, `codex`, `gemini` and `all`. Any other argument produces an
+`error:` line before a probe starts.
 
 ## Stop and recovery
 

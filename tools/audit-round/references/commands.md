@@ -422,7 +422,7 @@ read no settings and write no file.
 - The chat follows [Answering a ruling](../../../.agents/skills/fix/references/answer.md).
   The notice lists the command for Claude, Codex and Antigravity. The same target identifies
   the wait in each app. See [Ruling wait](rounds.md#ruling-wait).
-- [Invocation](../CLAUDE.md#invocation) describes the socket permissions for Claude and Codex.
+- [Invocation](../CLAUDE.md#invocation) describes each app's permissions for reaching the runner.
 
 ## Contract recorder
 

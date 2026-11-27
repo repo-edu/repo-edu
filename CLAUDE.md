@@ -224,8 +224,10 @@ every phase. A later implementation audit treats audit, vet and rebuttal time as
 on that scope. The watch writes a document and contributes no commit record. A standalone close
 receives its one-line record. An implement worker receives its reported release and launched
 effort and adds `Implementation took <n> min.` under the implementation workflow's active-time
-and two-repo split rules. A hand-run session writes its model line using the model it was told
-to run and the effort from its environment.
+and two-repo split rules. For a hand-run commit, read the current session's reported model and
+effort with the lookup for [Claude](.agents/references/claude-desktop-settings.md),
+[Codex](.agents/references/codex-desktop-settings.md) or
+[Antigravity](.agents/references/antigravity-desktop-settings.md).
 
 See the [commit hooks](tools/audit-round/references/commit-hooks.md) for the stamps and refusals
 both repos apply, and

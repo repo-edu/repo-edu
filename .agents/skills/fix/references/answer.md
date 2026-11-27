@@ -6,8 +6,8 @@ reads:
 
 # Answering a ruling
 
-This workflow runs the ruling chat, which Claude's `/ruling [target]` and
-Codex's `$ruling [target]` start. A run in the terminal waits for the user's
+Claude and Antigravity start the ruling chat with `/ruling [target]` and Codex
+uses `$ruling [target]`. A run in the terminal waits for the user's
 answer: to the questions the runner asks before an audit fix starts, or to a
 ruling that a fix or an implementation worker wrote. The chat reads the
 evidence itself, explains each open item and what its options cost, proposes
@@ -51,8 +51,8 @@ from the checkout the chat runs in:
 2. `pnpm audit-round answer [target] <file>` sends one answer document and
    prints the run's response.
 
-Both open a Unix socket, which a chat's sandbox refuses. When either fails on a
-permission error, follow the runner's
+Both open a Unix socket. If either command encounters a sandbox or permission
+error, follow the runner's
 [Invocation](../../../../tools/audit-round/CLAUDE.md#invocation) section for
 this chat's app. Permission to run a command is not the user's yes to the
 proposed record, and that yes grants no permission to run a command.

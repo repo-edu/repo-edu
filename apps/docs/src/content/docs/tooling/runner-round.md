@@ -39,11 +39,13 @@ pnpm audit-round round-commits HEAD plan@HEAD
 pnpm audit-round round-commits HEAD-2..HEAD
 ```
 
-Both commands accept `--first`, `--auditor` and `-v` or `--verbose`. An auditor selection is
-`claude`, `codex` or a capability tag written without spaces. Use `a` or `o` for the assistant,
-then optionally `b` or `t` for the base or top model and `l`, `m`, `h` or `x` for the
-effort. A field a tag omits reads that assistant's `defaults` in `tools/audit-round/settings.json`.
-Separate list entries with commas or spaces, and quote a list that holds spaces.
+Both commands accept `--first`, `--auditor` and `-v` or `--verbose`. Select an auditor by name
+(`claude`, `codex` or `gemini`) or by tag. The vendor letters are `a`, `o` and `g` respectively.
+A tag can also specify the base or top model (`b` or `t`) and effort (`l`, `m`, `h` or `x`).
+Omitted fields use that assistant's defaults in `tools/audit-round/settings.json`. For example,
+`--auditor gbx` selects the Gemini base model at xhigh effort. A top-tier tag requires a
+configured top model. The tracked Gemini settings specify only a base model, `gemini-4-neon`.
+Separate list entries with commas or spaces and quote a list that holds spaces.
 
 ## Behaviour
 
@@ -202,17 +204,17 @@ and any other with status 1.
 ## Stop and recovery
 
 1. **The round needs your answer.** Before the fix starts, the runner asks once for every serious
-   contest or split, every referral no review disputes and every open choice the ruler states. A
-   fix asks again only for a decision it meets in its own work, in a ruling file. The terminal
-   prints a notice and, on macOS, shows a dialog window that stays until you click OK. The notice
-   names the round, the ruling file when there is one, the round's reports before a fix, the
-   findings that need a winner or a choice, the winner words with the round's vetter tags, whether
-   the fix uses the auditor's model, one vetter's model by its tag or neither, and the line to type
-   in each app: `/ruling <stem>` in a Claude chat or `$ruling <stem>` in a Codex chat. The terminal
-   reads no answer. For each serious contest or split you name `report`, the tags of the vetters
-   that were right or `neither` with a one-line reason. For each referral or open choice you give
-   your choice. Ctrl-C in the terminal keeps the round's files, prints the command that continues
-   the round and ends the series. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
+   contest or split, every referral no review disputes and every open choice the ruler states. A fix
+   asks again only for a decision it meets in its own work, in a ruling file. The terminal prints a
+   notice and, on macOS, shows a dialog window that stays until you click OK. The notice names the
+   round, the ruling file when there is one, the round's reports before a fix, the findings that
+   need a winner or a choice, the winner words with the round's vetter tags, whether the fix uses
+   the auditor's model, one vetter's model by its tag or neither and the command for each app. Type
+   `/ruling <stem>` in Claude or Antigravity or `$ruling <stem>` in Codex. The terminal reads no
+   answer. For each serious contest or split you name `report`, the tags of the vetters that were
+   right or `neither` with a one-line reason. For each referral or open choice you give your choice.
+   Ctrl-C in the terminal keeps the round's files, prints the command that continues the round and
+   ends the series. See [Answer a ruling](/repo-edu/tooling/answer-ruling/).
 2. **A phase fails.** Fix the outside problem the failure names, then run the printed `Rerun:`
    command. The runner continues from the saved audit result when its report
    still exists. It starts a fresh session for each report phase still needed.

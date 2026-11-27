@@ -114,8 +114,9 @@ has gone and records `interrupted`. Failed writes to standard output or error al
 run. Both streams need error listeners for the process lifetime so a closed terminal can still
 leave the ending on disk. Killing the runner leaves no round entry.
 
-**From a chat.** The ruling chat's Unix sockets require the bare commands
-`pnpm audit-round ruling [target]` and `pnpm audit-round answer <target> <file>`
+**From a chat.** Claude and Antigravity use `/ruling` and `/watch`. Codex uses
+`$ruling` and `$watch`. The ruling chat's Unix sockets require the bare commands
+`pnpm audit-round ruling [target]` and `pnpm audit-round answer [target] <file>`
 to run outside the chat sandbox.
 
 - Claude Code needs `pnpm audit-round ruling`, `pnpm audit-round ruling *` and
@@ -123,6 +124,11 @@ to run outside the chat sandbox.
   fail with `EPERM`. Report the error, name the three entries and stop.
 - Codex uses its command permissions. If the sandbox blocks the command, request permission for
   it. If refused, report the permission error and stop.
+- Antigravity's single-workspace sandbox can block the socket or a sibling checkout. From the
+  plan checkout, this can appear as `ERR_MODULE_NOT_FOUND` for
+  `../repo-edu/node_modules/tsx/dist/loader.mjs` or as `Operation not permitted`. If the
+  sandbox blocks either command, rerun that bare command with `BypassSandbox: true`. If the
+  user refuses permission, report the permission error and stop.
 
 ## Verification
 

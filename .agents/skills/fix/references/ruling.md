@@ -8,9 +8,9 @@ decision that arises during the fix. Use the supplied output path under the runn
 report completion under the shared protocol's
 [Runner result](../../../references/round-protocol.md#runner-result). Review it
 for clarity in this same session. No separate drafting or editing session
-follows. The user answers in a ruling chat, started with Claude's `/ruling` or
-Codex's `$ruling`, under [Answering a ruling](answer.md), and that chat reads
-this document whole.
+follows. The user answers in a ruling chat with `/ruling` in Claude or
+Antigravity or `$ruling` in Codex. That chat reads this document whole under
+[Answering a ruling](answer.md).
 
 ## Scope
 

@@ -6,7 +6,8 @@ description: Choose the planning, audit or maintenance command that fits the wor
 Use this guide to choose the planning, audit or maintenance command for the work in front of you.
 
 Runner commands beginning with `pnpm audit-round` work from either the Repo Edu or plan checkout.
-Commands beginning with `/` run in Claude chat; their Codex counterparts use `$`.
+Commands beginning with `/` run in Claude chat. Codex uses `$` for its counterparts.
+In Antigravity, use `/ruling` to answer a waiting run and `/watch` to read an episode.
 
 ## What is the life of a plan?
 
@@ -64,7 +65,7 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 
 | Your situation | What to run | What you see and decide |
 | --- | --- | --- |
-| The runner is waiting for a ruling | [`/ruling [stem]`](/repo-edu/tooling/answer-ruling/) in Claude or `$ruling [stem]` in Codex | The chat explains what is open and sends your confirmed answer; the fix starts or the same assistant session resumes |
+| The runner is waiting for a ruling | [`/ruling [stem]`](/repo-edu/tooling/answer-ruling/) in Claude or Antigravity, or `$ruling [stem]` in Codex | The chat explains what is open and sends your confirmed answer. The fix starts or the same session resumes |
 | A phase failed or I left without replying | [Follow the recovery](/repo-edu/tooling/recover-run/) printed by the runner | The rerun uses saved round results and their reports. A worker or close resumes its session. |
 
 ### Source upkeep
@@ -86,6 +87,15 @@ The [glossary](/repo-edu/tooling/glossary/) defines every word of the rounds and
 | I want the last reply explained more clearly | [`/rewrite`](/repo-edu/tooling/chat-helpers/#rewrite) | New wording of the selected reply; its judgements stay intact |
 | I want to judge whether a plan is worth its complexity | [`/yield <plan.md>`](/repo-edu/tooling/yield/#yield) in the plan checkout | Ratings grouped by yield-to-complexity ratio; no plan edit without your instruction |
 | I want plain words throughout this chat | [`/simple [prompt]`](/repo-edu/tooling/chat-helpers/#simple) | The plain-language requirement applies to chat and files for that session |
+
+## How do I check my chat setup?
+
+For a hand-run commit, **Commit Model Record** in Repo Edu's `CLAUDE.md` links the model and
+effort lookup for each app. Antigravity finds the settings in the current conversation's latest
+planner response. Run `pnpm check-links` from either checkout to check installed links, including
+`~/.gemini/AGENTS.md`, the skills configuration and CLI settings. The search skips conversation
+directories named `brain`. After adding, moving or removing a Repo Edu `CLAUDE.md`, run
+`node scripts/claude2assistants.mjs` from that root to refresh the local rule links.
 
 ## What owns this page?
 

@@ -61,7 +61,7 @@ the round's data.
 
 When the rerun reaches the fix with a question still open, the runner asks it again before the
 fresh fix starts. The runner prints the ruling notice and waits; the terminal asks nothing. Answer
-in a Claude chat with `/ruling` or a Codex chat with `$ruling`. For each missing winner, give
+with `/ruling` in Claude or Antigravity or `$ruling` in Codex. For each missing winner, give
 `report`, the tags of the vetters that were right or `neither` with a one-line reason. For each
 open choice, give what the fix should do.
 

@@ -101,6 +101,10 @@ its invocation granted them in advance.
 
 ## Following a round
 
+The runner invokes `agy` for Gemini. The first startup each day that prepares assistant sessions
+checks all three command-line programs for updates. If `agy update` fails, the runner warns,
+continues and tries the update again on the next startup.
+
 The terminal shows the target, phase selection, elapsed time and each phase's Markdown. Each
 session returns a result in a fixed form, and the runner writes the readable report from it. The
 evidence checkout's `../plan-evidence/active/` folder keeps the transcript, tool log and retained

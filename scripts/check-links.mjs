@@ -6,8 +6,8 @@
 //
 // The mirror rules come from `home/README.md`, `home/agents/README.md` and the
 // dev-config `README.md`: `home/claude` mirrors `~/.claude`, `home/agents`
-// mirrors `~/.agents`, `~/.codex/AGENTS.md` links to the shared `CLAUDE.md`,
-// and the dev-config account files and memory store have fixed live paths.
+// mirrors `~/.agents`, and Codex and Antigravity link to the shared `CLAUDE.md`.
+// The dev-config account files and memory store have fixed live paths.
 
 import { readdirSync, readlinkSync, lstatSync, statSync, existsSync } from "node:fs"
 import { homedir } from "node:os"
@@ -25,9 +25,20 @@ const devConfig = join(repos, "dev-config", "aivm")
 const mirrors = [
   ...tree(join(plan, "home", "claude"), join(home, ".claude")),
   ...tree(join(plan, "home", "agents"), join(home, ".agents")),
-  { repo: join(plan, "home", "claude", "CLAUDE.md"), live: join(home, ".codex", "AGENTS.md") },
-  { repo: join(devConfig, ".claude", "settings.json"), live: join(home, ".claude", "settings.json"), required: true },
-  { repo: join(devConfig, ".codex", "config.toml"), live: join(home, ".codex", "config.toml"), required: true },
+  ...[".codex", ".gemini"].map((folder) => ({
+    repo: join(plan, "home", "claude", "CLAUDE.md"),
+    live: join(home, folder, "AGENTS.md"),
+  })),
+  ...[
+    ".claude/settings.json",
+    ".codex/config.toml",
+    ".gemini/config/skills.json",
+    ".gemini/antigravity-cli/settings.json",
+  ].map((path) => ({
+    repo: join(devConfig, path),
+    live: join(home, path),
+    required: true,
+  })),
   ...["plan", "repo-edu"].map((project) => ({
     repo: join(devConfig, ".claude", "memory"),
     live: join(home, ".claude", "projects", `-Users-aivm-repos-${project}`, "memory"),
@@ -96,7 +107,7 @@ function walk(dir, depth) {
         if (existsSync(to) === false) findings.broken.push(`${path} -> ${to}`)
         else if (mirrors.some((mirror) => mirror.live === path) === false) findings.ok.push(`${path} (unlisted)`)
       }
-    } else if (entry.isDirectory() && depth > 0 && entry.name !== "node_modules") {
+    } else if (entry.isDirectory() && depth > 0 && entry.name !== "node_modules" && entry.name !== "brain") {
       walk(path, depth - 1)
     }
   }
@@ -104,7 +115,7 @@ function walk(dir, depth) {
 
 for (const mirror of mirrors) checkMirror(mirror)
 walk(home, 0)
-for (const folder of [".claude", ".codex", ".agents", ".config"]) walk(join(home, folder), 3)
+for (const folder of [".claude", ".codex", ".gemini", ".agents", ".config"]) walk(join(home, folder), 3)
 
 const failures = ["broken", "overwritten", "misdirected", "missing"]
 for (const kind of failures) for (const line of findings[kind]) console.log(`${kind}: ${line}`)

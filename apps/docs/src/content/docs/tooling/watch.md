@@ -9,7 +9,7 @@ response.
 
 | Fact | Detail |
 | --- | --- |
-| Runs in | Claude chat in the Repo Edu or plan checkout; `$watch` is the Codex counterpart |
+| Runs in | `/watch` in Claude or Antigravity and `$watch` in Codex, from the Repo Edu or plan checkout |
 | Owners | `.agents/skills/watch/references/workflow.md` owns the evidence, grades and response classes; `../plan/home/claude/commands/watch.md` and `../plan/home/agents/skills/watch/SKILL.md` launch it |
 
 ## Usage
@@ -22,7 +22,9 @@ response.
 ```
 
 A commit match wins over a stem match, and `HEAD` forms mean Repo Edu. Claude runs the watch in a
-background subagent with a fresh context, so the chat stays free while it reads. An automatic
+fresh background worker, so the chat stays free while it reads. Antigravity's `/watch` and
+Codex's `$watch` run in the invoking chat. If that chat did the work, start a fresh chat
+to run the watch so it can judge the work independently. An automatic
 runner series on a plan also runs a watch after a round with findings when its glance says one is
 due. A commit series runs no watch. This command is the hand-run route.
 
@@ -61,3 +63,7 @@ round already in flight.
 
 A hand-run watch leaves only its judgement in chat. It writes no watch file, cadence record, source
 change or commit. On amber, run `/watch` again sooner; on green, you can skip a few rounds.
+
+The runner publishes a finished automated watch and updates its cadence even if the session
+compacted its context. Round data keeps the count of reported compactions. Gemini currently
+reports no compaction events, so its count is zero.
