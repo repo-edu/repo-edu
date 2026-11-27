@@ -549,15 +549,23 @@ Refusal: `Watch record is missing the repo-edu head`
 
 ```text
 <move-list>      ::= "# Move list" BLANK <source-line> NL <hash-line> NL <area-line>
-                     NL <size-line> BLANK (<moves> | <no-split>)
+                     NL <size-line> NL
+                     (<moves-meta> BLANK <moves> | <no-split-meta> BLANK <no-split>)
 <source-line>    ::= "Source: `"<repo-path>"`"["."]
 <hash-line>      ::= "Hash: "<blob-hash>
 <area-line>      ::= "Area: "<label>
 <size-line>      ::= "Size: "(0 | <n>)" lines"
+<moves-meta>     ::= <remaining-line> NL <designer-line> [NL <picker-line>]
+<no-split-meta>  ::= <designer-line> | <picker-line>
+<remaining-line> ::= "Remaining: "(0 | <n>)" lines"
+<designer-line>  ::= "Designer: "<writer>
+<picker-line>    ::= "Picker: "<writer>
+<writer>         ::= <tag>" ("<model>" "<effort-name>")"
 <moves>          ::= "## Moves" BLANK <move>(BLANK <move>)*
 <move>           ::= "### "<n>". `"<repo-path>"`"["."] BLANK
                      "Responsibility: "<sentence> NL
-                     "Ranges: "<line-range>(<comma><line-range>)*
+                     "Ranges: "<line-range>(<comma><line-range>)* NL
+                     "Size: "<n>" lines"
 <line-range>     ::= <n> | <n>"-"<n>
 <no-split>       ::= "## No split" BLANK "Result: "<list-result>". "<one-line-reason>
 <list-result>    ::= fine | needs-plan
@@ -570,16 +578,26 @@ and its size in lines before any move. Count every source line, including blank
 lines and a final line without a newline. An empty file has zero lines. Every
 range uses the line numbers of that same content.
 
+`<tag>`, `<model>` and `<effort-name>` follow the
+[subject grammar](subject-grammar.md). A move list with moves gives the lines
+left in the source as `Remaining:`, the designer as `Designer:` and, when the
+picker repaired the list, the picker as `Picker:`. The remaining count is the
+source size minus the lines moved across all targets, floored at zero.
+
 Each move names one target file and the ranges of complete top-level statements
 that go there. The moves are numbered from 1 without gaps, in the order the
 statement move tool carries them out, and no target appears twice. A target's
 ranges go to it in the order given. A range is one line or two line numbers
 whose second is not smaller than its first, and it includes both ends. The
-responsibility line states in one sentence what the target holds.
+responsibility line states in one sentence what the target holds. Each move ends
+with `Size:`, the sum of lines across its ranges. Both `Remaining:` and each
+target `Size:` count moved range lines only, without generated imports or
+formatting changes.
 
-The no-split form gives the result `fine` when the file should stay whole or
-`needs-plan` when its division needs a plan. The reason follows the result on
-the same line.
+The no-split form gives `Designer:` or `Picker:` (for the picker's own no-split
+answer) and no `Remaining:` line. It gives the result `fine` when the file
+should stay whole or `needs-plan` when its division needs a plan. The reason
+follows the result on the same line.
 
 The document holds nothing else. The reader ignores whitespace at either end of each line.
 One or more empty lines count as one `BLANK`.
@@ -595,6 +613,8 @@ Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
 Size: 120 lines
+Remaining: 21 lines
+Designer: gbx (gemini-4-neon xhigh)
 
 ## Moves
 
@@ -602,11 +622,41 @@ Size: 120 lines
 
 Responsibility: Builds and compares the display names of roster members.
 Ranges: 10-40, 52-60
+Size: 40 lines
 
 ### 2. `packages/domain/src/roster-import.ts`
 
 Responsibility: Reads a roster from an imported student list.
 Ranges: 61-118, 120
+Size: 59 lines
+```
+
+#### `move-list/repaired-moves` — parsed
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+Size: 120 lines
+Remaining: 21 lines
+Designer: gbx (gemini-4-neon xhigh)
+Picker: abx (claude-opus-5-5 xhigh)
+
+## Moves
+
+### 1. `packages/domain/src/roster-names.ts`
+
+Responsibility: Builds and compares the display names of roster members.
+Ranges: 10-40, 52-60
+Size: 40 lines
+
+### 2. `packages/domain/src/roster-import.ts`
+
+Responsibility: Reads a roster from an imported student list.
+Ranges: 61-118, 120
+Size: 59 lines
 ```
 
 #### `move-list/no-split` — parsed
@@ -618,10 +668,27 @@ Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
 Size: 120 lines
+Designer: obx (gpt-5.6-sol xhigh)
 
 ## No split
 
 Result: needs-plan. The seam between names and imports cuts through one function.
+```
+
+#### `move-list/picker-no-split` — parsed
+
+```markdown
+# Move list
+
+Source: `packages/domain/src/roster.ts`
+Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
+Area: pkg-domain
+Size: 120 lines
+Picker: abx (claude-opus-5-5 xhigh)
+
+## No split
+
+Result: fine. The file holds one responsibility.
 ```
 
 #### `move-list/short-hash` — refused
@@ -635,6 +702,7 @@ Source: `packages/domain/src/roster.ts`
 Hash: 3b18e5
 Area: pkg-domain
 Size: 120 lines
+Designer: abx (claude-opus-5-5 xhigh)
 
 ## No split
 
@@ -652,6 +720,8 @@ Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
 Size: 120 lines
+Remaining: 31 lines
+Designer: abx (claude-opus-5-5 xhigh)
 
 ## Moves
 
@@ -659,11 +729,13 @@ Size: 120 lines
 
 Responsibility: Builds and compares the display names of roster members.
 Ranges: 10-40
+Size: 31 lines
 
 ### 3. `packages/domain/src/roster-import.ts`
 
 Responsibility: Reads a roster from an imported student list.
 Ranges: 61-118
+Size: 58 lines
 ```
 
 #### `move-list/reversed-range` — refused
@@ -677,6 +749,8 @@ Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
 Size: 120 lines
+Remaining: 89 lines
+Designer: abx (claude-opus-5-5 xhigh)
 
 ## Moves
 
@@ -684,6 +758,7 @@ Size: 120 lines
 
 Responsibility: Builds and compares the display names of roster members.
 Ranges: 40-10
+Size: 31 lines
 ```
 
 #### `move-list/repeated-target` — refused
@@ -697,6 +772,8 @@ Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
 Size: 120 lines
+Remaining: 80 lines
+Designer: abx (claude-opus-5-5 xhigh)
 
 ## Moves
 
@@ -704,11 +781,13 @@ Size: 120 lines
 
 Responsibility: Builds the display names of roster members.
 Ranges: 10-40
+Size: 31 lines
 
 ### 2. `packages/domain/src/roster-names.ts`
 
 Responsibility: Compares the display names of roster members.
 Ranges: 52-60
+Size: 9 lines
 ```
 
 #### `move-list/unknown-result` — refused
@@ -722,6 +801,7 @@ Source: `packages/domain/src/roster.ts`
 Hash: 3b18e512dba79e4c8300dd08aeb37f8e728b8dad
 Area: pkg-domain
 Size: 120 lines
+Designer: abx (claude-opus-5-5 xhigh)
 
 ## No split
 

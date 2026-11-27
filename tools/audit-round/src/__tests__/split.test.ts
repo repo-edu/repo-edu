@@ -89,13 +89,30 @@ async function splitFixture(t: TestContext) {
   return { context, hash }
 }
 
-function listText(hash: string, responsibility = "Holds b."): string {
-  return `# Move list
-
-Source: \`${source}\`
-Hash: ${hash}
-Area: pkg-demo
-Size: 2 lines
+function listText(
+  hash: string,
+  responsibility = "Holds b.",
+  repairedBy?: {
+    readonly model: string
+    readonly effort: string
+    readonly tag: string
+  },
+): string {
+  const opening = [
+    "# Move list",
+    "",
+    `Source: \`${source}\``,
+    `Hash: ${hash}`,
+    "Area: pkg-demo",
+    "Size: 2 lines",
+    "Remaining: 1 lines",
+    `Designer: ${writer.tag} (${writer.model} ${writer.effort})`,
+  ]
+  if (repairedBy !== undefined)
+    opening.push(
+      `Picker: ${repairedBy.tag} (${repairedBy.model} ${repairedBy.effort})`,
+    )
+  return `${opening.join("\n")}
 
 ## Moves
 
@@ -103,16 +120,24 @@ Size: 2 lines
 
 Responsibility: ${responsibility}
 Ranges: 2
+Size: 1 lines
 `
 }
 
-function noSplitText(hash: string, result: "fine" | "needs-plan"): string {
+function noSplitText(
+  hash: string,
+  result: "fine" | "needs-plan",
+  by: "designer" | "picker" = "designer",
+): string {
+  const author = by === "designer" ? writer : picker
+  const labelName = by === "designer" ? "Designer" : "Picker"
   return `# Move list
 
 Source: \`${source}\`
 Hash: ${hash}
 Area: pkg-demo
 Size: 2 lines
+${labelName}: ${author.tag} (${author.model} ${author.effort})
 
 ## No split
 
@@ -340,13 +365,41 @@ test("a repair takes the next answer number even when newer designs were not nam
     await readFile(f.answer("02"), "utf8"),
     listText(f.hash, "Later design."),
   )
-  assert.equal(await readFile(f.answer("03", "otx"), "utf8"), listText(f.hash))
+  assert.equal(
+    await readFile(f.answer("03", "otx"), "utf8"),
+    listText(f.hash, "Holds b.", picker),
+  )
   assert.match(
     await readFile(
       join(f.context.roundRoot, `${label}-pick-01.otx.md`),
       "utf8",
     ),
     /Pick: 1\n\nReplacement answer: 3\n$/,
+  )
+  const secondPicker = {
+    model: "gemini-4-neon",
+    effort: "xhigh",
+    tag: "gbx",
+  } as const
+  const rePicked = await f.run({
+    mode: "pick",
+    source,
+    numbers: [3],
+    sessions: {
+      ...sessions([]),
+      pick: async () => ({
+        status: "finished",
+        sessionId: "completed-session",
+        writer: secondPicker,
+        pick: picked(3, moveAnswer("Holds repaired b.")),
+      }),
+    },
+  })
+  assert.equal(rePicked.result, "designed")
+  assert.equal(rePicked.message, f.planFile("04"))
+  assert.equal(
+    await readFile(f.answer("04", "gbx"), "utf8"),
+    listText(f.hash, "Holds repaired b.", secondPicker),
   )
 })
 
@@ -395,7 +448,7 @@ test("refused lists reach the picker with reasons and an all-refused pick needs 
   assert.equal(res.result, "needs-plan")
   assert.equal(
     await readFile(f.answer("04", "otx"), "utf8"),
-    noSplitText(f.hash, "needs-plan"),
+    noSplitText(f.hash, "needs-plan", "picker"),
   )
   assert.match(
     await readFile(

@@ -1,4 +1,6 @@
+import type { Effort } from "./phase.js"
 import { blobHashPattern, type SplitResultWord } from "./split-result.js"
+import { fullTagPattern } from "./subject.js"
 
 /** One range of lines, both ends included, in the source content the list names. */
 export type LineRange = {
@@ -11,6 +13,13 @@ export type ListedMove = {
   readonly target: string
   readonly responsibility: string
   readonly ranges: readonly LineRange[]
+}
+
+/** One model selection that wrote or repaired a move list. */
+export type MoveListWriter = {
+  readonly tag: string
+  readonly model: string
+  readonly effort: Effort
 }
 
 /** The two results a list without moves records. */
@@ -29,12 +38,20 @@ type Opening = {
  */
 export type MoveList = Opening &
   (
-    | { readonly kind: "moves"; readonly moves: readonly ListedMove[] }
     | {
+        readonly kind: "moves"
+        readonly designer: MoveListWriter
+        readonly picker?: MoveListWriter
+        readonly moves: readonly ListedMove[]
+      }
+    | ({
         readonly kind: "no-split"
         readonly result: ListResult
         readonly reason: string
-      }
+      } & (
+        | { readonly designer: MoveListWriter; readonly picker?: never }
+        | { readonly designer?: never; readonly picker: MoveListWriter }
+      ))
   )
 
 export const listResults = [
@@ -45,6 +62,33 @@ export const areaPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 export const pathPattern = /^[^\x60\r\n]+$/
 const moveHeading = /^### (\S+)\. `([^`]+)`\.?$/
 const rangePattern = /^([1-9]\d*)(?:-([1-9]\d*))?$/
+const writerLinePattern =
+  /^([a-z]{3}) \(([A-Za-z0-9][^\s)]*) (low|medium|high|xhigh)\)$/
+
+function readWriter(
+  line: string,
+  label: "Designer" | "Picker",
+): MoveListWriter {
+  const prefix = `${label}: `
+  const match = line.startsWith(prefix)
+    ? writerLinePattern.exec(line.slice(prefix.length))
+    : null
+  if (match === null || !fullTagPattern.test(match[1]))
+    throw new Error(`Move list ${label}: line must name tag (model effort)`)
+  return {
+    tag: match[1],
+    model: match[2],
+    effort: match[3] as Effort,
+  }
+}
+
+function formatWriter({ tag, model, effort }: MoveListWriter): string {
+  return `${tag} (${model} ${effort})`
+}
+
+function movedLines(ranges: readonly LineRange[]): number {
+  return ranges.reduce((total, { start, end }) => total + (end - start + 1), 0)
+}
 
 /** The document's lines in groups that empty lines separate. */
 function blocks(text: string): string[][] {
@@ -65,8 +109,11 @@ function blocks(text: string): string[][] {
   return groups
 }
 
-function readOpening(lines: readonly string[] | undefined): Opening {
-  if (lines?.length !== 4)
+function readOpening(lines: readonly string[] | undefined): {
+  named: Opening
+  extra: readonly string[]
+} {
+  if (!lines || lines.length < 4)
     throw new Error(
       "Move list needs Source:, Hash:, Area: and Size: lines after its heading",
     )
@@ -88,7 +135,7 @@ function readOpening(lines: readonly string[] | undefined): Opening {
     throw new Error(
       "Move list Size: line must give the source line count as n lines",
     )
-  return { source, hash, area }
+  return { named: { source, hash, area }, extra: lines.slice(4) }
 }
 
 function readRanges(text: string, move: number): LineRange[] {
@@ -135,9 +182,13 @@ function readMoves(groups: readonly string[][]): ListedMove[] {
       throw new Error(`Move list move ${number} is numbered ${named[1]}`)
     const responsibility = /^Responsibility: (\S.*)$/.exec(body?.[0] ?? "")
     const ranges = /^Ranges: (.+)$/.exec(body?.[1] ?? "")
-    if (body?.length !== 2 || responsibility === null || ranges === null)
+    if (body?.length !== 3 || responsibility === null || ranges === null)
       throw new Error(
-        `Move list move ${number} needs a Responsibility: line and a Ranges: line`,
+        `Move list move ${number} needs Responsibility:, Ranges: and Size: lines`,
+      )
+    if (!/^Size: [1-9]\d* lines$/.test(body[2]))
+      throw new Error(
+        `Move list move ${number} Size: line must give the target line count as n lines`,
       )
     moves.push({
       target: named[2],
@@ -169,11 +220,57 @@ export function readMoveList(text: string): MoveList {
   const [heading, opening, section, ...rest] = blocks(text)
   if (heading?.length !== 1 || heading[0] !== "# Move list")
     throw new Error("Move list must open with the heading # Move list")
-  const named = readOpening(opening)
-  if (section?.length === 1 && section[0] === "## Moves")
-    return { ...named, kind: "moves", moves: readMoves(rest) }
-  if (section?.length === 1 && section[0] === "## No split")
-    return { ...named, kind: "no-split", ...readNoSplit(rest) }
+  const { named, extra } = readOpening(opening)
+  if (section?.length === 1 && section[0] === "## Moves") {
+    if (
+      extra.length === 0 ||
+      !/^Remaining: (?:0|[1-9]\d*) lines$/.test(extra[0])
+    )
+      throw new Error(
+        "Move list Remaining: line must give the remaining source line count as n lines",
+      )
+    if (extra.length < 2)
+      throw new Error(
+        "Move list needs a Designer: line after its Remaining: line",
+      )
+    if (extra.length > 3)
+      throw new Error(
+        "Move list opening may hold only Designer: and an optional Picker: after Remaining:",
+      )
+    const designer = readWriter(extra[1], "Designer")
+    const picker =
+      extra.length === 3 ? readWriter(extra[2], "Picker") : undefined
+    return {
+      ...named,
+      kind: "moves",
+      designer,
+      ...(picker === undefined ? {} : { picker }),
+      moves: readMoves(rest),
+    }
+  }
+  if (section?.length === 1 && section[0] === "## No split") {
+    if (extra.length !== 1)
+      throw new Error(
+        "Move list needs one Designer: or Picker: line after its Size: line",
+      )
+    if (extra[0].startsWith("Designer: "))
+      return {
+        ...named,
+        kind: "no-split",
+        designer: readWriter(extra[0], "Designer"),
+        ...readNoSplit(rest),
+      }
+    if (extra[0].startsWith("Picker: "))
+      return {
+        ...named,
+        kind: "no-split",
+        picker: readWriter(extra[0], "Picker"),
+        ...readNoSplit(rest),
+      }
+    throw new Error(
+      "Move list needs one Designer: or Picker: line after its Size: line",
+    )
+  }
   throw new Error(
     "Move list needs a ## Moves or a ## No split section after its opening",
   )
@@ -190,15 +287,32 @@ export function moveListText(list: MoveList, size: number): string {
     `Hash: ${list.hash}`,
     `Area: ${list.area}`,
     `Size: ${size} lines`,
-  ].join("\n")
-  if (list.kind === "no-split")
-    return `${opening}\n\n## No split\n\nResult: ${list.result}. ${list.reason}\n`
+  ]
+  if (list.kind === "no-split") {
+    opening.push(
+      list.designer !== undefined
+        ? `Designer: ${formatWriter(list.designer)}`
+        : `Picker: ${formatWriter(list.picker)}`,
+    )
+    return `${opening.join("\n")}\n\n## No split\n\nResult: ${list.result}. ${list.reason}\n`
+  }
   checkMoves(list.moves)
+  const targetSizes = list.moves.map(({ ranges }) => movedLines(ranges))
+  const remaining = Math.max(
+    0,
+    size - targetSizes.reduce((total, count) => total + count, 0),
+  )
+  opening.push(
+    `Remaining: ${remaining} lines`,
+    `Designer: ${formatWriter(list.designer)}`,
+  )
+  if (list.picker !== undefined)
+    opening.push(`Picker: ${formatWriter(list.picker)}`)
   const moves = list.moves.map(({ target, responsibility, ranges }, index) => {
     const lines = ranges
       .map(({ start, end }) => (start === end ? `${start}` : `${start}-${end}`))
       .join(", ")
-    return `### ${index + 1}. \`${target}\`\n\nResponsibility: ${responsibility}\nRanges: ${lines}`
+    return `### ${index + 1}. \`${target}\`\n\nResponsibility: ${responsibility}\nRanges: ${lines}\nSize: ${targetSizes[index]} lines`
   })
-  return `${[opening, "## Moves", ...moves].join("\n\n")}\n`
+  return `${[opening.join("\n"), "## Moves", ...moves].join("\n\n")}\n`
 }

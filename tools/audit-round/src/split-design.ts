@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { MoveList } from "./move-list.js"
+import type { MoveList, MoveListWriter } from "./move-list.js"
 import type { PhaseFailure, PhaseInput, PhaseResult } from "./phase.js"
 import { designFilename, pickFilename, splitLabel } from "./round-paths.js"
 import type { Density } from "./settings.js"
@@ -44,6 +44,10 @@ type SourceSnapshot = {
   readonly size: number
 }
 
+function moveListWriter(writer: Writer): MoveListWriter {
+  return { tag: writer.tag, model: writer.model, effort: writer.effort }
+}
+
 /** Number in settings order and retain every answer that finished. */
 export async function designSplit(
   snapshot: SourceSnapshot,
@@ -60,12 +64,21 @@ export async function designSplit(
       const outcome = await designer.run(hash)
       if (outcome.status === "failed") return outcome
       try {
-        return answer({ ...outcome.design, source, hash }, size, {
-          ...outcome.writer,
-          number,
-          designer: index + 1,
-          density: designer.density,
-        })
+        return answer(
+          {
+            ...outcome.design,
+            source,
+            hash,
+            designer: moveListWriter(outcome.writer),
+          },
+          size,
+          {
+            ...outcome.writer,
+            number,
+            designer: index + 1,
+            density: designer.density,
+          },
+        )
       } catch (error) {
         return invalidAnswer(outcome.sessionId, error)
       }
@@ -176,6 +189,8 @@ async function selectAnswer(
   { pick, writer }: Extract<SessionAnswer<"pick">, { status: "finished" }>,
 ) {
   const { number, replacement } = pick
+  const picker = moveListWriter(writer)
+  let list: MoveList
   if (number !== null) {
     const original = answers.find((a) => a.record.number === number)
     if (
@@ -189,8 +204,22 @@ async function selectAnswer(
       throw new Error(
         `The picker can only repair a move list (answer ${number})`,
       )
+    list = {
+      ...replacement,
+      source,
+      hash,
+      designer: original.list.designer,
+      picker,
+    }
+  } else {
+    list = {
+      ...replacement,
+      source,
+      hash,
+      picker,
+    }
   }
-  const selected = answer({ ...replacement, source, hash }, size, {
+  const selected = answer(list, size, {
     ...writer,
     number: await nextSplitNumber(folder, splitLabel(source), "design"),
     designer: null,
