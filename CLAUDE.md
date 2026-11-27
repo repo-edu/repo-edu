@@ -198,7 +198,7 @@ Every subject carries a three-letter tag except `settle`, `ready`, `choose` and 
 Those forms record a user's call and run no assistant. The tag follows the plan, series or split
 form when present, and otherwise opens the subject. Its letters identify:
 
-1. Vendor. `a` names Claude and `o` Codex. Both product names start with C.
+1. Vendor. `a` names Claude, `o` names Codex and `g` names Gemini.
 2. Model tier. `b` names the base tier, the default one below the top. `t` names the top tier and
    `u` a model listed on neither tier. The body names the release.
 3. Effort. `l`, `m`, `h` and `x` mean low, medium, high and xhigh.

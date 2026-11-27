@@ -133,13 +133,13 @@ test("the parser reads every slot of a marked subject", () => {
   for (const repository of ["repo-edu", "plan"] as const) {
     assert.deepEqual(
       parseSubject(
-        "commit-733686..d081b7+8d6f95/commit-audit abx pruning-low c3 docs(audit-round): s",
+        "commit-733686..d081b7+8d6f95/commit-audit gbx pruning-low c3 docs(audit-round): s",
         repository,
       ),
       {
         class: "C1",
         form: { series: "commit-733686..d081b7+8d6f95", role: "commit-audit" },
-        tag: { vendor: "a", tier: "b", effort: "x" },
+        tag: { vendor: "g", tier: "b", effort: "x" },
         burden: { direction: "pruning", level: "low" },
         severity: {
           ordinary: false,
@@ -232,6 +232,7 @@ const refusals: [Repository, string, RegExp][] = [
   // The tag.
   ["repo-edu", "c1 docs(repo): s", /capability tag/],
   ["repo-edu", "adx c1 docs(repo): s", /capability tag/],
+  ["repo-edu", "zbx growth-none c1 docs(repo): s", /capability tag/],
   ["repo-edu", "docs(repo): s", /capability tag/],
   ["plan", "example/plan-audit C1: s", /capability tag/],
   // The colon and the sentence.

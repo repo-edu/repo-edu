@@ -123,7 +123,7 @@ Audit, vet and rebuttal took 7 min.
 <digit>     ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 
 <tag>       ::= <vendor><tier><effort>
-<vendor>    ::= a | o                       ; Claude | Codex
+<vendor>    ::= a | o | g                   ; Claude | Codex | Gemini
 <tier>      ::= b | t | u                   ; base | top | unlisted
 <effort>    ::= l | m | h | x               ; low | medium | high | xhigh
 
@@ -288,6 +288,7 @@ Plan repo:
 
 ```text
 P1        planning-rounds/init ath:
+P1        gemini-support/init gbx:
 P2        planning-rounds/plan-audit ath growth-none B2C2:
 P2        planning-rounds/plan-audit ath pruning-low c2d1:
 P2        round-file-naming/plan-audit ath clean:
@@ -318,6 +319,7 @@ Repo Edu:
 
 ```text
 I1           planning-rounds/impl-4 oth test(audit-round):
+I1           gemini-support/impl-1 gbx feat(audit-round):
 I2           round-file-naming/impl-audit-1-4 oth growth-medium c1 fix(audit-round):
 I3           planning-rounds/impl-audit-1-6 oth B1:
 I4           planning-rounds/impl-audit-1-6 ath clean:

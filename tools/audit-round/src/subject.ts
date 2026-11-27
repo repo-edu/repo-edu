@@ -71,7 +71,7 @@ export type SeriesForm = {
 export type Form = PlanForm | SeriesForm
 
 export type Tag = {
-  readonly vendor: "a" | "o"
+  readonly vendor: "a" | "o" | "g"
   readonly tier: "b" | "t" | "u"
   readonly effort: "l" | "m" | "h" | "x"
 }
@@ -157,7 +157,8 @@ export type Subject = {
 
 export class SubjectError extends Error {}
 
-const tagPattern = /^([ao])([btu])([lmhx])$/
+export const tagPatternSource = "[aog][btu][lmhx]"
+export const fullTagPattern = new RegExp(`^${tagPatternSource}$`)
 const burdenPattern = /^(growth|pruning)-(none|low|medium|high)$/
 const sequencePattern =
   /^(!)?((?:[A-D](?:[1-9]\d*))+)?((?:[a-d](?:[1-9]\d*))+)?$/
@@ -213,16 +214,12 @@ function parseForm(token: string): Form {
   return { stem, role: named, scope: null }
 }
 
-function parseTag(token: string | undefined): Tag {
-  const match = token === undefined ? null : tagPattern.exec(token)
-  if (match === null)
-    fail(
-      `the subject needs a capability tag in place of ${token ?? "nothing"}, as atx`,
-    )
+export function readTag(token: string | undefined): Tag | null {
+  if (token === undefined || !fullTagPattern.test(token)) return null
   return {
-    vendor: match[1] as Tag["vendor"],
-    tier: match[2] as Tag["tier"],
-    effort: match[3] as Tag["effort"],
+    vendor: token[0] as Tag["vendor"],
+    tier: token[1] as Tag["tier"],
+    effort: token[2] as Tag["effort"],
   }
 }
 
@@ -413,8 +410,8 @@ export function locateSubjectSlots(line: string) {
   const sentence = tokens.slice(colon + 1).join(" ")
   const form = tags[0]?.includes("/") ? 0 : null
   const tag = form === null ? 0 : 1
-  const hasTag = tagPattern.test(tags[tag] ?? "")
-  let at = tag + (hasTag ? 1 : 0)
+  const parsedTag = readTag(tags[tag])
+  let at = tag + (parsedTag === null ? 0 : 1)
   const burden = burdenPattern.test(tags[at] ?? "") ? at++ : null
   const severity = at
   const hasSeverity = authoredSeverityPattern.test(tags[at] ?? "")
@@ -425,7 +422,7 @@ export function locateSubjectSlots(line: string) {
     sentence,
     form,
     tag,
-    hasTag,
+    parsedTag,
     burden,
     severity,
     hasSeverity,
@@ -445,13 +442,15 @@ export function parseSubject(line: string, repository: Repository): Subject {
   if (tags.some((token) => token.length === 0))
     fail("the tags are separated by single spaces")
   const form = located.form === null ? null : parseForm(tags[located.form])
-  const tag = located.hasTag ? parseTag(tags[located.tag]) : null
+  const tag = located.parsedTag
   if (
     tag === null &&
     (form === null ||
       !["settle", "ready", "disprove", "choose"].includes(form.role))
   )
-    parseTag(tags[located.tag])
+    fail(
+      `the subject needs a capability tag in place of ${tags[located.tag] ?? "nothing"}, as atx`,
+    )
   const burden =
     located.burden === null ? null : parseBurden(tags[located.burden])
   const severity = located.hasSeverity

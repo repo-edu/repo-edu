@@ -56,6 +56,7 @@ test("a series file is read whole past its label, so a neighbouring label never 
     "commit-abcdef-01-0-claim.md",
     "commit-abcdef-01-1-round.obx.log",
     "commit-abcdef-12-3-vet.abx.md",
+    "commit-abcdef-12-3-vet.gbx.md",
     "commit-abcdef-queue.md",
     "commit-abcdef-handoff.123abc.md",
     "commit-abcdef-rounds.json",
@@ -86,6 +87,7 @@ test("a split label identifies only the design files and log for its source", ()
   )
   for (const name of [
     `${label}-design-01.otx.md`,
+    `${label}-design-02.gbh.md`,
     `${label}-pick-01.atx.md`,
     `${label}-designs.json`,
     `${label}-split.log`,

@@ -23,7 +23,7 @@ import {
   type VetVerdict,
 } from "./round-data.js"
 import { type Coder, parseCoderRecord } from "./settings.js"
-import { planForm } from "./subject.js"
+import { planForm, readTag } from "./subject.js"
 
 export type WorkClass = "planning" | "implementation"
 
@@ -921,9 +921,8 @@ function historyCommits(
 }
 
 function subjectAssistant(subject: string): Assistant | null {
-  const tag = subject.split(" ")[1]
-  const match = /^([ao])[btu][lmhx]$/.exec(tag ?? "")
-  return match?.[1] === "a" ? "claude" : match?.[1] === "o" ? "codex" : null
+  const vendor = readTag(subject.split(" ")[1])?.vendor
+  return vendor === "a" ? "claude" : vendor === "o" ? "codex" : null
 }
 
 function stepRecord(commit: HistoryCommit): StepRecord | null {

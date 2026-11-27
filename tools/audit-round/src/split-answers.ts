@@ -5,6 +5,7 @@ import { z } from "zod"
 import type { ExecutionContext } from "./context.js"
 import { type MoveList, moveListText, readMoveList } from "./move-list.js"
 import { efforts } from "./phase.js"
+import { capabilityTag } from "./round-data.js"
 import {
   designFilename,
   designsFilename,
@@ -18,7 +19,7 @@ import { numberedListPath, splitSource } from "./target.js"
 
 const designRecord = z.strictObject({
   number: z.int().positive(),
-  tag: z.string().regex(/^[ao][btu][lmhx]$/),
+  tag: capabilityTag,
   model: z.string().min(1),
   effort: z.enum(efforts),
   designer: z.int().positive().nullable(),

@@ -5,8 +5,8 @@
   talks to one outside service, such as an LMS, a Git host or an LLM provider.
   A platform adapter is the operating-system sense that
   `glossaries/child-process-lifetime.md` defines. A coding adapter is the plan
-  runner's driver for one Claude or Codex coding session, kept apart from the
-  product's LLM provider adapters. Other adapters, such as the desktop's
+  runner's driver for one Claude, Codex or Gemini coding session, kept apart
+  from the product's LLM provider adapters. Other adapters, such as the desktop's
   workflow transport adapter, take only the general meaning.
 - **admission**: the check run at the moment a result or record arrives that
   decides whether it is allowed to land, into session state or into the archive.

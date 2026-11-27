@@ -3,6 +3,7 @@ import { readdir } from "node:fs/promises"
 import { basename, join } from "node:path"
 import type { ExecutionContext } from "./context.js"
 import { roundDataFilename } from "./round-data.js"
+import { tagPatternSource } from "./subject.js"
 import {
   type AuditTarget,
   type CommitGroup,
@@ -23,9 +24,6 @@ const planTargetRole = {
   planning: "plan-audit",
   implementation: "impl-audit",
 } as const satisfies Record<RoundKind, string>
-
-/** The capability tag a tagged round-file name carries. */
-const tagPattern = "[ao][btu][lmhx]"
 
 /** The round kind a plan's stored target names, or null for any other target. */
 export function planTargetKind(stem: string, target: string): RoundKind | null {
@@ -67,7 +65,7 @@ function readPhaseFilename(name: string): {
   extension: "md" | "log"
 } | null {
   const match = new RegExp(
-    `^(.+-\\d{2,})-(\\d)-(round|audit|vet|rebut|rule|ruling|watch)\\.(${tagPattern})\\.(md|log)$`,
+    `^(.+-\\d{2,})-(\\d)-(round|audit|vet|rebut|rule|ruling|watch)\\.(${tagPatternSource})\\.(md|log)$`,
   ).exec(name)
   if (match === null) return null
   const kind = match[3] as FileKind
@@ -126,7 +124,7 @@ export function readDesignFilename(name: string) {
 
 export function readSplitFilename(name: string, kind: "design" | "pick") {
   const match = new RegExp(
-    `^(split-.+)-${kind}-(\\d{2,})\\.(${tagPattern})\\.md$`,
+    `^(split-.+)-${kind}-(\\d{2,})\\.(${tagPatternSource})\\.md$`,
   ).exec(name)
   return match === null
     ? null
@@ -172,10 +170,10 @@ export function planRoundFile(stem: string, name: string): boolean {
     `^(?:${[
       `${target}-\\d{2,}-0-(?:claim|settle|reopen)\\.md`,
       `${target}-queue\\.md`,
-      `${prefix}-impl-\\d{2,}-implement(?:\\.(?:log|md)|-ruling\\.${tagPattern}\\.md)`,
-      `${prefix}-close\\.${tagPattern}\\.log`,
+      `${prefix}-impl-\\d{2,}-implement(?:\\.(?:log|md)|-ruling\\.${tagPatternSource}\\.md)`,
+      `${prefix}-close\\.${tagPatternSource}\\.log`,
       `${prefix}-handoff\\.[0-9a-f]{6,}\\.md`,
-      `${prefix}-yield-\\d-[a-z]+\\.${tagPattern}\\.md`,
+      `${prefix}-yield-\\d-[a-z]+\\.${tagPatternSource}\\.md`,
     ].join("|")})$`,
   ).test(name)
 }

@@ -11,13 +11,13 @@ import {
   reachValues,
 } from "./finding-tokens.js"
 import { type Finding, readFindings } from "./findings.js"
-import { parseSubject, type Repository } from "./subject.js"
+import { fullTagPattern, parseSubject, type Repository } from "./subject.js"
 import type { RoundKind } from "./target.js"
 
 const assistant = z.enum(["claude", "codex"])
 const tier = z.enum(["A", "B", "C", "D"])
 /** A capability tag, which names a round's auditor and each of its vetters. */
-export const capabilityTag = z.string().regex(/^[ao][btu][lmhx]$/)
+export const capabilityTag = z.string().regex(fullTagPattern)
 /**
  * The runner's one list of winner words: the audit report's finding as written,
  * no side, or the vetters whose verdicts were right, named by their tags.
