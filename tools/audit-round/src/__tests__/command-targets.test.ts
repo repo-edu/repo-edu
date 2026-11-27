@@ -257,6 +257,56 @@ test("a finished close that left its plan in the active folder fails with a resu
   assert.match(log, /Resume: .*codex .*resume .*close-session/)
 })
 
+for (const withRoundData of [false, true]) {
+  test(`a finished close whose archive move has no commit fails with a resume command (${withRoundData ? "with" : "without"} round data)`, async (t) => {
+    const f = await roundFixture(t)
+    await declareReady(f.planRoot)
+    const data = join(f.roundRoot, "example-plan-rounds.json")
+    if (withRoundData)
+      await writeFile(
+        data,
+        `${JSON.stringify({ rounds: [], disproved: [] })}\n`,
+      )
+    f.phases.close = {
+      ...(f.phases.close as object),
+      moves: [
+        {
+          from: join(f.activeRoot, "example.md"),
+          to: join(f.planRoot, "archive/example/plan.md"),
+          cwd: f.planRoot,
+        },
+      ],
+    }
+    await f.configure({ phases: f.phases })
+    const head = (
+      await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })
+    ).stdout
+
+    assert.equal(
+      await runCommand(["close", "example"], f.runtime, f.options),
+      1,
+    )
+    const log = await readFile(
+      join(f.roundRoot, "example-close.obh.log"),
+      "utf8",
+    )
+    assert.match(
+      log,
+      /\[close\] failed: The move of example to archive\/example\/plan\.md has no commit yet\. Let its close session finish, then run the close again\./,
+    )
+    assert.match(log, /Resume: .*codex .*resume .*close-session/)
+    await assert.rejects(
+      access(join(f.evidenceRoot, "archive/example/example-close.obh.log")),
+      { code: "ENOENT" },
+    )
+    if (withRoundData) await access(data)
+    assert.equal(
+      (await execa("git", ["rev-parse", "HEAD"], { cwd: f.planRoot })).stdout,
+      head,
+    )
+  })
+}
+
 test("close without a stem takes the plan that plan prints and passes an abort reason", async (t) => {
   const f = await roundFixture(t)
   assert.equal(

@@ -333,6 +333,8 @@ Audit ranges: ${steps === 1 ? "1" : `1-${steps}`}.
               {
                 from: join(activeRoot, "example.md"),
                 to: join(planRoot, "archive/example/plan.md"),
+                cwd: planRoot,
+                subject: "example/closed obh: archive the completed plan",
               },
             ]
           : [],

@@ -83,7 +83,8 @@ files.
 
 A close session that finishes with the plan still in `../plan/active/` fails, because the move is
 the close. A finished session whose plan the runner cannot find once under `../plan/archive/` fails
-too, because the round data then has no folder to join.
+too, because the round data then has no folder to join, as does a finished session whose archive
+move `HEAD` does not hold yet (keeping round data and evidence files untouched).
 
 ## Refuses when
 

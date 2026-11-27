@@ -284,10 +284,12 @@ runs the loop-close phase alone, on the `close` settings and with its own log.
 2. The runner itself moves the plan's round-data files beside the archived plan and commits them
    through `lifecycle.ts`, as a second `<stem>/closed` record with the same tag and model record.
    The session does not move them, because the runner cannot see whether a session remembered
-   them. The commit finds the one archived plan with the stem, moves each existing round-data file
-   from the round folder into its folder with a plain rename and commits only those paths. No
-   archived plan, or more than one, fails the close. A plan with no round data commits nothing.
-   The printed `Committed` line names that commit.
+   them. `archiveRoundData` checks that `HEAD` holds the single archived plan before moving any
+   round data or letting the runner move the other round files, even when the plan has no round
+   data. It then moves each existing round-data file from the round folder into its folder with a
+   plain rename and commits only those paths. No archived plan, more than one, or an uncommitted
+   archive move fails the close. A plan with no round data commits nothing. The printed
+   `Committed` line names that commit.
 3. The runner then moves the plan's other round files under
    [The close move](targets-and-files.md#the-close-move) and prints how many it moved. An aborted
    close moves the same files.

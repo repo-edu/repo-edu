@@ -7,7 +7,7 @@ import {
   rm,
   writeFile,
 } from "node:fs/promises"
-import { basename, dirname, join } from "node:path"
+import { basename, dirname, join, relative } from "node:path"
 import { createInterface } from "node:readline"
 import { setTimeout } from "node:timers/promises"
 import { promisify } from "node:util"
@@ -252,7 +252,34 @@ for (const commit of scenario.commits ?? []) {
 // A close moves its plan out of the active folder.
 for (const move of scenario.moves ?? []) {
   await mkdir(dirname(move.to), { recursive: true })
-  await rename(move.from, move.to)
+  if (move.cwd === undefined) {
+    await rename(move.from, move.to)
+    continue
+  }
+  await promisify(execFile)(
+    "git",
+    ["mv", "--", relative(move.cwd, move.from), relative(move.cwd, move.to)],
+    { cwd: move.cwd },
+  )
+  if (move.subject === undefined) continue
+  await promisify(execFile)(
+    "git",
+    [
+      "-c",
+      "user.name=Test",
+      "-c",
+      "user.email=test@example.test",
+      "-c",
+      "core.hooksPath=/dev/null",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-q",
+      "-m",
+      move.subject,
+    ],
+    { cwd: move.cwd },
+  )
 }
 for (const file of scenario.remove ?? []) await rm(file, { force: true })
 

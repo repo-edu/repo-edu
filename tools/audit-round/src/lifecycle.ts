@@ -146,10 +146,10 @@ export async function requirePlanAtHead(
 }
 
 /**
- * A rerun finishes a close whose plan move HEAD holds. A move still in the
- * index or the working tree belongs to a close session in flight. That session
- * may yet stop without its commit, and the round data would then sit in the
- * archive beside a plan that never closed.
+ * A finished close session or a rerun finishes a close only when HEAD holds
+ * the plan move. A move still in the index or the working tree may yet stop or
+ * be left uncommitted, and the round data would then sit in the archive beside
+ * a plan that never closed.
  */
 export async function requireMoveAtHead(
   planRoot: string,
@@ -361,8 +361,10 @@ export async function activeRoundData(
  * Move a closed plan's round data from the round folder to the folder its
  * archived plan now sits in, and commit the moved files. The runner does this
  * itself after the close session, because the files are the plan's complete
- * round data and it cannot see whether a session remembered them.
- * Returns null when the plan had no round data.
+ * round data and it cannot see whether a session remembered them. Verifies that
+ * a single archived plan exists and is committed at HEAD even when no round
+ * data exists, so `runClose` fails before `moveRoundFiles` runs. Returns null
+ * when the plan had no round data.
  */
 export async function archiveRoundData(
   context: ExecutionContext,
@@ -370,9 +372,6 @@ export async function archiveRoundData(
   tag: string,
   record: string,
 ): Promise<LifecycleCommit | null> {
-  const names = await activeRoundData(context, stem)
-  if (names.length === 0) return null
-
   const archived = await archivedPlans(context.planRoot, stem)
   if (archived.length !== 1)
     throw new Error(
@@ -380,6 +379,11 @@ export async function archiveRoundData(
         ? `No archived plan named ${stem} to hold its round data.`
         : `More than one archived plan named ${stem}: ${archived.join(", ")}.`,
     )
+  await requireMoveAtHead(context.planRoot, archived[0])
+
+  const names = await activeRoundData(context, stem)
+  if (names.length === 0) return null
+
   const folder = dirname(archived[0])
   const paths: string[] = []
   for (const name of names) {

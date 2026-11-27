@@ -42,8 +42,8 @@ whether a session remembered them. So every close has to go through it.
 
 1. **The close needs your answer**, for example to close without a whole-plan audit or to archive
    with open deferrals. The session relays the question and the printed `Resume:` command. Answer in
-   that resumed session. Once it has moved the plan, run `pnpm audit-round close <stem>` again to
-   finish the round-data move.
+   that resumed session. Once it has committed the plan move, run `pnpm audit-round close <stem>`
+   again to finish the round-data move.
 2. **The runner refuses or a close action fails.** The session relays the reason and any recovery
    command as printed. See [`pnpm audit-round close`](/repo-edu/tooling/runner-close/) for the
    refusals and [Recover a run](/repo-edu/tooling/recover-run/).
