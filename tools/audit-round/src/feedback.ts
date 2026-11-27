@@ -28,7 +28,7 @@ export type Feedback =
   | { readonly type: "diagnostic"; readonly text: string }
   | {
       readonly type: "tokens"
-      /** Both CLIs report the session's latest running total. */
+      /** Each CLI reports the session's latest running total. */
       readonly update:
         | {
             readonly kind: "models"
