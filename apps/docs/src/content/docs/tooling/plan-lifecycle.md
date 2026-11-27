@@ -9,7 +9,7 @@ stages made.
 
 | Fact | Detail |
 | --- | --- |
-| Owners | The plan repository's `CLAUDE.md` sections **Artifact lifecycle** and **Ready marker**; `../plan/.agents/references/planning-rules.md` owns how rounds act on a settle and a reopen; `.agents/references/round-protocol.md` section **Shared implementation forms** owns the implementation records; `../plan/.agents/skills/close/references/workflow.md` owns archival |
+| Owners | `../plan/.agents/references/lifecycle.md` owns the plan phases and ready marker. `../plan/.agents/references/planning-rules.md` owns how rounds act on a settle and a reopen. **Shared implementation forms** in `.agents/references/round-protocol.md` owns implementation records. `../plan/.agents/skills/close/references/workflow.md` owns the archive move |
 
 ## Why one file
 

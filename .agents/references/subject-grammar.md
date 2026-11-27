@@ -7,9 +7,8 @@ Repo Edu's `CLAUDE.md` owns the capability tag and model-record rules under
 **Commit Capability Tag** and **Commit Model Record**.
 The [shared round protocol](round-protocol.md#severity-sequence) owns severity
 and burden meanings and, under **Shared implementation forms**, what each
-implementation role records and its keying rules. The plan repo's `CLAUDE.md`
-owns the planning roles under **Commit message convention**. Those sections link
-here instead of restating the shape. The
+implementation role records and its keying rules. The plan repo's
+`../plan/.agents/references/commit-convention.md` owns the planning roles. The
 [round document grammar](round-grammar.md#commit-record-bullet) owns the graded
 body bullet that supplies the sequence. Read this file from the Repo Edu
 checkout; plan-repo readers reach it at
@@ -157,7 +156,7 @@ which also names the series' round files and round data. The `commit-audit` role
 never the label's spelling: a series label is no plan stem, and a plan whose stem looks like a label
 keeps its plan forms. The parser holds the one test that tells the two forms apart, and every reader
 that groups commits by plan uses it. The same test reads a chat's form as no plan form, though it
-opens with a plan's stem. The plan repo's **Commit message convention** owns when a chat writes it.
+opens with a plan's stem. The plan repo's commit convention owns when a chat writes it.
 
 A split's commits open with the source file's label. The label is
 `split-`, the source file's name, a hyphen and the first five characters of the SHA-256 of the

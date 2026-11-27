@@ -10,7 +10,7 @@ shape.
 | Fact | Detail |
 | --- | --- |
 | Runs in | A terminal at the Repo Edu or plan checkout root |
-| Owners | `tools/audit-round/references/commands.md` and `tools/audit-round/src/lifecycle.ts` own the command. The plan doctrine at `../plan/CLAUDE.md` owns when a plan is ready to settle |
+| Owners | `tools/audit-round/references/commands.md` and `tools/audit-round/src/lifecycle.ts` own the command. `../plan/.agents/references/lifecycle.md` owns when a plan is ready to settle |
 
 ## Usage
 

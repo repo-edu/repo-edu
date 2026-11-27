@@ -56,7 +56,7 @@ subject reads find the hosted steps and newest marker in each repo's own Git ord
   whatever has landed. It is read before the landed-step check, so it reads neither history nor
   the step list. It continues the plan's `-plan-audit` round series and data file, so the round
   lands the ordinary `plan-audit` record. The **Ready marker** section of
-  `../plan/CLAUDE.md` explains when to use it.
+  `../plan/.agents/references/lifecycle.md` explains when to use it.
 - A concrete step scope selects an implementation audit and is refused before any step lands.
   Before starting its audit, the runner reads the step list to check the scope and find its hosts.
 - A list of step scopes, as in `pnpm audit-round round <stem> 2,3-5,6-7`, selects one
