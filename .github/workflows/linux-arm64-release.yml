@@ -23,7 +23,7 @@ env:
 jobs:
   desktop-package-linux:
     name: desktop-package
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     env:
       TAG: ${{ inputs.tag }}
     steps:
@@ -54,7 +54,7 @@ jobs:
 
   cli-build-linux:
     name: cli-build
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-26.04-arm
     steps:
       - uses: actions/checkout@v7
         with:
