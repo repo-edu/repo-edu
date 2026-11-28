@@ -68,7 +68,7 @@
     "devDependencies": {
         "@biomejs/biome": "2.6.9",
         "@faker-js/faker": "^10.3.0",
-        "@types/node": "26.6.7",
+        "@types/node": "26.6.10",
         "@typescript/native": "npm:typescript@7.0.2",
         "bun": "^1.4.2",
         "globby": "^16.1.1",
