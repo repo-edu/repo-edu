@@ -630,8 +630,8 @@ importers:
         specifier: workspace:*
         version: link:../integrations-llm-contract
       vscode-jsonrpc:
-        specifier: 9.0.3
-        version: 9.0.3
+        specifier: 10.0.0
+        version: 10.0.0
 
   packages/integrations-llm-catalog:
     dependencies:
@@ -6863,10 +6863,6 @@ packages:
     resolution: {integrity: sha512-C+r0eKJUIfiDIfwJhria30+TYWPtuHJXHtI7J0YlOmKAo7ogxP20T0zxB7HZQIFhIyvoBPwWskjxrvAtfjyZfA==}
     engines: {node: '>=14.0.0'}
 
-  vscode-jsonrpc@9.0.3:
-    resolution: {integrity: sha512-qETYf9PCl1lVfwR+oBmMfc4vP2nqLNA35ABxorw3j06+xlKRgDVxbLgKm4Y/xPL0YWdeDjLoI4ImICIT3nB0zQ==}
-    engines: {node: '>=14.0.0'}
-
   vscode-languageserver-protocol@3.17.5:
     resolution: {integrity: sha512-mb1bvRJN8SVznADSGWM9u/b07H7Ecg0I3OgXDuLdn307rl/J3A9YD6/eYOssqhecL27hK1IPZAsaqh00i/Jljg==}
 
@@ -13082,8 +13078,6 @@ snapshots:
   vscode-jsonrpc@10.0.0: {}
 
   vscode-jsonrpc@8.2.0: {}
-
-  vscode-jsonrpc@9.0.3: {}
 
   vscode-languageserver-protocol@3.17.5:
     dependencies:
